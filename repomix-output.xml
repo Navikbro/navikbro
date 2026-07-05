@@ -1,0 +1,2833 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+app/(protected)/admin/orals/page.tsx
+app/(protected)/admin/page.tsx
+app/(protected)/admin/writtens/page.tsx
+app/(protected)/layout.tsx
+app/(protected)/orals/[category]/page.tsx
+app/(protected)/writtens/[category]/page.tsx
+app/context/AuthContext.tsx
+app/favicon.ico
+app/globals.css
+app/layout.tsx
+app/page.tsx
+components/AdminAnswerCard.tsx
+components/AuthModal.tsx
+components/CategoryCard.tsx
+components/CommunityAnswer.tsx
+components/FilterBar.tsx
+components/Header.tsx
+components/ProtectedRoute.tsx
+components/QuestionCard.tsx
+components/QuestionsList.tsx
+components/SectionHeading.tsx
+components/WrittenCard.tsx
+components/WrittenFilters.tsx
+eslint.config.mjs
+lib/firebase.ts
+next.config.ts
+package.json
+postcss.config.mjs
+public/file.svg
+public/globe.svg
+public/next.svg
+public/vercel.svg
+public/window.svg
+README.md
+services/admin.ts
+services/firestore.ts
+services/written.service.ts
+tsconfig.json
+types/question.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="app/(protected)/admin/orals/page.tsx">
+"use client";
+
+import { useState } from "react";
+import * as XLSX from "xlsx";
+
+import { bulkUploadQuestions } from "@/services/firestore";
+
+interface ExcelQuestion {
+    Category: string;
+    MMD: string;
+    Surveyor: string;
+    Topic: string;
+    Question: string;
+    Answer: string;
+}
+
+export default function BulkUploadPage() {
+    const [rows, setRows] = useState<ExcelQuestion[]>([]);
+    const [uploading, setUploading] = useState(false);
+
+    function handleFile(file: File) {
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            const workbook = XLSX.read(e.target?.result, {
+                type: "binary",
+            });
+
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+            const json = XLSX.utils.sheet_to_json<ExcelQuestion>(sheet, {
+                defval: "",
+            });
+
+            console.table(json);
+
+            setRows(json);
+        };
+
+        reader.readAsBinaryString(file);
+    }
+
+    async function handleUpload() {
+        if (rows.length === 0) {
+            alert("Please upload an Excel file.");
+            return;
+        }
+
+        try {
+            setUploading(true);
+
+            await bulkUploadQuestions(rows);
+
+            alert(
+                `${rows.length} questions uploaded successfully.`
+            );
+
+            setRows([]);
+        } catch (error) {
+            console.error(error);
+            alert("Upload failed.");
+        } finally {
+            setUploading(false);
+        }
+    }
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
+
+                <h1 className="text-4xl font-bold">
+                    Bulk Upload Questions
+                </h1>
+
+                <p className="mt-2 text-gray-500">
+                    Upload questions using a single Excel file.
+                </p>
+
+                <div className="mt-8 rounded-3xl border bg-white p-8 shadow-sm">
+
+                    <label className="mb-3 block font-medium">
+                        Excel File (.xlsx)
+                    </label>
+
+                    <input
+                        type="file"
+                        accept=".xlsx,.xls"
+                        onChange={(e) => {
+                            if (!e.target.files?.length) return;
+                            handleFile(e.target.files[0]);
+                        }}
+                    />
+
+                    <div className="mt-6 rounded-xl bg-blue-50 p-5">
+
+                        <h3 className="font-semibold">
+                            Excel Headers Required
+                        </h3>
+
+                        <div className="mt-3 overflow-auto">
+
+                            <table className="min-w-full border text-sm">
+
+                                <thead>
+
+                                    <tr className="bg-gray-100">
+
+                                        <th className="border p-2">Category</th>
+                                        <th className="border p-2">MMD</th>
+                                        <th className="border p-2">Surveyor</th>
+                                        <th className="border p-2">Topic</th>
+                                        <th className="border p-2">Question</th>
+                                        <th className="border p-2">Answer</th>
+
+                                    </tr>
+
+                                </thead>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                {rows.length > 0 && (
+
+                    <div className="mt-10 rounded-3xl border bg-white p-8 shadow-sm">
+
+                        <div className="flex items-center justify-between">
+
+                            <h2 className="text-2xl font-bold">
+                                Preview ({rows.length} Questions)
+                            </h2>
+
+                            <button
+                                onClick={handleUpload}
+                                disabled={uploading}
+                                className="rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
+                            >
+                                {uploading
+                                    ? "Uploading..."
+                                    : `Upload ${rows.length} Questions`}
+                            </button>
+
+                        </div>
+
+                        <div className="mt-8 space-y-5">
+
+                            {rows.map((row, index) => (
+                                <div
+                                    key={index}
+                                    className="rounded-2xl border p-5"
+                                >
+                                    <h3 className="font-semibold">
+                                        {row.Question}
+                                    </h3>
+
+                                    <p className="mt-3 whitespace-pre-wrap text-gray-700">
+                                        {row.Answer}
+                                    </p>
+
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                        <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+                                            {row.Category}
+                                        </span>
+
+                                        <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+                                            {row.MMD}
+                                        </span>
+
+                                        <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+                                            {row.Surveyor}
+                                        </span>
+
+                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
+                                            {row.Topic}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+
+                        </div>
+                    </div>
+                )}
+
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="app/(protected)/admin/writtens/page.tsx">
+"use client";
+
+import { useState } from "react";
+import * as XLSX from "xlsx";
+
+import { bulkUploadWrittenQuestions } from "@/services/written.service";
+
+interface ExcelQuestion {
+    Class: string;
+    Category: string;
+    Topic: string;
+    Year: number;
+    Month: string;
+    Question: string;
+    Answer: string;
+}
+
+export default function WrittenUploadPage() {
+    const [rows, setRows] = useState<ExcelQuestion[]>([]);
+    const [fileName, setFileName] = useState("");
+    const [uploading, setUploading] = useState(false);
+
+    function handleFile(file: File) {
+        setFileName(file.name);
+
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            const workbook = XLSX.read(
+                e.target?.result,
+                {
+                    type: "binary",
+                }
+            );
+
+            const sheet =
+                workbook.Sheets[
+                workbook.SheetNames[0]
+                ];
+
+            const json =
+                XLSX.utils.sheet_to_json<ExcelQuestion>(
+                    sheet,
+                    {
+                        defval: "",
+                    }
+                );
+
+            setRows(json);
+        };
+
+        reader.readAsBinaryString(file);
+    }
+
+    async function handleUpload() {
+        if (!rows.length) {
+            alert("Please upload an Excel file first.");
+            return;
+        }
+
+        try {
+            setUploading(true);
+
+            await bulkUploadWrittenQuestions(rows);
+
+            alert(
+                `${rows.length} questions uploaded successfully.`
+            );
+
+            setRows([]);
+            setFileName("");
+
+            (
+                document.getElementById(
+                    "writtenExcel"
+                ) as HTMLInputElement
+            ).value = "";
+        } catch (error) {
+            console.error(error);
+            alert("Upload failed.");
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-7xl px-6 py-10">
+
+                <div className="mb-10">
+
+                    <h1 className="text-4xl font-bold">
+                        Written Questions Upload
+                    </h1>
+
+                    <p className="mt-2 text-gray-500">
+                        Bulk upload written questions using Excel.
+                    </p>
+
+                </div>
+
+                <div className="rounded-3xl border bg-white p-8 shadow-sm">
+
+                    <h2 className="text-2xl font-semibold">
+                        Upload Excel
+                    </h2>
+
+                    <p className="mt-2 text-gray-500">
+                        Upload .xlsx file containing written questions.
+                    </p>
+
+                    <input
+                        id="writtenExcel"
+                        type="file"
+                        accept=".xlsx,.xls"
+                        className="mt-6"
+                        onChange={(e) => {
+
+                            if (
+                                !e.target.files?.length
+                            )
+                                return;
+
+                            handleFile(
+                                e.target.files[0]
+                            );
+
+                        }}
+                    />
+
+                    {fileName && (
+
+                        <p className="mt-4 text-sm text-green-600">
+
+                            Selected File : {fileName}
+
+                        </p>
+
+                    )}
+
+                </div>
+
+                <div className="mt-8 rounded-3xl border bg-white p-8 shadow-sm">
+
+                    <div className="flex items-center justify-between">
+
+                        <h2 className="text-2xl font-semibold">
+
+                            Preview
+
+                        </h2>
+
+                        <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-medium">
+
+                            {rows.length} Questions
+
+                        </span>
+
+                    </div>
+                    {rows.length === 0 ? (
+
+                        <div className="mt-8 rounded-2xl border border-dashed p-12 text-center text-gray-500">
+
+                            No questions loaded.
+
+                        </div>
+
+                    ) : (
+
+                        <div className="mt-8 space-y-6">
+
+                            {rows.map((row, index) => (
+
+                                <div
+                                    key={index}
+                                    className="rounded-2xl border bg-gray-50 p-6"
+                                >
+
+                                    <div className="mb-4 flex flex-wrap gap-2">
+
+                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
+                                            {row.Class}
+                                        </span>
+
+                                        <span className="rounded-full bg-gray-200 px-3 py-1 text-sm">
+                                            {row.Category}
+                                        </span>
+
+                                        <span className="rounded-full bg-gray-200 px-3 py-1 text-sm">
+                                            {row.Topic}
+                                        </span>
+
+                                        <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                            {row.Month}
+                                        </span>
+
+                                        <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                            {row.Year}
+                                        </span>
+
+                                    </div>
+
+                                    <h3 className="font-semibold text-lg">
+                                        {row.Question}
+                                    </h3>
+
+                                    <p className="mt-4 whitespace-pre-wrap text-gray-700">
+                                        {row.Answer}
+                                    </p>
+
+                                </div>
+
+                            ))}
+
+                        </div>
+
+                    )}
+
+                </div>
+
+                <div className="mt-8 flex justify-end">
+
+                    <button
+                        onClick={handleUpload}
+                        disabled={
+                            uploading ||
+                            rows.length === 0
+                        }
+                        className="rounded-2xl bg-blue-600 px-8 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+
+                        {uploading
+                            ? "Uploading..."
+                            : `Upload ${rows.length} Questions`}
+
+                    </button>
+
+                </div>
+
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="components/WrittenCard.tsx">
+"use client";
+
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { WrittenQuestion } from "@/services/written.service";
+
+interface Props {
+  question: WrittenQuestion;
+}
+
+export default function WrittenCard({ question }: Props) {
+  const [showAnswer, setShowAnswer] = useState(false);
+
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap gap-2 mb-4">
+        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
+          {question.class}
+        </span>
+
+        <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+          {question.month}
+        </span>
+
+        <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+          {question.year}
+        </span>
+
+        <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+          {question.topic}
+        </span>
+      </div>
+
+      <h2 className="text-xl font-semibold">
+        {question.question}
+      </h2>
+
+      <button
+        onClick={() => setShowAnswer(!showAnswer)}
+        className="mt-6 flex items-center gap-2 font-medium text-blue-600"
+      >
+        {showAnswer ? (
+          <>
+            <ChevronUp size={18} />
+            Hide Answer
+          </>
+        ) : (
+          <>
+            <ChevronDown size={18} />
+            Show Answer
+          </>
+        )}
+      </button>
+
+      {showAnswer && (
+        <div className="mt-4 rounded-2xl bg-gray-50 p-5">
+          <p className="whitespace-pre-wrap text-gray-700">
+            {question.answer}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="components/WrittenFilters.tsx">
+"use client";
+
+interface Props {
+  search: string;
+  setSearch: (value: string) => void;
+
+  selectedClass: string;
+  setSelectedClass: (value: string) => void;
+
+  selectedYear: string;
+  setSelectedYear: (value: string) => void;
+
+  selectedMonth: string;
+  setSelectedMonth: (value: string) => void;
+
+  selectedTopic: string;
+  setSelectedTopic: (value: string) => void;
+
+  years: number[];
+  topics: string[];
+}
+
+const classes = [
+  "All",
+  "Class 4",
+  "Class 2",
+  "Chief Mate",
+  "Second Mate",
+  "Master",
+];
+
+const months = [
+  "All",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+export default function WrittenFilters({
+  search,
+  setSearch,
+
+  selectedClass,
+  setSelectedClass,
+
+  selectedYear,
+  setSelectedYear,
+
+  selectedMonth,
+  setSelectedMonth,
+
+  selectedTopic,
+  setSelectedTopic,
+
+  years,
+  topics,
+}: Props) {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+
+        <input
+          type="text"
+          placeholder="Search Question..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3 outline-none focus:border-black"
+        />
+
+        <select
+          value={selectedClass}
+          onChange={(e) => setSelectedClass(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          {classes.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          <option value="All">All Years</option>
+
+          {years.map((year) => (
+            <option key={year} value={String(year)}>
+              {year}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          {months.map((month) => (
+            <option key={month} value={month}>
+              {month}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedTopic}
+          onChange={(e) => setSelectedTopic(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          <option value="All">All Topics</option>
+
+          {topics.map((topic) => (
+            <option key={topic} value={topic}>
+              {topic}
+            </option>
+          ))}
+        </select>
+
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="services/written.service.ts">
+import {
+    collection,
+    doc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    writeBatch,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+export interface WrittenQuestion {
+    id: string;
+    class: string;
+    question: string;
+    answer: string;
+    topic: string;
+    year: number;
+    month: string;
+    order: number;
+    isActive: boolean;
+}
+
+export async function getWrittenQuestions(
+    category: string
+): Promise<WrittenQuestion[]> {
+
+    const q = query(
+        collection(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions"
+        ),
+        orderBy("order")
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => {
+
+        const data = doc.data();
+
+        return {
+            id: doc.id,
+            class: data.class ?? "",
+            question: data.question ?? "",
+            answer: data.answer ?? "",
+            topic: data.topic ?? "",
+            year: data.year ?? 0,
+            month: data.month ?? "",
+            order: data.order ?? 0,
+            isActive: data.isActive ?? true,
+        };
+    });
+
+}
+
+export async function bulkUploadWrittenQuestions(
+    rows: any[]
+) {
+
+    const batch = writeBatch(db);
+
+    const orderCounter: Record<string, number> = {};
+
+    rows.forEach((rawRow, index) => {
+
+        const row: Record<string, any> = {};
+
+        Object.keys(rawRow).forEach((key) => {
+            row[key.trim()] = rawRow[key];
+        });
+
+        const category = String(row.Category)
+            .trim()
+            .toLowerCase();
+
+        if (!category) {
+            throw new Error(
+                `Row ${index + 1}: Category missing`
+            );
+        }
+
+        if (!orderCounter[category]) {
+            orderCounter[category] = 1;
+        }
+
+        const ref = doc(
+            collection(
+                db,
+                "writtens",
+                category,
+                "questions"
+            )
+        );
+
+        batch.set(ref, {
+
+            class: String(row.Class).trim(),
+
+            question: String(row.Question).trim(),
+
+            answer: String(row.Answer).trim(),
+
+            topic: String(row.Topic).trim(),
+
+            year: Number(row.Year),
+
+            month: String(row.Month).trim(),
+
+            order: orderCounter[category]++,
+
+            isActive: true,
+
+            createdAt: serverTimestamp(),
+
+            updatedAt: serverTimestamp(),
+
+        });
+
+    });
+
+    await batch.commit();
+
+}
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="app/(protected)/admin/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+import { useAuth } from "@/app/context/AuthContext";
+import { isUserAdmin } from "@/services/admin";
+import {
+    getPendingAnswers,
+    approveAnswer,
+    rejectAnswer,
+} from "@/services/firestore";
+
+import AdminAnswerCard from "@/components/AdminAnswerCard";
+
+interface PendingAnswer {
+    id: string;
+    questionId: string;
+    category: string;
+    userName: string;
+    answer: string;
+}
+
+export default function AdminPage() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+
+    const [checking, setChecking] = useState(true);
+    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
+
+    useEffect(() => {
+        async function init() {
+            if (loading) return;
+
+            if (!user) {
+                router.replace("/");
+                return;
+            }
+
+            const admin = await isUserAdmin(user.uid);
+
+            if (!admin) {
+                router.replace("/");
+                return;
+            }
+
+            const pending = await getPendingAnswers();
+
+            setAnswers(pending as PendingAnswer[]);
+            setChecking(false);
+        }
+
+        init();
+    }, [user, loading, router]);
+
+    async function handleApprove(id: string) {
+        await approveAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
+
+    async function handleReject(id: string) {
+        await rejectAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
+
+    if (checking) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                Checking permissions...
+            </div>
+        );
+    }
+
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
+
+                <h1 className="text-4xl font-bold">
+                    Admin Dashboard
+                </h1>
+
+                <p className="mt-2 text-gray-500">
+                    Manage uploads and community answers.
+                </p>
+
+                <div className="mt-8 flex flex-wrap gap-4">
+
+                    <Link
+                        href="/admin/orals"
+                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
+                    >
+                        Upload Oral Questions
+                    </Link>
+
+                    <Link
+                        href="/admin/writtens"
+                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
+                    >
+                        Upload Written Questions
+                    </Link>
+
+                </div>
+
+                <div className="mt-12">
+
+                    <h2 className="text-2xl font-bold">
+                        Pending Community Answers
+                    </h2>
+
+                    <div className="mt-6 space-y-6">
+
+                        {answers.length === 0 && (
+                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
+                                No pending answers.
+                            </div>
+                        )}
+
+                        {answers.map((answer) => (
+                            <AdminAnswerCard
+                                key={answer.id}
+                                id={answer.id}
+                                questionId={answer.questionId}
+                                category={answer.category}
+                                userName={answer.userName}
+                                answer={answer.answer}
+                                onApprove={handleApprove}
+                                onReject={handleReject}
+                            />
+                        ))}
+
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="app/(protected)/layout.tsx">
+import ProtectedRoute from "@/components/ProtectedRoute";
+
+export default function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <ProtectedRoute>
+      {children}
+    </ProtectedRoute>
+  );
+}
+</file>
+
+<file path="app/(protected)/orals/[category]/page.tsx">
+import QuestionsList from "@/components/QuestionsList";
+import { getQuestions } from "@/services/firestore";
+
+interface PageProps {
+  params: Promise<{
+    category: string;
+  }>;
+}
+
+export default async function OralCategoryPage({
+  params,
+}: PageProps) {
+  const { category } = await params;
+
+  const questions = await getQuestions(category);
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-5xl px-5 py-10">
+
+        {/* Header */}
+        <div className="mb-10">
+          <h1 className="text-4xl font-bold uppercase">
+            {category}
+          </h1>
+
+          <p className="mt-2 text-gray-500">
+            Browse all oral questions for this category.
+          </p>
+        </div>
+
+        {/* Questions */}
+        <QuestionsList
+          category={category}
+          questions={questions}
+        />
+
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="app/(protected)/writtens/[category]/page.tsx">
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+
+import WrittenCard from "@/components/WrittenCard";
+import WrittenFilters from "@/components/WrittenFilters";
+
+import {
+  getWrittenQuestions,
+  WrittenQuestion,
+} from "@/services/written.service";
+
+export default function WrittensPage() {
+  const params = useParams();
+
+  const category =
+    typeof params.category === "string"
+      ? params.category.toLowerCase()
+      : "general";
+
+  const [questions, setQuestions] = useState<WrittenQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
+
+  const [selectedClass, setSelectedClass] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedMonth, setSelectedMonth] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+
+  useEffect(() => {
+    async function loadQuestions() {
+      try {
+        setLoading(true);
+
+        const data = await getWrittenQuestions(category);
+
+        setQuestions(data);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadQuestions();
+  }, [category]);
+
+  const years = useMemo(() => {
+    return [...new Set(questions.map((q) => q.year))]
+      .filter(Boolean)
+      .sort((a, b) => b - a);
+  }, [questions]);
+
+  const topics = useMemo(() => {
+    return [...new Set(questions.map((q) => q.topic))]
+      .filter(Boolean)
+      .sort();
+  }, [questions]);
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((question) => {
+      const classMatch =
+        selectedClass === "All" ||
+        question.class === selectedClass;
+
+      const yearMatch =
+        selectedYear === "All" ||
+        String(question.year) === selectedYear;
+
+      const monthMatch =
+        selectedMonth === "All" ||
+        question.month === selectedMonth;
+
+      const topicMatch =
+        selectedTopic === "All" ||
+        question.topic === selectedTopic;
+
+      const searchMatch =
+        search.trim() === "" ||
+        question.question
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.answer
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.topic
+          .toLowerCase()
+          .includes(search.toLowerCase());
+
+      return (
+        classMatch &&
+        yearMatch &&
+        monthMatch &&
+        topicMatch &&
+        searchMatch
+      );
+    });
+  }, [
+    questions,
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+  ]);
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-6 py-10">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold capitalize">
+            {category} Written Questions
+          </h1>
+
+          <p className="mt-2 text-gray-500">
+            Practice company written interview questions.
+          </p>
+        </div>
+
+        <WrittenFilters
+          search={search}
+          setSearch={setSearch}
+          selectedClass={selectedClass}
+          setSelectedClass={setSelectedClass}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          selectedTopic={selectedTopic}
+          setSelectedTopic={setSelectedTopic}
+          years={years}
+          topics={topics}
+        />
+
+        <div className="mt-8 flex items-center justify-between">
+          <h2 className="text-2xl font-semibold">
+            Questions
+          </h2>
+
+          <div className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
+            {filteredQuestions.length} Questions
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
+            Loading Questions...
+          </div>
+        ) : filteredQuestions.length === 0 ? (
+          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
+            No Questions Found.
+          </div>
+        ) : (
+          <div className="mt-8 space-y-6">
+            {filteredQuestions.map((question) => (
+              <WrittenCard
+                key={question.id}
+                question={question}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="app/context/AuthContext.tsx">
+"use client";
+
+import {
+    onAuthStateChanged,
+    User,
+} from "firebase/auth";
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+import { auth } from "@/lib/firebase";
+
+import {
+    doc,
+    getDoc,
+    serverTimestamp,
+    setDoc,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+interface AuthContextType {
+    user: User | null;
+    loading: boolean;
+}
+
+const AuthContext =
+    createContext<AuthContextType>({
+        user: null,
+        loading: true,
+    });
+
+export function AuthProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const [user, setUser] =
+        useState<User | null>(null);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    useEffect(() => {
+        const unsubscribe =
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    const userRef = doc(db, "users", user.uid);
+
+                    const snapshot = await getDoc(userRef);
+
+                    if (!snapshot.exists()) {
+                        await setDoc(userRef, {
+                            name: user.displayName || "Anonymous",
+                            email: user.email || "",
+                            role: "user",
+                            subscription: "free",
+                            createdAt: serverTimestamp(),
+                        });
+                    }
+                }
+
+                setUser(user);
+                setLoading(false);
+            });
+
+        return unsubscribe;
+    }, []);
+
+    return (
+        <AuthContext.Provider
+            value={{ user, loading }}
+        >
+            {children}
+        </AuthContext.Provider>
+    );
+}
+
+export function useAuth() {
+    return useContext(AuthContext);
+}
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+</file>
+
+<file path="components/AdminAnswerCard.tsx">
+"use client";
+
+interface Props {
+  id: string;
+  questionId: string;
+  category: string;
+  userName: string;
+  answer: string;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+}
+
+export default function AdminAnswerCard({
+  id,
+  questionId,
+  category,
+  userName,
+  answer,
+  onApprove,
+  onReject,
+}: Props) {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+      <div className="space-y-2">
+
+        <p>
+          <span className="font-semibold">
+            Question ID:
+          </span>{" "}
+          {questionId}
+        </p>
+
+        <p>
+          <span className="font-semibold">
+            Category:
+          </span>{" "}
+          {category.toUpperCase()}
+        </p>
+
+        <p>
+          <span className="font-semibold">
+            Submitted By:
+          </span>{" "}
+          {userName}
+        </p>
+
+      </div>
+
+      <div className="mt-5 rounded-2xl bg-gray-50 p-4 whitespace-pre-wrap">
+        {answer}
+      </div>
+
+      <div className="mt-6 flex gap-3">
+
+        <button
+          onClick={() => onApprove(id)}
+          className="rounded-xl bg-green-600 px-5 py-2 text-white transition hover:bg-green-700"
+        >
+          ✅ Approve
+        </button>
+
+        <button
+          onClick={() => onReject(id)}
+          className="rounded-xl bg-red-600 px-5 py-2 text-white transition hover:bg-red-700"
+        >
+          ❌ Reject
+        </button>
+
+      </div>
+
+    </div>
+  );
+}
+</file>
+
+<file path="components/AuthModal.tsx">
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { X, Mail } from "lucide-react";
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+} from "firebase/auth";
+import { auth } from "@/lib/firebase";
+
+interface Props {
+  show: boolean;
+  setShow: (show: boolean) => void;
+  redirectPath: string;
+}
+
+export default function AuthModal({
+  show,
+  setShow,
+  redirectPath,
+}: Props) {
+  const router = useRouter();
+
+  const [isSignup, setIsSignup] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  if (!show) return null;
+
+  const redirectUser = () => {
+    setShow(false);
+
+    if (redirectPath) {
+      router.push(redirectPath);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+
+      const provider = new GoogleAuthProvider();
+
+      await signInWithPopup(auth, provider);
+
+      redirectUser();
+    } catch (err) {
+      console.error(err);
+      alert("Google Sign In Failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailAuth = async () => {
+    try {
+      setLoading(true);
+
+      if (isSignup) {
+        await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+      } else {
+        await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+      }
+
+      setEmail("");
+      setPassword("");
+
+      redirectUser();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-5">
+      <div className="w-full max-w-sm rounded-[32px] bg-white p-7 shadow-2xl">
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h2 className="text-3xl font-bold">
+              {isSignup ? "Create Account" : "Welcome"}
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Sign in to continue using NAVIK.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setShow(false)}
+            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-300 px-4 py-4 font-medium hover:bg-gray-50 disabled:opacity-60"
+        >
+          <img
+            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+            alt="Google"
+            className="h-5 w-5"
+          />
+
+          Continue with Google
+        </button>
+
+        <div className="mb-5 flex items-center gap-4">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs text-gray-400">OR</span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        <div className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-2xl border border-gray-300 px-4 py-4 outline-none focus:border-black"
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-2xl border border-gray-300 px-4 py-4 outline-none focus:border-black"
+          />
+        </div>
+
+        <button
+          onClick={handleEmailAuth}
+          disabled={loading}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white disabled:opacity-60"
+        >
+          <Mail size={18} />
+
+          {loading
+            ? "Please wait..."
+            : isSignup
+            ? "Create Account"
+            : "Login"}
+        </button>
+
+        <button
+          onClick={() => setIsSignup(!isSignup)}
+          className="mt-5 w-full text-sm text-gray-500 hover:text-black"
+        >
+          {isSignup
+            ? "Already have an account? Login"
+            : "New here? Create account"}
+        </button>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="components/CategoryCard.tsx">
+"use client";
+
+import { LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
+
+interface CategoryCardProps {
+  href: string;
+  title: string;
+  subtitle?: string;
+  icon: LucideIcon;
+  onRequireLogin: (path: string) => void;
+}
+
+export default function CategoryCard({
+  href,
+  title,
+  subtitle,
+  icon: Icon,
+  onRequireLogin,
+}: CategoryCardProps) {
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const handleClick = () => {
+    if (user) {
+      router.push(href);
+    } else {
+      onRequireLogin(href);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="group w-full rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-black hover:shadow-md active:scale-[0.98]"
+    >
+      <Icon
+        size={34}
+        strokeWidth={1.8}
+        className="mb-5 transition-transform duration-200 group-hover:scale-110"
+      />
+
+      <h3 className="text-lg font-bold">
+        {title}
+      </h3>
+
+      {subtitle && (
+        <p className="mt-1 text-sm text-gray-500">
+          {subtitle}
+        </p>
+      )}
+    </button>
+  );
+}
+</file>
+
+<file path="components/CommunityAnswer.tsx">
+"use client";
+
+interface Props {
+  userName: string;
+  answer: string;
+  likes: number;
+}
+
+export default function CommunityAnswer({
+  userName,
+  answer,
+  likes,
+}: Props) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <div className="flex items-center justify-between">
+        <h4 className="font-semibold">{userName}</h4>
+
+        <span className="text-sm text-gray-500">
+          👍 {likes}
+        </span>
+      </div>
+
+      <p className="mt-3 whitespace-pre-wrap text-gray-700">
+        {answer}
+      </p>
+    </div>
+  );
+}
+</file>
+
+<file path="components/FilterBar.tsx">
+"use client";
+
+interface Props {
+  mmds: string[];
+  surveyors: string[];
+  topics: string[];
+
+  selectedMmd: string;
+  selectedSurveyor: string;
+  selectedTopic: string;
+
+  onMmdChange: (value: string) => void;
+  onSurveyorChange: (value: string) => void;
+  onTopicChange: (value: string) => void;
+}
+
+export default function FilterBar({
+  mmds,
+  surveyors,
+  topics,
+  selectedMmd,
+  selectedSurveyor,
+  selectedTopic,
+  onMmdChange,
+  onSurveyorChange,
+  onTopicChange,
+}: Props) {
+  return (
+    <div className="mb-8 grid gap-4 md:grid-cols-3">
+      <select
+        value={selectedMmd}
+        onChange={(e) => onMmdChange(e.target.value)}
+        className="rounded-2xl border border-gray-300 bg-white p-3"
+      >
+        <option value="">All MMD</option>
+
+        {mmds.map((mmd) => (
+          <option key={mmd} value={mmd}>
+            {mmd}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={selectedSurveyor}
+        onChange={(e) => onSurveyorChange(e.target.value)}
+        className="rounded-2xl border border-gray-300 bg-white p-3"
+      >
+        <option value="">All Surveyors</option>
+
+        {surveyors.map((surveyor) => (
+          <option key={surveyor} value={surveyor}>
+            {surveyor}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={selectedTopic}
+        onChange={(e) => onTopicChange(e.target.value)}
+        className="rounded-2xl border border-gray-300 bg-white p-3"
+      >
+        <option value="">All Topics</option>
+
+        {topics.map((topic) => (
+          <option key={topic} value={topic}>
+            {topic}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+</file>
+
+<file path="components/Header.tsx">
+"use client";
+
+import { Sailboat, User, LogOut } from "lucide-react";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useAuth } from "@/app/context/AuthContext";
+
+interface HeaderProps {
+  setShowAuth: (show: boolean) => void;
+}
+
+export default function Header({ setShowAuth }: HeaderProps) {
+  const { user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const shortName =
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "";
+
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        {/* Left */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center -rotate-6">
+            <Sailboat size={30} />
+          </div>
+
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">
+              NAVIK
+            </h1>
+
+            <p className="text-xs text-gray-500">
+              Sail Towards COC
+            </p>
+          </div>
+        </div>
+
+        {/* Right */}
+        {user ? (
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-gray-100 px-3 py-2">
+              <p className="text-[10px] text-gray-500">
+                Signed In
+              </p>
+
+              <p className="max-w-[90px] truncate text-xs font-semibold">
+                {shortName}
+              </p>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black text-white transition hover:opacity-90"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAuth(true)}
+            className="flex items-center gap-2 rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+          >
+            <User size={16} />
+            Login
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="components/ProtectedRoute.tsx">
+"use client";
+
+import { ReactNode, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
+
+interface ProtectedRouteProps {
+  children: ReactNode;
+}
+
+export default function ProtectedRoute({
+  children,
+}: ProtectedRouteProps) {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f5f5]">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  return <>{children}</>;
+}
+</file>
+
+<file path="components/QuestionCard.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "@/app/context/AuthContext";
+import { submitCommunityAnswer } from "@/services/firestore";
+import { ChevronDown, ChevronUp } from "lucide-react";
+
+import { getApprovedAnswers } from "@/services/firestore";
+import CommunityAnswer from "./CommunityAnswer";
+
+interface ApprovedAnswer {
+    id: string;
+    userName: string;
+    answer: string;
+    likes: number;
+}
+
+interface Props {
+    questionId: string;
+    category: string;
+
+    question: string;
+    answer: string;
+
+    mmd: string;
+    surveyor: string;
+    topic: string;
+}
+
+export default function QuestionCard({
+    questionId,
+    category,
+    question,
+    answer,
+    mmd,
+    surveyor,
+    topic,
+}: Props) {
+    const [showAnswer, setShowAnswer] = useState(false);
+
+    const [communityAnswers, setCommunityAnswers] = useState<
+        ApprovedAnswer[]
+    >([]);
+
+    const { user } = useAuth();
+
+    const [myAnswer, setMyAnswer] = useState("");
+
+    const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        async function loadAnswers() {
+            try {
+                const data = await getApprovedAnswers(
+                    category,
+                    questionId
+                );
+
+                setCommunityAnswers(data as ApprovedAnswer[]);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        loadAnswers();
+    }, [category, questionId]);
+
+    async function handleSubmit() {
+        if (!user) {
+            alert("Please login first.");
+            return;
+        }
+
+        if (!myAnswer.trim()) {
+            alert("Please write your answer.");
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+
+            await submitCommunityAnswer({
+                category,
+                questionId,
+                userId: user.uid,
+                userName: user.displayName || "Anonymous",
+                answer: myAnswer,
+            });
+
+            alert("Answer submitted for admin approval.");
+
+            setMyAnswer("");
+        } catch (error) {
+            console.error(error);
+            alert("Submission failed.");
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    return (
+        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            {/* Question */}
+            <h2 className="text-xl font-semibold">
+                {question}
+            </h2>
+
+            {/* Tags */}
+            <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+                    {mmd}
+                </span>
+
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+                    {surveyor}
+                </span>
+
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+                    {topic}
+                </span>
+            </div>
+
+            {/* Official Answer */}
+            <button
+                onClick={() => setShowAnswer((prev) => !prev)}
+                className="mt-6 flex items-center gap-2 font-medium text-blue-600"
+            >
+                {showAnswer ? (
+                    <>
+                        <ChevronUp size={18} />
+                        Hide Official Answer
+                    </>
+                ) : (
+                    <>
+                        <ChevronDown size={18} />
+                        Show Official Answer
+                    </>
+                )}
+            </button>
+
+            {showAnswer && (
+                <div className="mt-4 rounded-2xl bg-gray-50 p-5">
+                    <p className="whitespace-pre-wrap text-gray-700">
+                        {answer}
+                    </p>
+                </div>
+            )}
+
+            {/* Community Answers */}
+            <div className="mt-8 border-t pt-6">
+                <h3 className="mb-4 text-lg font-semibold">
+                    Community Answers
+                </h3>
+
+                {communityAnswers.length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                        No community answers yet.
+                    </p>
+                ) : (
+                    <div className="space-y-4">
+                        {communityAnswers.map((item) => (
+                            <CommunityAnswer
+                                key={item.id}
+                                userName={item.userName}
+                                answer={item.answer}
+                                likes={item.likes}
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {/* Submit Your Answer */}
+                <div className="mt-8 border-t pt-6">
+                    <h3 className="mb-4 text-lg font-semibold">
+                        Submit Your Answer
+                    </h3>
+
+                    <textarea
+                        value={myAnswer}
+                        onChange={(e) => setMyAnswer(e.target.value)}
+                        placeholder="Write your answer here..."
+                        className="min-h-36 w-full rounded-2xl border border-gray-300 p-4 outline-none focus:border-black"
+                    />
+
+                    <button
+                        onClick={handleSubmit}
+                        disabled={submitting}
+                        className="mt-4 rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
+                    >
+                        {submitting ? "Submitting..." : "Submit Answer"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="components/QuestionsList.tsx">
+"use client";
+
+import { useMemo, useState } from "react";
+
+import FilterBar from "./FilterBar";
+import QuestionCard from "./QuestionCard";
+
+interface Question {
+  id: string;
+  question: string;
+  answer: string;
+  mmd: string;
+  surveyor: string;
+  topic: string;
+  order: number;
+  isActive: boolean;
+}
+
+interface Props {
+  category: string;
+  questions: Question[];
+}
+
+export default function QuestionsList({
+  category,
+  questions,
+}: Props) {
+  const [selectedMmd, setSelectedMmd] = useState("");
+  const [selectedSurveyor, setSelectedSurveyor] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState("");
+
+  const mmds = useMemo(
+    () => [...new Set(questions.map((q) => q.mmd).filter(Boolean))],
+    [questions]
+  );
+
+  const surveyors = useMemo(
+    () => [...new Set(questions.map((q) => q.surveyor).filter(Boolean))],
+    [questions]
+  );
+
+  const topics = useMemo(
+    () => [...new Set(questions.map((q) => q.topic).filter(Boolean))],
+    [questions]
+  );
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      if (!q.isActive) return false;
+      if (selectedMmd && q.mmd !== selectedMmd) return false;
+      if (selectedSurveyor && q.surveyor !== selectedSurveyor) return false;
+      if (selectedTopic && q.topic !== selectedTopic) return false;
+
+      return true;
+    });
+  }, [
+    questions,
+    selectedMmd,
+    selectedSurveyor,
+    selectedTopic,
+  ]);
+
+  return (
+    <>
+      <FilterBar
+        mmds={mmds}
+        surveyors={surveyors}
+        topics={topics}
+        selectedMmd={selectedMmd}
+        selectedSurveyor={selectedSurveyor}
+        selectedTopic={selectedTopic}
+        onMmdChange={setSelectedMmd}
+        onSurveyorChange={setSelectedSurveyor}
+        onTopicChange={setSelectedTopic}
+      />
+
+      <div className="space-y-6">
+        {filteredQuestions.map((q) => (
+          <QuestionCard
+            key={q.id}
+            questionId={q.id}
+            category={category}
+            question={q.question}
+            answer={q.answer}
+            mmd={q.mmd}
+            surveyor={q.surveyor}
+            topic={q.topic}
+          />
+        ))}
+
+        {filteredQuestions.length === 0 && (
+          <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-center">
+            <p className="text-gray-500">
+              No questions found.
+            </p>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+</file>
+
+<file path="components/SectionHeading.tsx">
+interface Props {
+  title: string;
+}
+
+export default function SectionHeading({
+  title,
+}: Props) {
+  return (
+    <h2 className="mb-5 text-xs font-bold uppercase tracking-[3px] text-gray-500">
+      {title}
+    </h2>
+  );
+}
+</file>
+
+<file path="eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path="lib/firebase.ts">
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyA-oP5hm_hVFd_lShfSAqSblkH5HVI4E3Q",
+    authDomain: "navik-bro.firebaseapp.com",
+    projectId: "navik-bro",
+    storageBucket: "navik-bro.firebasestorage.app",
+    messagingSenderId: "864304238896",
+    appId: "1:864304238896:web:33728bfabaf5bcfc5f78f5",
+    measurementId: "G-L0P830TCQJ"
+};
+
+const app = initializeApp(firebaseConfig);
+
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+export default app;
+</file>
+
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  reactCompiler: true,
+};
+
+export default nextConfig;
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+</file>
+
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="services/admin.ts">
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export async function isUserAdmin(uid: string) {
+  const userRef = doc(db, "users", uid);
+
+  const snapshot = await getDoc(userRef);
+
+  if (!snapshot.exists()) {
+    return false;
+  }
+
+  return snapshot.data().role === "admin";
+}
+</file>
+
+<file path="services/firestore.ts">
+import {
+    addDoc,
+    collection,
+    deleteDoc,
+    doc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    updateDoc,
+    where,
+    writeBatch,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+export interface Question {
+    id: string;
+    question: string;
+    answer: string;
+    mmd: string;
+    surveyor: string;
+    topic: string;
+    order: number;
+    isActive: boolean;
+}
+
+export interface CommunityAnswer {
+    id: string;
+    category: string;
+    questionId: string;
+    userId: string;
+    userName: string;
+    answer: string;
+    status: string;
+    likes: number;
+}
+
+export async function getQuestions(
+    category: string
+): Promise<Question[]> {
+    const q = query(
+        collection(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions"
+        ),
+        orderBy("order")
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+            id: doc.id,
+            question: data.question ?? "",
+            answer: data.answer ?? "",
+            mmd: data.mmd ?? "",
+            surveyor: data.surveyor ?? "",
+            topic: data.topic ?? "",
+            order: data.order ?? 0,
+            isActive: data.isActive ?? true,
+        };
+    });
+}
+
+export async function submitCommunityAnswer(data: {
+    category: string;
+    questionId: string;
+    userId: string;
+    userName: string;
+    answer: string;
+}) {
+    await addDoc(collection(db, "communityAnswers"), {
+        ...data,
+        status: "pending",
+        likes: 0,
+        createdAt: serverTimestamp(),
+    });
+}
+
+export async function getApprovedAnswers(
+    category: string,
+    questionId: string
+): Promise<CommunityAnswer[]> {
+    const q = query(
+        collection(db, "communityAnswers"),
+        where("category", "==", category),
+        where("questionId", "==", questionId),
+        where("status", "==", "approved")
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<CommunityAnswer, "id">),
+    }));
+}
+
+export async function getPendingAnswers(): Promise<
+    CommunityAnswer[]
+> {
+    const q = query(
+        collection(db, "communityAnswers"),
+        where("status", "==", "pending")
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<CommunityAnswer, "id">),
+    }));
+}
+
+export async function approveAnswer(id: string) {
+    await updateDoc(doc(db, "communityAnswers", id), {
+        status: "approved",
+    });
+}
+
+export async function rejectAnswer(id: string) {
+    await deleteDoc(doc(db, "communityAnswers", id));
+}
+
+/* ===========================
+   BULK EXCEL UPLOAD
+=========================== */
+
+export async function bulkUploadQuestions(rows: any[]) {
+    const batch = writeBatch(db);
+
+    const orderCounter: Record<string, number> = {};
+
+    rows.forEach((rawRow, index) => {
+        // Remove hidden spaces from Excel column names
+        const row: Record<string, any> = {};
+
+        Object.keys(rawRow).forEach((key) => {
+            row[key.trim()] = rawRow[key];
+        });
+
+        console.log("Uploading Row", index + 1, row);
+
+        const category = String(row.Category ?? "")
+            .trim()
+            .toLowerCase();
+
+        if (!category) {
+            throw new Error(
+                `Row ${index + 1}: Category is missing.`
+            );
+        }
+
+        if (!orderCounter[category]) {
+            orderCounter[category] = 1;
+        }
+
+        const ref = doc(
+            collection(db, "orals", category, "questions")
+        );
+
+        batch.set(ref, {
+            question: String(row.Question ?? "").trim(),
+            answer: String(row.Answer ?? "").trim(),
+            topic: String(row.Topic ?? "").trim(),
+            mmd: String(row.MMD ?? "").trim(),
+            surveyor: String(row.Surveyor ?? "").trim(),
+
+            order: orderCounter[category]++,
+
+            isActive: true,
+
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+    });
+
+    await batch.commit();
+}
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path="types/question.ts">
+export interface Question {
+  id: string;
+  question: string;
+  answer: string;
+  mmd: string;
+  surveyor: string;
+  topic: string;
+  order: number;
+  isActive: boolean;
+  tags: string[];
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata } from "next";
+import "./globals.css";
+import { AuthProvider } from "@/app/context/AuthContext";
+
+export const metadata: Metadata = {
+  title: "Navik",
+  description: "Sail Towards COC",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="app/page.tsx">
+"use client";
+
+import { useState } from "react";
+
+import Header from "@/components/Header";
+import AuthModal from "@/components/AuthModal";
+import CategoryCard from "@/components/CategoryCard";
+import SectionHeading from "@/components/SectionHeading";
+
+import {
+  ShieldCheck,
+  Cog,
+  ShipWheel,
+  Zap,
+  BookOpen,
+  Wrench,
+  ChartColumn,
+  Anchor,
+  FileText,
+} from "lucide-react";
+
+export default function HomePage() {
+  const [showAuth, setShowAuth] = useState(false);
+  const [redirectPath, setRedirectPath] = useState("");
+
+  const requireLogin = (path: string) => {
+    setRedirectPath(path);
+    setShowAuth(true);
+  };
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-5 py-5">
+        <Header setShowAuth={setShowAuth} />
+
+        {/* Browse by Orals */}
+        <section className="mt-10">
+          <SectionHeading title="Browse by Orals" />
+
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <CategoryCard
+              href="/orals/fn3"
+              title="FN3"
+              subtitle="Safety"
+              icon={ShieldCheck}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/orals/fn4b"
+              title="FN4B"
+              subtitle="Motor"
+              icon={Cog}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/orals/fn6"
+              title="FN6"
+              subtitle="MEP"
+              icon={ShipWheel}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/orals/fn5"
+              title="FN5"
+              subtitle="Electrical"
+              icon={Zap}
+              onRequireLogin={requireLogin}
+            />
+          </div>
+        </section>
+
+        {/* Browse by Writtens */}
+        <section className="mt-12">
+          <SectionHeading title="Browse by Writtens" />
+
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+            <CategoryCard
+              href="/writtens/general"
+              title="General"
+              icon={BookOpen}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/mep"
+              title="MEP"
+              icon={Wrench}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/motor"
+              title="Motor"
+              icon={Cog}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/met"
+              title="MET"
+              icon={ChartColumn}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/naval"
+              title="Naval"
+              icon={Anchor}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/ssep"
+              title="SSEP"
+              icon={FileText}
+              onRequireLogin={requireLogin}
+            />
+          </div>
+        </section>
+      </div>
+
+      <AuthModal
+        show={showAuth}
+        setShow={setShowAuth}
+        redirectPath={redirectPath}
+      />
+    </main>
+  );
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "firebase": "^12.15.0",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+</files>
