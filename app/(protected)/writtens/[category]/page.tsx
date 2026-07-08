@@ -2,9 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Sailboat,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
 
 import WrittenCard from "@/components/WrittenCard";
 import WrittenFilters from "@/components/WrittenFilters";
+import { useAuth } from "@/app/context/AuthContext";
 
 import {
   getWrittenQuestions,
@@ -13,6 +22,12 @@ import {
 
 export default function WrittensPage() {
   const params = useParams();
+  const { user } = useAuth();
+
+  const name =
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Sailor";
 
   const category =
     typeof params.category === "string"
@@ -23,6 +38,7 @@ export default function WrittensPage() {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   const [selectedClass, setSelectedClass] = useState("All");
   const [selectedYear, setSelectedYear] = useState("All");
@@ -37,8 +53,6 @@ export default function WrittensPage() {
         const data = await getWrittenQuestions(category);
 
         setQuestions(data);
-      } catch (error) {
-        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -106,50 +120,173 @@ export default function WrittensPage() {
     selectedTopic,
   ]);
 
+  const titles: Record<
+    string,
+    {
+      badge: string;
+      title: string;
+    }
+  > = {
+    general: {
+      badge: "MEKG",
+      title: "General Writtens",
+    },
+    mep: {
+      badge: "MEP",
+      title: "MEP Writtens",
+    },
+    motor: {
+      badge: "MEKM",
+      title: "Motor Writtens",
+    },
+    met: {
+      badge: "MET",
+      title: "Electrical Writtens",
+    },
+    naval: {
+      badge: "SHIP-CO",
+      title: "Naval Writtens",
+    },
+    ssep: {
+      badge: "SSEP",
+      title: "Safety Writtens",
+    },
+  };
+
+  const page = titles[category] ?? {
+    badge: category.toUpperCase(),
+    title: "Written Questions",
+  };
+
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold capitalize">
-            {category} Written Questions
-          </h1>
+      <div className="mx-auto max-w-7xl px-5 py-8">
 
-          <p className="mt-2 text-gray-500">
-            Practice company written interview questions.
-          </p>
+        {/* HEADER CARD */}
+        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+
+            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+              <Sailboat
+                size={30}
+                strokeWidth={2}
+              />
+            </div>
+
+          </div>
+
+          <div className="mt-7">
+
+            <h2 className="text-2xl font-bold">
+              Hi, {name} 👋
+            </h2>
+
+            <p className="text-gray-500">
+              Welcome Back
+            </p>
+
+            <div className="mt-6 border-l-4 border-black pl-4">
+              <p className="text-sm italic text-gray-600">
+                Every answer you write today
+                increases your confidence tomorrow.
+              </p>
+            </div>
+
+            <div className="mt-6 inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white">
+              {page.badge}
+            </div>
+
+            <h1 className="mt-4 text-2xl md:text-2xl font-bold tracking-tight">
+              {page.title}
+            </h1>
+
+            <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
+              <span>{questions.length} Questions</span>
+              <span>•</span>
+              <span>{topics.length} Topics</span>
+            </div>
+
+          </div>
+
         </div>
 
-        <WrittenFilters
-          search={search}
-          setSearch={setSearch}
-          selectedClass={selectedClass}
-          setSelectedClass={setSelectedClass}
-          selectedYear={selectedYear}
-          setSelectedYear={setSelectedYear}
-          selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
-          selectedTopic={selectedTopic}
-          setSelectedTopic={setSelectedTopic}
-          years={years}
-          topics={topics}
-        />
+        {/* SEARCH */}
+
+        <div className="mt-8">
+          <input
+            type="text"
+            placeholder="🔍 Search Questions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+          />
+        </div>
+
+        {/* FILTER BUTTON */}
+
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="mt-4 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+        >
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal size={18} />
+            <span className="font-semibold">
+              Filters
+            </span>
+          </div>
+
+          {showFilters ? (
+            <ChevronUp size={18} />
+          ) : (
+            <ChevronDown size={18} />
+          )}
+        </button>
+
+        {/* FILTER PANEL */}
+
+        {showFilters && (
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <WrittenFilters
+              selectedClass={selectedClass}
+              setSelectedClass={setSelectedClass}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              selectedTopic={selectedTopic}
+              setSelectedTopic={setSelectedTopic}
+              years={years}
+              topics={topics}
+            />
+          </div>
+        )}
 
         <div className="mt-8 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold">
+
+            <h2 className="text-lg font-semibold">
             Questions
           </h2>
 
-          <div className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
-            {filteredQuestions.length} Questions
+          <div className="rounded-full bg-black px-2 py-2 text-sm font-semibold text-white">
+            {filteredQuestions.length}
           </div>
+
         </div>
 
         {loading ? (
-          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
+          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
             Loading Questions...
           </div>
         ) : filteredQuestions.length === 0 ? (
-          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
+          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
             No Questions Found.
           </div>
         ) : (
@@ -162,6 +299,7 @@ export default function WrittensPage() {
             ))}
           </div>
         )}
+
       </div>
     </main>
   );

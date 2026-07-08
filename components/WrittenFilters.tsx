@@ -1,8 +1,6 @@
 "use client";
 
 interface Props {
-  search: string;
-  setSearch: (value: string) => void;
 
   selectedClass: string;
   setSelectedClass: (value: string) => void;
@@ -21,16 +19,13 @@ interface Props {
 }
 
 const classes = [
-  "All",
+  "All ",
   "Class 4",
   "Class 2",
-  "Chief Mate",
-  "Second Mate",
-  "Master",
 ];
 
 const months = [
-  "All",
+  "All Months",
   "January",
   "February",
   "March",
@@ -46,8 +41,6 @@ const months = [
 ];
 
 export default function WrittenFilters({
-  search,
-  setSearch,
 
   selectedClass,
   setSelectedClass,
@@ -67,14 +60,6 @@ export default function WrittenFilters({
   return (
     <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-
-        <input
-          type="text"
-          placeholder="Search Question..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3 outline-none focus:border-black"
-        />
 
         <select
           value={selectedClass}
