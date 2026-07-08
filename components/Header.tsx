@@ -53,7 +53,7 @@ export default function Header({ setShowAuth }: HeaderProps) {
           <div className="flex items-center gap-3 flex-shrink-0">
 
             {/* EMAIL BOX (COMPACT) */}
-            <div className="bg-gray-100 px-2 py-2 rounded-xl w-[60px]">
+            <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
               <p className="text-[9px] text-gray-500 leading-none">
                 Signed in
               </p>
