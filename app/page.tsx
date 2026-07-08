@@ -139,7 +139,6 @@ export default function HomePage() {
             <CategoryCard
               href="/orals/fn3"
               title="SAFETY"
-              subtitle="IMO, MLC ETC"
               icon={Folder}
               badge="FN-3"
               questions={oralStats.fn3?.questions}
@@ -151,7 +150,6 @@ export default function HomePage() {
             <CategoryCard
               href="/orals/fn4b"
               title="MOTOR"
-              subtitle="PISTON, LINER ETC"
               icon={Folder}
               badge="FN-4B"
               questions={oralStats.fn4b?.questions}
@@ -163,7 +161,6 @@ export default function HomePage() {
             <CategoryCard
               href="/orals/fn6"
               title="MEP"
-              subtitle="PURIFIER, BOILER ETC"
               icon={Folder}
               badge="FN-6"
               questions={oralStats.fn6?.questions}
@@ -175,7 +172,6 @@ export default function HomePage() {
             <CategoryCard
               href="/orals/fn5"
               title="ELECTRICAL"
-              subtitle="GENERATOR, SWITCHBOARD ETC"
               icon={Folder}
               badge="FN-5"
               questions={oralStats.fn5?.questions}
