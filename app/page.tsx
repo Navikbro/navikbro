@@ -135,7 +135,7 @@ export default function HomePage() {
         <section className="mt-10">
           <SectionHeading title="BROWSE BY ORALS" />
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
             <CategoryCard
               href="/orals/fn3"
               title="SAFETY"
@@ -190,7 +190,7 @@ export default function HomePage() {
         <section className="mt-12">
           <SectionHeading title="BROWSE BY WRITTENS" />
 
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             <CategoryCard
               href="/writtens/general"
               title="GENERAL WRITTENS"
@@ -237,7 +237,7 @@ export default function HomePage() {
 
             <CategoryCard
               href="/writtens/naval"
-              title="NAVALl WRITTENS"
+              title="NAVAL WRITTENS"
               icon={Folder}
               badge="SHIP-CO"
               questions={writtenStats.naval?.questions}

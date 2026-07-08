@@ -7,7 +7,6 @@ import { useAuth } from "@/app/context/AuthContext";
 interface CategoryCardProps {
   href: string;
   title: string;
-  subtitle?: string;
   icon: LucideIcon;
   badge?: string;
 
@@ -21,7 +20,6 @@ interface CategoryCardProps {
 export default function CategoryCard({
   href,
   title,
-  subtitle,
   icon: Icon,
   badge,
   questions = 0,
@@ -43,54 +41,50 @@ export default function CategoryCard({
   return (
     <button
       onClick={handleClick}
-      className="group w-full rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-black hover:shadow-md active:scale-[0.98]"
+      className="group aspect-square w-full rounded-3xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-black hover:shadow-lg active:scale-[0.98] flex flex-col"
     >
       {/* Badge */}
       {badge && (
-        <div className="mb-5 inline-flex rounded-md bg-black px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+        <div className="mb-3 inline-flex w-fit rounded-md bg-black px-2.5 py-1 text-[10px] font-semibold text-white">
           {badge}
         </div>
       )}
 
       {/* Folder */}
-      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100">
+      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
         <Icon
-          size={30}
+          size={28}
           strokeWidth={1.8}
           className="text-gray-700 transition-transform duration-200 group-hover:scale-110"
         />
       </div>
 
       {/* Title */}
-      <h3 className="text-lg font-bold text-gray-900">
+      <h3 className="text-lg font-bold leading-tight text-gray-900">
         {title}
       </h3>
 
-      {/* Subtitle */}
-      {subtitle && (
-        <p className="mt-1 text-sm text-gray-500">
-          {subtitle}
-        </p>
-      )}
+      {/* Spacer */}
+      <div className="flex-1" />
 
       {/* Stats */}
-      <div className="mt-6 space-y-1">
-        <p className="text-sm font-medium text-gray-800">
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-gray-900">
           {questions.toLocaleString()} Questions
         </p>
 
-        <p className="text-sm font-medium text-gray-800">
+        <p className="text-sm font-medium text-gray-900">
           {topics.toLocaleString()} Topics
         </p>
       </div>
 
       {/* Footer */}
-      <div className="mt-6 border-t border-gray-100 pt-4">
-        <p className="text-xs text-gray-400">
+      <div className="mt-3 border-t border-gray-100 pt-2">
+        <p className="text-[11px] text-gray-400">
           Updated •{" "}
           {updatedAt
             ? updatedAt.toLocaleDateString("en-IN", {
-                month: "long",
+                month: "short",
                 year: "numeric",
               })
             : "-"}
