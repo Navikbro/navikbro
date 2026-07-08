@@ -34,9 +34,7 @@ export default function AuthModal({
   const redirectUser = () => {
     setShow(false);
 
-    if (redirectPath) {
-      router.push(redirectPath);
-    }
+    router.replace("/");
   };
 
   const handleGoogleLogin = async () => {
@@ -155,8 +153,8 @@ export default function AuthModal({
           {loading
             ? "Please wait..."
             : isSignup
-            ? "Create Account"
-            : "Login"}
+              ? "Create Account"
+              : "Login"}
         </button>
 
         <button

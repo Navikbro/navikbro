@@ -1,5 +1,6 @@
 import QuestionsList from "@/components/QuestionsList";
 import { getQuestions } from "@/services/firestore";
+import UserGreeting from "@/components/UserGreeting";
 
 import Link from "next/link";
 import { ArrowLeft, Sailboat } from "lucide-react";
@@ -92,15 +93,7 @@ export default async function OralCategoryPage({
 
           {/* Greeting */}
           <div className="mt-7">
-
-            <h2 className="text-2xl font-bold">
-              Hi, Sahil 👋
-            </h2>
-
-            <p className="text-gray-500">
-              Welcome Back
-            </p>
-
+            <UserGreeting />
           </div>
 
           {/* Quote */}
@@ -124,7 +117,7 @@ export default async function OralCategoryPage({
           {/* Category */}
           <div className="mt-5">
 
-            <h1 className="mt-4 text-2xl md:text-2xl font-bold tracking-tight">
+            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
               {page.subtitle}
             </h1>
 

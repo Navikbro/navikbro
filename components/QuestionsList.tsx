@@ -198,7 +198,7 @@ export default function QuestionsList({
           Questions
         </h2>
 
-        <div className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">
+        <div className="rounded-full bg-gray px-3 py-2 text-sm font-semibold text-black">
           {filteredQuestions.length}
         </div>
 

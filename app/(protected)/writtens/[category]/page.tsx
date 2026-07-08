@@ -129,30 +129,29 @@ export default function WrittensPage() {
   > = {
     general: {
       badge: "MEKG",
-      title: "General Writtens",
+      title: "GENERAL WRITTEN",
     },
     mep: {
       badge: "MEP",
-      title: "MEP Writtens",
+      title: "MEP WRITTEN",
     },
     motor: {
       badge: "MEKM",
-      title: "Motor Writtens",
+      title: "MOTOR WRITTEN",
     },
     met: {
       badge: "MET",
-      title: "Electrical Writtens",
+      title: "ELECTRICAL WRITTEN",
     },
     naval: {
       badge: "SHIP-CO",
-      title: "Naval Writtens",
+      title: "NAVAL WRITTEN",
     },
     ssep: {
       badge: "SSEP",
-      title: "Safety Writtens",
+      title: "SAFETY WRITTEN",
     },
   };
-
   const page = titles[category] ?? {
     badge: category.toUpperCase(),
     title: "Written Questions",
@@ -204,7 +203,7 @@ export default function WrittensPage() {
               {page.badge}
             </div>
 
-            <h1 className="mt-4 text-2xl md:text-2xl font-bold tracking-tight">
+            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
               {page.title}
             </h1>
 
@@ -271,11 +270,11 @@ export default function WrittensPage() {
 
         <div className="mt-8 flex items-center justify-between">
 
-            <h2 className="text-lg font-semibold">
+          <h2 className="text-lg font-semibold">
             Questions
           </h2>
 
-          <div className="rounded-full bg-black px-2 py-2 text-sm font-semibold text-white">
+          <div className="rounded-full bg-gray px-3 py-2 text-sm font-semibold text-black">
             {filteredQuestions.length}
           </div>
 
