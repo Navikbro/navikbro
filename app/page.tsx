@@ -189,7 +189,7 @@ export default function HomePage() {
           <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             <CategoryCard
               href="/writtens/general"
-              title="GENERAL WRITTENS"
+              title="GENERAL"
               icon={Folder}
               badge="MEKG"
               questions={writtenStats.general?.questions}
@@ -200,7 +200,7 @@ export default function HomePage() {
 
             <CategoryCard
               href="/writtens/mep"
-              title="MEP WRITTENS"
+              title="MEP"
               icon={Folder}
               badge="MEP"
               questions={writtenStats.mep?.questions}
@@ -211,7 +211,7 @@ export default function HomePage() {
 
             <CategoryCard
               href="/writtens/motor"
-              title="MOTOR WRITTENS"
+              title="MOTOR"
               icon={Folder}
               badge="MEKM"
               questions={writtenStats.motor?.questions}
@@ -222,7 +222,7 @@ export default function HomePage() {
 
             <CategoryCard
               href="/writtens/met"
-              title="ELECTRICAL WRITTENS"
+              title="ELECTRICAL"
               icon={Folder}
               badge="MET"
               questions={writtenStats.met?.questions}
@@ -233,7 +233,7 @@ export default function HomePage() {
 
             <CategoryCard
               href="/writtens/naval"
-              title="NAVAL WRITTENS"
+              title="NAVAL"
               icon={Folder}
               badge="SHIP-CO"
               questions={writtenStats.naval?.questions}
@@ -244,7 +244,7 @@ export default function HomePage() {
 
             <CategoryCard
               href="/writtens/ssep"
-              title="SAFETY WRITTENS"
+              title="SAFETY"
               icon={Folder}
               badge="SSEP"
               questions={writtenStats.ssep?.questions}
