@@ -26,7 +26,7 @@ export default function Header({ setShowAuth }: HeaderProps) {
     : "";
 
   return (
-    <div className="bg-white border border-gray-200 rounded-3xl px-5 py-4 md:px-6 md:py-5 shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm">
 
       <div className="flex items-center justify-between">
 
