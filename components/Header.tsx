@@ -31,7 +31,7 @@ export default function Header({ setShowAuth }: HeaderProps) {
       <div className="flex items-center justify-between">
 
         {/* LEFT SIDE (LOGO + TEXT) */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
 
           <div className="w-12 h-12 flex items-center justify-center rotate-[-8deg] flex-shrink-0">
             <Sailboat size={30} />
