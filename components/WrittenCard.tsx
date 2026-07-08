@@ -27,12 +27,12 @@ function formatQuestion(text: string) {
 
 export default function WrittenCard({ question }: Props) {
 
-const [showAnswer,setShowAnswer]=useState(false);
+  const [showAnswer, setShowAnswer] = useState(false);
 
-return (
+  return (
 
-<div
-className="
+    <div
+      className="
 rounded-2xl
 border
 border-gray-200
@@ -45,78 +45,54 @@ shadow-sm
 hover:shadow-md
 transition
 "
->
+    >
 
 
-{/* Tags */}
+      {/* Tags */}
 
-<div className="
-flex
-flex-wrap
-gap-2
-mb-5
-">
+      <div
+        className="
+  flex
+  flex-wrap
+  gap-2
+  mb-5
+  "
+      >
 
-<span className="
-rounded-full
-bg-blue-100
-px-3
-py-1.5
-text-xs
-sm:text-sm
-font-medium
-text-blue-700
-">
-{question.class}
-</span>
+        <span className="rounded-full bg-blue-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-blue-700">
+          {question.class}
+        </span>
 
+        <span className="rounded-full bg-green-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-green-700">
+          {question.month}
+        </span>
 
-<span className="
-rounded-full
-bg-green-100
-px-3
-py-1.5
-text-xs
-sm:text-sm
-font-medium
-text-green-700
-">
-{question.month}
-</span>
+        <span className="rounded-full bg-yellow-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-yellow-700">
+          {question.year}
+        </span>
 
+        <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700">
+          {question.topic}
+        </span>
 
-<span className="
-rounded-full
-bg-yellow-100
-px-3
-py-1.5
-text-xs
-sm:text-sm
-font-medium
-text-yellow-700
-">
-{question.year}
-</span>
-
-
-</div>
+      </div>
 
 
 
-{/* Question Box */}
+      {/* Question Box */}
 
-<div
-className="
+      <div
+        className="
 border-l-4
 border-blue-500
 pl-3
 sm:pl-4
 md:pl-5
 "
->
+      >
 
-<h2
-className="
+        <h2
+          className="
 whitespace-pre-wrap
 text-base
 sm:text-lg
@@ -127,23 +103,23 @@ leading-7
 sm:leading-8
 text-gray-900
 "
->
+        >
 
-{formatQuestion(question.question)}
+          {formatQuestion(question.question)}
 
-</h2>
+        </h2>
 
-</div>
+      </div>
 
 
 
-{/* Button */}
+      {/* Button */}
 
-<button
+      <button
 
-onClick={()=>setShowAnswer(!showAnswer)}
+        onClick={() => setShowAnswer(!showAnswer)}
 
-className="
+        className="
 mt-6
 flex
 items-center
@@ -154,33 +130,33 @@ font-semibold
 text-blue-600
 "
 
->
+      >
 
-{
-showAnswer
-?
-<>
-<ChevronUp size={18}/>
-Hide Answer
-</>
-:
-<>
-<ChevronDown size={18}/>
-Show Answer
-</>
-}
+        {
+          showAnswer
+            ?
+            <>
+              <ChevronUp size={18} />
+              Hide Answer
+            </>
+            :
+            <>
+              <ChevronDown size={18} />
+              Show Answer
+            </>
+        }
 
-</button>
+      </button>
 
 
 
-{/* Answer */}
+      {/* Answer */}
 
-{
-showAnswer &&
+      {
+        showAnswer &&
 
-<div
-className="
+        <div
+          className="
 mt-5
 rounded-xl
 border
@@ -190,41 +166,41 @@ p-4
 sm:p-5
 md:p-6
 "
->
+        >
 
-<h3
-className="
+          <h3
+            className="
 mb-3
 font-semibold
 text-green-700
 text-base
 sm:text-lg
 "
->
-Official Answer
-</h3>
+          >
+            Official Answer
+          </h3>
 
 
-<p
-className="
+          <p
+            className="
 whitespace-pre-wrap
 text-sm
 sm:text-base
 leading-7
 text-gray-700
 "
->
-{question.answer}
-</p>
+          >
+            {question.answer}
+          </p>
 
 
-</div>
+        </div>
 
-}
+      }
 
 
-</div>
+    </div>
 
-)
+  )
 
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -31,6 +31,8 @@ export default function QuestionsList({
 }: Props) {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   const [selectedMmd, setSelectedMmd] = useState("All");
   const [selectedSurveyor, setSelectedSurveyor] = useState("All");
@@ -106,6 +108,16 @@ export default function QuestionsList({
     selectedTopic,
   ]);
 
+  const currentQuestion = filteredQuestions[currentIndex];
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [
+    search,
+    selectedMmd,
+    selectedSurveyor,
+    selectedTopic,
+  ]);
   return (
     <>
       {/* SEARCH */}
@@ -192,14 +204,22 @@ export default function QuestionsList({
       )}
 
       {/* HEADING */}
-      <div className="mt-8 mb-6 flex items-center justify-between">
+      <div className="mt-8 mb-6 flex items-center justify-between gap-4">
 
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
           Questions
         </h2>
 
-        <div className="rounded-full bg-gray px-3 py-2 text-sm font-semibold text-black">
-          {filteredQuestions.length}
+        <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+          <span className="text-gray-500">Current:</span>{" "}
+          <span className="font-bold text-black">
+            {filteredQuestions.length > 0
+              ? `${currentIndex + 1} / ${filteredQuestions.length}`
+              : "0 / 0"}
+          </span>
+
+          <span className="mx-2 text-gray-300">|</span>
+
         </div>
 
       </div>
@@ -207,26 +227,56 @@ export default function QuestionsList({
       {/* QUESTIONS */}
       <div className="space-y-6">
 
-        {filteredQuestions.map((q) => (
-          <QuestionCard
-            key={q.id}
-            questionId={q.id}
-            category={category}
-            question={q.question}
-            answer={q.answer}
-            mmd={q.mmd}
-            surveyor={q.surveyor}
-            topic={q.topic}
-          />
-        ))}
+        {currentQuestion && (
+          <>
+            <QuestionCard
+              questionId={currentQuestion.id}
+              category={category}
+              question={currentQuestion.question}
+              answer={currentQuestion.answer}
+              mmd={currentQuestion.mmd}
+              surveyor={currentQuestion.surveyor}
+              topic={currentQuestion.topic}
+            />
+
+            {/* Navigation */}
+            <div className="mt-6 flex items-center justify-between">
+
+              <button
+                onClick={() =>
+                  setCurrentIndex((prev) => prev - 1)
+                }
+                disabled={currentIndex === 0}
+                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
+                  ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                  : "bg-black text-white hover:bg-gray-800"
+                  }`}
+              >
+                ◀ Previous
+              </button>
+
+              <button
+                onClick={() =>
+                  setCurrentIndex((prev) => prev + 1)
+                }
+                disabled={currentIndex === filteredQuestions.length - 1}
+                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
+                    ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                    : "bg-black text-white hover:bg-gray-800"
+                  }`}
+              >
+                Next ▶
+              </button>
+
+            </div>
+          </>
+        )}
 
         {filteredQuestions.length === 0 && (
           <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
-
             <p className="text-gray-500">
               No questions found.
             </p>
-
           </div>
         )}
 

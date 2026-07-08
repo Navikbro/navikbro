@@ -25,7 +25,7 @@ export default function InitialLoader({
   if(loading){
     return (
       <LoadingScreen 
-        text="Gathering essential knowledge for your voyage..."
+        text="Setting your course..."
       />
     );
   }
