@@ -24,3 +24,49 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+@keyframes wave1 {
+  0%, 100% {
+    transform: translateX(-20px);
+  }
+
+  50% {
+    transform: translateX(20px);
+  }
+}
+
+
+@keyframes wave2 {
+  0%, 100% {
+    transform: translateX(20px);
+  }
+
+  50% {
+    transform: translateX(-20px);
+  }
+}
+
+
+@keyframes float {
+  0%,100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+
+.animate-wave1 {
+  animation: wave1 3s ease-in-out infinite;
+}
+
+
+.animate-wave2 {
+  animation: wave2 2.5s ease-in-out infinite;
+}
+
+
+.animate-float {
+  animation: float 2s ease-in-out infinite;
+}
