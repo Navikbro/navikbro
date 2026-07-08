@@ -6,7 +6,7 @@ export default function SectionHeading({
   title,
 }: Props) {
   return (
-    <h2 className="mb-5 text-xs font-bold uppercase tracking-[3px] text-gray-500">
+    <h2 className="text-sm font-bold tracking-[2px] text-gray-500 mb-4">
       {title}
     </h2>
   );

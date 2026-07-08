@@ -85,6 +85,50 @@ types/question.ts
 <files>
 This section contains the contents of the repository's files.
 
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
 <file path="app/(protected)/admin/orals/page.tsx">
 "use client";
 
@@ -524,532 +568,6 @@ export default function WrittenUploadPage() {
 }
 </file>
 
-<file path="components/WrittenCard.tsx">
-"use client";
-
-import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { WrittenQuestion } from "@/services/written.service";
-
-interface Props {
-  question: WrittenQuestion;
-}
-
-export default function WrittenCard({ question }: Props) {
-  const [showAnswer, setShowAnswer] = useState(false);
-
-  return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="flex flex-wrap gap-2 mb-4">
-        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
-          {question.class}
-        </span>
-
-        <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
-          {question.month}
-        </span>
-
-        <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
-          {question.year}
-        </span>
-
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
-          {question.topic}
-        </span>
-      </div>
-
-      <h2 className="text-xl font-semibold">
-        {question.question}
-      </h2>
-
-      <button
-        onClick={() => setShowAnswer(!showAnswer)}
-        className="mt-6 flex items-center gap-2 font-medium text-blue-600"
-      >
-        {showAnswer ? (
-          <>
-            <ChevronUp size={18} />
-            Hide Answer
-          </>
-        ) : (
-          <>
-            <ChevronDown size={18} />
-            Show Answer
-          </>
-        )}
-      </button>
-
-      {showAnswer && (
-        <div className="mt-4 rounded-2xl bg-gray-50 p-5">
-          <p className="whitespace-pre-wrap text-gray-700">
-            {question.answer}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-</file>
-
-<file path="components/WrittenFilters.tsx">
-"use client";
-
-interface Props {
-  search: string;
-  setSearch: (value: string) => void;
-
-  selectedClass: string;
-  setSelectedClass: (value: string) => void;
-
-  selectedYear: string;
-  setSelectedYear: (value: string) => void;
-
-  selectedMonth: string;
-  setSelectedMonth: (value: string) => void;
-
-  selectedTopic: string;
-  setSelectedTopic: (value: string) => void;
-
-  years: number[];
-  topics: string[];
-}
-
-const classes = [
-  "All",
-  "Class 4",
-  "Class 2",
-  "Chief Mate",
-  "Second Mate",
-  "Master",
-];
-
-const months = [
-  "All",
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-export default function WrittenFilters({
-  search,
-  setSearch,
-
-  selectedClass,
-  setSelectedClass,
-
-  selectedYear,
-  setSelectedYear,
-
-  selectedMonth,
-  setSelectedMonth,
-
-  selectedTopic,
-  setSelectedTopic,
-
-  years,
-  topics,
-}: Props) {
-  return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-
-        <input
-          type="text"
-          placeholder="Search Question..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3 outline-none focus:border-black"
-        />
-
-        <select
-          value={selectedClass}
-          onChange={(e) => setSelectedClass(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3"
-        >
-          {classes.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3"
-        >
-          <option value="All">All Years</option>
-
-          {years.map((year) => (
-            <option key={year} value={String(year)}>
-              {year}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3"
-        >
-          {months.map((month) => (
-            <option key={month} value={month}>
-              {month}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedTopic}
-          onChange={(e) => setSelectedTopic(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3"
-        >
-          <option value="All">All Topics</option>
-
-          {topics.map((topic) => (
-            <option key={topic} value={topic}>
-              {topic}
-            </option>
-          ))}
-        </select>
-
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="services/written.service.ts">
-import {
-    collection,
-    doc,
-    getDocs,
-    orderBy,
-    query,
-    serverTimestamp,
-    writeBatch,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
-
-export interface WrittenQuestion {
-    id: string;
-    class: string;
-    question: string;
-    answer: string;
-    topic: string;
-    year: number;
-    month: string;
-    order: number;
-    isActive: boolean;
-}
-
-export async function getWrittenQuestions(
-    category: string
-): Promise<WrittenQuestion[]> {
-
-    const q = query(
-        collection(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions"
-        ),
-        orderBy("order")
-    );
-
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((doc) => {
-
-        const data = doc.data();
-
-        return {
-            id: doc.id,
-            class: data.class ?? "",
-            question: data.question ?? "",
-            answer: data.answer ?? "",
-            topic: data.topic ?? "",
-            year: data.year ?? 0,
-            month: data.month ?? "",
-            order: data.order ?? 0,
-            isActive: data.isActive ?? true,
-        };
-    });
-
-}
-
-export async function bulkUploadWrittenQuestions(
-    rows: any[]
-) {
-
-    const batch = writeBatch(db);
-
-    const orderCounter: Record<string, number> = {};
-
-    rows.forEach((rawRow, index) => {
-
-        const row: Record<string, any> = {};
-
-        Object.keys(rawRow).forEach((key) => {
-            row[key.trim()] = rawRow[key];
-        });
-
-        const category = String(row.Category)
-            .trim()
-            .toLowerCase();
-
-        if (!category) {
-            throw new Error(
-                `Row ${index + 1}: Category missing`
-            );
-        }
-
-        if (!orderCounter[category]) {
-            orderCounter[category] = 1;
-        }
-
-        const ref = doc(
-            collection(
-                db,
-                "writtens",
-                category,
-                "questions"
-            )
-        );
-
-        batch.set(ref, {
-
-            class: String(row.Class).trim(),
-
-            question: String(row.Question).trim(),
-
-            answer: String(row.Answer).trim(),
-
-            topic: String(row.Topic).trim(),
-
-            year: Number(row.Year),
-
-            month: String(row.Month).trim(),
-
-            order: orderCounter[category]++,
-
-            isActive: true,
-
-            createdAt: serverTimestamp(),
-
-            updatedAt: serverTimestamp(),
-
-        });
-
-    });
-
-    await batch.commit();
-
-}
-</file>
-
-<file path=".gitignore">
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-</file>
-
-<file path="app/(protected)/admin/page.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-
-import { useAuth } from "@/app/context/AuthContext";
-import { isUserAdmin } from "@/services/admin";
-import {
-    getPendingAnswers,
-    approveAnswer,
-    rejectAnswer,
-} from "@/services/firestore";
-
-import AdminAnswerCard from "@/components/AdminAnswerCard";
-
-interface PendingAnswer {
-    id: string;
-    questionId: string;
-    category: string;
-    userName: string;
-    answer: string;
-}
-
-export default function AdminPage() {
-    const { user, loading } = useAuth();
-    const router = useRouter();
-
-    const [checking, setChecking] = useState(true);
-    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
-
-    useEffect(() => {
-        async function init() {
-            if (loading) return;
-
-            if (!user) {
-                router.replace("/");
-                return;
-            }
-
-            const admin = await isUserAdmin(user.uid);
-
-            if (!admin) {
-                router.replace("/");
-                return;
-            }
-
-            const pending = await getPendingAnswers();
-
-            setAnswers(pending as PendingAnswer[]);
-            setChecking(false);
-        }
-
-        init();
-    }, [user, loading, router]);
-
-    async function handleApprove(id: string) {
-        await approveAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
-    }
-
-    async function handleReject(id: string) {
-        await rejectAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
-    }
-
-    if (checking) {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                Checking permissions...
-            </div>
-        );
-    }
-
-    return (
-        <main className="min-h-screen bg-[#f5f5f5]">
-            <div className="mx-auto max-w-6xl px-6 py-10">
-
-                <h1 className="text-4xl font-bold">
-                    Admin Dashboard
-                </h1>
-
-                <p className="mt-2 text-gray-500">
-                    Manage uploads and community answers.
-                </p>
-
-                <div className="mt-8 flex flex-wrap gap-4">
-
-                    <Link
-                        href="/admin/orals"
-                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
-                    >
-                        Upload Oral Questions
-                    </Link>
-
-                    <Link
-                        href="/admin/writtens"
-                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
-                    >
-                        Upload Written Questions
-                    </Link>
-
-                </div>
-
-                <div className="mt-12">
-
-                    <h2 className="text-2xl font-bold">
-                        Pending Community Answers
-                    </h2>
-
-                    <div className="mt-6 space-y-6">
-
-                        {answers.length === 0 && (
-                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
-                                No pending answers.
-                            </div>
-                        )}
-
-                        {answers.map((answer) => (
-                            <AdminAnswerCard
-                                key={answer.id}
-                                id={answer.id}
-                                questionId={answer.questionId}
-                                category={answer.category}
-                                userName={answer.userName}
-                                answer={answer.answer}
-                                onApprove={handleApprove}
-                                onReject={handleReject}
-                            />
-                        ))}
-
-                    </div>
-
-                </div>
-
-            </div>
-        </main>
-    );
-}
-</file>
-
 <file path="app/(protected)/layout.tsx">
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -1104,177 +622,6 @@ export default async function OralCategoryPage({
           questions={questions}
         />
 
-      </div>
-    </main>
-  );
-}
-</file>
-
-<file path="app/(protected)/writtens/[category]/page.tsx">
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-
-import WrittenCard from "@/components/WrittenCard";
-import WrittenFilters from "@/components/WrittenFilters";
-
-import {
-  getWrittenQuestions,
-  WrittenQuestion,
-} from "@/services/written.service";
-
-export default function WrittensPage() {
-  const params = useParams();
-
-  const category =
-    typeof params.category === "string"
-      ? params.category.toLowerCase()
-      : "general";
-
-  const [questions, setQuestions] = useState<WrittenQuestion[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const [search, setSearch] = useState("");
-
-  const [selectedClass, setSelectedClass] = useState("All");
-  const [selectedYear, setSelectedYear] = useState("All");
-  const [selectedMonth, setSelectedMonth] = useState("All");
-  const [selectedTopic, setSelectedTopic] = useState("All");
-
-  useEffect(() => {
-    async function loadQuestions() {
-      try {
-        setLoading(true);
-
-        const data = await getWrittenQuestions(category);
-
-        setQuestions(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadQuestions();
-  }, [category]);
-
-  const years = useMemo(() => {
-    return [...new Set(questions.map((q) => q.year))]
-      .filter(Boolean)
-      .sort((a, b) => b - a);
-  }, [questions]);
-
-  const topics = useMemo(() => {
-    return [...new Set(questions.map((q) => q.topic))]
-      .filter(Boolean)
-      .sort();
-  }, [questions]);
-
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((question) => {
-      const classMatch =
-        selectedClass === "All" ||
-        question.class === selectedClass;
-
-      const yearMatch =
-        selectedYear === "All" ||
-        String(question.year) === selectedYear;
-
-      const monthMatch =
-        selectedMonth === "All" ||
-        question.month === selectedMonth;
-
-      const topicMatch =
-        selectedTopic === "All" ||
-        question.topic === selectedTopic;
-
-      const searchMatch =
-        search.trim() === "" ||
-        question.question
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.answer
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.topic
-          .toLowerCase()
-          .includes(search.toLowerCase());
-
-      return (
-        classMatch &&
-        yearMatch &&
-        monthMatch &&
-        topicMatch &&
-        searchMatch
-      );
-    });
-  }, [
-    questions,
-    search,
-    selectedClass,
-    selectedYear,
-    selectedMonth,
-    selectedTopic,
-  ]);
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold capitalize">
-            {category} Written Questions
-          </h1>
-
-          <p className="mt-2 text-gray-500">
-            Practice company written interview questions.
-          </p>
-        </div>
-
-        <WrittenFilters
-          search={search}
-          setSearch={setSearch}
-          selectedClass={selectedClass}
-          setSelectedClass={setSelectedClass}
-          selectedYear={selectedYear}
-          setSelectedYear={setSelectedYear}
-          selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
-          selectedTopic={selectedTopic}
-          setSelectedTopic={setSelectedTopic}
-          years={years}
-          topics={topics}
-        />
-
-        <div className="mt-8 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold">
-            Questions
-          </h2>
-
-          <div className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
-            {filteredQuestions.length} Questions
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
-            Loading Questions...
-          </div>
-        ) : filteredQuestions.length === 0 ? (
-          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
-            No Questions Found.
-          </div>
-        ) : (
-          <div className="mt-8 space-y-6">
-            {filteredQuestions.map((question) => (
-              <WrittenCard
-                key={question.id}
-                question={question}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </main>
   );
@@ -2254,6 +1601,210 @@ export default function SectionHeading({
 }
 </file>
 
+<file path="components/WrittenCard.tsx">
+"use client";
+
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { WrittenQuestion } from "@/services/written.service";
+
+interface Props {
+  question: WrittenQuestion;
+}
+
+export default function WrittenCard({ question }: Props) {
+  const [showAnswer, setShowAnswer] = useState(false);
+
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap gap-2 mb-4">
+        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
+          {question.class}
+        </span>
+
+        <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+          {question.month}
+        </span>
+
+        <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+          {question.year}
+        </span>
+
+        <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+          {question.topic}
+        </span>
+      </div>
+
+      <h2 className="text-xl font-semibold">
+        {question.question}
+      </h2>
+
+      <button
+        onClick={() => setShowAnswer(!showAnswer)}
+        className="mt-6 flex items-center gap-2 font-medium text-blue-600"
+      >
+        {showAnswer ? (
+          <>
+            <ChevronUp size={18} />
+            Hide Answer
+          </>
+        ) : (
+          <>
+            <ChevronDown size={18} />
+            Show Answer
+          </>
+        )}
+      </button>
+
+      {showAnswer && (
+        <div className="mt-4 rounded-2xl bg-gray-50 p-5">
+          <p className="whitespace-pre-wrap text-gray-700">
+            {question.answer}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="components/WrittenFilters.tsx">
+"use client";
+
+interface Props {
+  search: string;
+  setSearch: (value: string) => void;
+
+  selectedClass: string;
+  setSelectedClass: (value: string) => void;
+
+  selectedYear: string;
+  setSelectedYear: (value: string) => void;
+
+  selectedMonth: string;
+  setSelectedMonth: (value: string) => void;
+
+  selectedTopic: string;
+  setSelectedTopic: (value: string) => void;
+
+  years: number[];
+  topics: string[];
+}
+
+const classes = [
+  "All",
+  "Class 4",
+  "Class 2",
+  "Chief Mate",
+  "Second Mate",
+  "Master",
+];
+
+const months = [
+  "All",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+export default function WrittenFilters({
+  search,
+  setSearch,
+
+  selectedClass,
+  setSelectedClass,
+
+  selectedYear,
+  setSelectedYear,
+
+  selectedMonth,
+  setSelectedMonth,
+
+  selectedTopic,
+  setSelectedTopic,
+
+  years,
+  topics,
+}: Props) {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+
+        <input
+          type="text"
+          placeholder="Search Question..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3 outline-none focus:border-black"
+        />
+
+        <select
+          value={selectedClass}
+          onChange={(e) => setSelectedClass(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          {classes.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          <option value="All">All Years</option>
+
+          {years.map((year) => (
+            <option key={year} value={String(year)}>
+              {year}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          {months.map((month) => (
+            <option key={month} value={month}>
+              {month}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedTopic}
+          onChange={(e) => setSelectedTopic(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          <option value="All">All Topics</option>
+
+          {topics.map((topic) => (
+            <option key={topic} value={topic}>
+              {topic}
+            </option>
+          ))}
+        </select>
+
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="eslint.config.mjs">
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
@@ -2582,6 +2133,131 @@ export async function bulkUploadQuestions(rows: any[]) {
 }
 </file>
 
+<file path="services/written.service.ts">
+import {
+    collection,
+    doc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    writeBatch,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+export interface WrittenQuestion {
+    id: string;
+    class: string;
+    category: string;
+    topic: string;
+    year: number;
+    month: string;
+    question: string;
+    answer: string;
+    order: number;
+    isActive: boolean;
+}
+
+export async function getWrittenQuestions(
+    category: string
+): Promise<WrittenQuestion[]> {
+    const q = query(
+        collection(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions"
+        ),
+        orderBy("order")
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+            id: doc.id,
+            class: data.class ?? "",
+            category: data.category ?? "",
+            topic: data.topic ?? "",
+            year: data.year ?? 0,
+            month: data.month ?? "",
+            question: data.question ?? "",
+            answer: data.answer ?? "",
+            order: data.order ?? 0,
+            isActive: data.isActive ?? true,
+        };
+    });
+}
+
+export async function bulkUploadWrittenQuestions(
+    rows: any[]
+) {
+    const batch = writeBatch(db);
+
+    const orderCounter: Record<string, number> = {};
+
+    rows.forEach((rawRow, index) => {
+        const row: Record<string, any> = {};
+
+        Object.keys(rawRow).forEach((key) => {
+            row[key.trim()] = rawRow[key];
+        });
+
+        const category = String(row.Category)
+            .trim()
+            .toLowerCase();
+
+        if (!category) {
+            throw new Error(
+                `Row ${index + 1}: Category missing`
+            );
+        }
+
+        if (!orderCounter[category]) {
+            orderCounter[category] = 1;
+        }
+
+        const ref = doc(
+            collection(
+                db,
+                "writtens",
+                category,
+                "questions"
+            )
+        );
+
+        batch.set(ref, {
+            class: String(row.Class).trim(),
+
+            category: String(row.Category).trim(),
+
+            topic: String(row.Topic).trim(),
+
+            year: Number(row.Year),
+
+            month: String(row.Month).trim(),
+
+            question: String(row.Question).trim(),
+
+            answer: String(row.Answer).trim(),
+
+            order: orderCounter[category]++,
+
+            isActive: true,
+
+            createdAt: serverTimestamp(),
+
+            updatedAt: serverTimestamp(),
+        });
+    });
+
+    await batch.commit();
+}
+</file>
+
 <file path="tsconfig.json">
 {
   "compilerOptions": {
@@ -2630,6 +2306,325 @@ export interface Question {
   order: number;
   isActive: boolean;
   tags: string[];
+}
+</file>
+
+<file path="app/(protected)/admin/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+import { useAuth } from "@/app/context/AuthContext";
+import { isUserAdmin } from "@/services/admin";
+import {
+    getPendingAnswers,
+    approveAnswer,
+    rejectAnswer,
+} from "@/services/firestore";
+
+import AdminAnswerCard from "@/components/AdminAnswerCard";
+
+interface PendingAnswer {
+    id: string;
+    questionId: string;
+    category: string;
+    userName: string;
+    answer: string;
+}
+
+export default function AdminPage() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+
+    const [checking, setChecking] = useState(true);
+    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
+
+    useEffect(() => {
+        async function init() {
+            if (loading) return;
+
+            if (!user) {
+                router.replace("/");
+                return;
+            }
+
+            const admin = await isUserAdmin(user.uid);
+
+            if (!admin) {
+                router.replace("/");
+                return;
+            }
+
+            const pending = await getPendingAnswers();
+
+            setAnswers(pending as PendingAnswer[]);
+            setChecking(false);
+        }
+
+        init();
+    }, [user, loading, router]);
+
+    async function handleApprove(id: string) {
+        await approveAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
+
+    async function handleReject(id: string) {
+        await rejectAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
+
+    if (checking) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                Checking permissions...
+            </div>
+        );
+    }
+
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
+
+                <h1 className="text-4xl font-bold">
+                    Admin Dashboard
+                </h1>
+
+                <p className="mt-2 text-gray-500">
+                    Manage uploads and community answers.
+                </p>
+
+                <div className="mt-8 flex flex-wrap gap-4">
+
+                    <Link
+                        href="/admin/orals"
+                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
+                    >
+                        Upload Oral Questions
+                    </Link>
+
+                    <Link
+                        href="/admin/writtens"
+                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
+                    >
+                        Upload Written Questions
+                    </Link>
+
+                </div>
+
+                <div className="mt-12">
+
+                    <h2 className="text-2xl font-bold">
+                        Pending Community Answers
+                    </h2>
+
+                    <div className="mt-6 space-y-6">
+
+                        {answers.length === 0 && (
+                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
+                                No pending answers.
+                            </div>
+                        )}
+
+                        {answers.map((answer) => (
+                            <AdminAnswerCard
+                                key={answer.id}
+                                id={answer.id}
+                                questionId={answer.questionId}
+                                category={answer.category}
+                                userName={answer.userName}
+                                answer={answer.answer}
+                                onApprove={handleApprove}
+                                onReject={handleReject}
+                            />
+                        ))}
+
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="app/(protected)/writtens/[category]/page.tsx">
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+
+import WrittenCard from "@/components/WrittenCard";
+import WrittenFilters from "@/components/WrittenFilters";
+
+import {
+  getWrittenQuestions,
+  WrittenQuestion,
+} from "@/services/written.service";
+
+export default function WrittensPage() {
+  const params = useParams();
+
+  const category =
+    typeof params.category === "string"
+      ? params.category.toLowerCase()
+      : "general";
+
+  const [questions, setQuestions] = useState<WrittenQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
+
+  const [selectedClass, setSelectedClass] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedMonth, setSelectedMonth] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+
+  useEffect(() => {
+    async function loadQuestions() {
+      try {
+        setLoading(true);
+
+        const data = await getWrittenQuestions(category);
+
+        setQuestions(data);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadQuestions();
+  }, [category]);
+
+  const years = useMemo(() => {
+    return [...new Set(questions.map((q) => q.year))]
+      .filter(Boolean)
+      .sort((a, b) => b - a);
+  }, [questions]);
+
+  const topics = useMemo(() => {
+    return [...new Set(questions.map((q) => q.topic))]
+      .filter(Boolean)
+      .sort();
+  }, [questions]);
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((question) => {
+      const classMatch =
+        selectedClass === "All" ||
+        question.class === selectedClass;
+
+      const yearMatch =
+        selectedYear === "All" ||
+        String(question.year) === selectedYear;
+
+      const monthMatch =
+        selectedMonth === "All" ||
+        question.month === selectedMonth;
+
+      const topicMatch =
+        selectedTopic === "All" ||
+        question.topic === selectedTopic;
+
+      const searchMatch =
+        search.trim() === "" ||
+        question.question
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.answer
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.topic
+          .toLowerCase()
+          .includes(search.toLowerCase());
+
+      return (
+        classMatch &&
+        yearMatch &&
+        monthMatch &&
+        topicMatch &&
+        searchMatch
+      );
+    });
+  }, [
+    questions,
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+  ]);
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-6 py-10">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold capitalize">
+            {category} Written Questions
+          </h1>
+
+          <p className="mt-2 text-gray-500">
+            Practice company written interview questions.
+          </p>
+        </div>
+
+        <WrittenFilters
+          search={search}
+          setSearch={setSearch}
+          selectedClass={selectedClass}
+          setSelectedClass={setSelectedClass}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          selectedTopic={selectedTopic}
+          setSelectedTopic={setSelectedTopic}
+          years={years}
+          topics={topics}
+        />
+
+        <div className="mt-8 flex items-center justify-between">
+          <h2 className="text-2xl font-semibold">
+            Questions
+          </h2>
+
+          <div className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
+            {filteredQuestions.length} Questions
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
+            Loading Questions...
+          </div>
+        ) : filteredQuestions.length === 0 ? (
+          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
+            No Questions Found.
+          </div>
+        ) : (
+          <div className="mt-8 space-y-6">
+            {filteredQuestions.map((question) => (
+              <WrittenCard
+                key={question.id}
+                question={question}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
 }
 </file>
 

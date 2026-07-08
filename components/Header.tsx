@@ -19,61 +19,69 @@ export default function Header({ setShowAuth }: HeaderProps) {
       console.error(error);
     }
   };
-
-  const shortName =
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "";
+  const shortEmail = user?.email
+    ? user.email.length > 14
+      ? user.email.slice(0, 14) + "..."
+      : user.email
+    : "";
 
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-3xl px-5 py-4 md:px-6 md:py-5 shadow-sm">
+
       <div className="flex items-center justify-between">
-        {/* Left */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center -rotate-6">
+
+        {/* LEFT SIDE (LOGO + TEXT) */}
+        <div className="flex items-center gap-3 min-w-0">
+
+          <div className="w-12 h-12 flex items-center justify-center rotate-[-8deg] flex-shrink-0">
             <Sailboat size={30} />
           </div>
 
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
+          <div className="leading-tight min-w-0">
+            <h1 className="text-xl font-bold tracking-tight truncate">
               NAVIK
             </h1>
-
-            <p className="text-xs text-gray-500">
-              Sail Towards COC
+            <p className="text-xs text-gray-500 truncate">
+              Sail towards COC
             </p>
           </div>
+
         </div>
 
-        {/* Right */}
+        {/* RIGHT SIDE */}
         {user ? (
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-gray-100 px-3 py-2">
-              <p className="text-[10px] text-gray-500">
-                Signed In
+          <div className="flex items-center gap-3 flex-shrink-0">
+
+            {/* EMAIL BOX (COMPACT) */}
+            <div className="bg-gray-100 px-2 py-2 rounded-xl w-[60px]">
+              <p className="text-[9px] text-gray-500 leading-none">
+                Signed in
               </p>
 
-              <p className="max-w-[90px] truncate text-xs font-semibold">
-                {shortName}
+              <p className="text-[11px] font-medium truncate">
+                {shortEmail}
               </p>
             </div>
 
+            {/* LOGOUT */}
             <button
               onClick={handleLogout}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black text-white transition hover:opacity-90"
+              className="w-10 h-9 rounded-2xl bg-black text-white flex items-center justify-center"
             >
               <LogOut size={16} />
             </button>
+
           </div>
         ) : (
           <button
             onClick={() => setShowAuth(true)}
-            className="flex items-center gap-2 rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+            className="bg-black text-white px-4 py-2 rounded-xl flex items-center gap-1 text-sm font-medium"
           >
             <User size={16} />
             Login
           </button>
         )}
+
       </div>
     </div>
   );
