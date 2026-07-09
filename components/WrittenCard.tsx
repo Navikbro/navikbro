@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { WrittenQuestion } from "@/services/written.service";
 
@@ -28,6 +28,12 @@ function formatQuestion(text: string) {
 export default function WrittenCard({ question }: Props) {
 
   const [showAnswer, setShowAnswer] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    setExpanded(false);
+    setShowAnswer(false);
+  }, [question.id]);
 
   return (
 
@@ -40,10 +46,10 @@ bg-white
 p-4
 sm:p-5
 md:p-6
-lg:p-7
 shadow-sm
 hover:shadow-md
 transition
+min-h-[180px]
 "
     >
 
@@ -92,7 +98,7 @@ md:pl-5
       >
 
         <h2
-          className="
+          className={`
 whitespace-pre-wrap
 break-words
 text-[15px]
@@ -108,12 +114,45 @@ italic
 tracking-[0.01em]
 text-gray-800
 antialiased
-"
+transition-all
+duration-300
+${expanded ? "" : "line-clamp-4"}
+`}
         >
 
           {formatQuestion(question.question)}
 
         </h2>
+
+        {!expanded && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="
+mt-5
+flex
+items-center
+gap-2
+text-sm
+sm:text-base
+font-semibold
+text-blue-600
+hover:text-blue-800
+transition-colors
+"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp size={18} />
+                Hide Question
+              </>
+            ) : (
+              <>
+                <ChevronDown size={18} />
+                Read Full Question
+              </>
+            )}
+          </button>
+        )}
 
       </div>
 
@@ -121,11 +160,10 @@ antialiased
 
       {/* Button */}
 
-      <button
-
-        onClick={() => setShowAnswer(!showAnswer)}
-
-        className="
+      {expanded && (
+        <button
+          onClick={() => setShowAnswer(!showAnswer)}
+          className="
 mt-6
 flex
 items-center
@@ -134,32 +172,29 @@ text-sm
 sm:text-base
 font-semibold
 text-blue-600
+hover:text-blue-800
+transition-colors
 "
-
-      >
-
-        {
-          showAnswer
-            ?
+        >
+          {showAnswer ? (
             <>
               <ChevronUp size={18} />
               Hide Answer
             </>
-            :
+          ) : (
             <>
               <ChevronDown size={18} />
               Show Answer
             </>
-        }
-
-      </button>
-
+          )}
+        </button>
+      )}
 
 
       {/* Answer */}
 
       {
-        showAnswer &&
+        expanded && showAnswer &&
 
         <div
           className="
@@ -212,9 +247,26 @@ antialiased
 
       }
 
-
+      {expanded && (
+        <button
+          onClick={() => setExpanded(false)}
+          className="
+mt-5
+flex
+items-center
+gap-2
+text-sm
+sm:text-base
+font-semibold
+text-red-600
+hover:text-red-800
+transition-colors
+"
+        >
+          <ChevronUp size={18} />
+          Hide Question
+        </button>
+      )}
     </div>
-
-  )
-
+  );
 }

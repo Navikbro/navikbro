@@ -103,20 +103,57 @@ export default function QuestionCard({
     }
 
     return (
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div
+            className="
+    rounded-2xl
+    border
+    border-gray-200
+    bg-white
+    p-4
+    sm:p-5
+    md:p-6
+    shadow-sm
+    transition
+    hover:shadow-md
+    "
+        >
             <div
                 onClick={onToggle}
                 className="cursor-pointer"
             >
-                <div className="flex items-start justify-between gap-4">
+                <div
+                    className="
+    flex
+    items-start
+    justify-between
+    gap-3
+    "
+                >
 
-                    <div className="flex items-start gap-3">
+                    <div
+                        className="
+    flex
+    min-w-0
+    items-start
+    gap-3
+    "
+                    >
                         <ClipboardList
-                            size={18}
-                            className="mt-1 text-green-600"
+                            className="mt-1 h-5 w-5 shrink-0 flex-none text-green-600"
                         />
 
-                        <h2 className="text-xl font-semibold leading-7">
+                        <h2
+                            className="
+    text-base
+    sm:text-lg
+    md:text-xl
+    font-semibold
+    leading-6
+    sm:leading-7
+    break-words
+    text-gray-900
+    "
+                        >
                             {question}
                         </h2>
                     </div>
@@ -129,18 +166,66 @@ export default function QuestionCard({
 
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div
+                    className="
+    mt-4
+    flex
+    flex-wrap
+    gap-2
+    "
+                >
 
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
-                        {mmd}
+                    <span
+                        className="
+        rounded-full
+        bg-blue-50
+        px-3
+        py-1
+        text-xs
+        sm:text-sm
+        font-medium
+        text-blue-700
+        max-w-full
+        truncate
+        "
+                    >
+                        🏢 {mmd}
                     </span>
 
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
-                        {surveyor}
+
+                    <span
+                        className="
+        rounded-full
+        bg-purple-50
+        px-3
+        py-1
+        text-xs
+        sm:text-sm
+        font-medium
+        text-purple-500
+        max-w-full
+        truncate
+        "
+                    >
+                        ⚓ {surveyor}
                     </span>
 
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
-                        {topic}
+
+                    <span
+                        className="
+        rounded-full
+        bg-green-50
+        px-3
+        py-1
+        text-xs
+        sm:text-sm
+        font-medium
+        text-green-700
+        max-w-full
+        truncate
+        "
+                    >
+                        📚 {topic}
                     </span>
 
                 </div>
@@ -152,8 +237,26 @@ export default function QuestionCard({
             {isOpen && (
                 <>
                     {/* Official Answer */}
-                    <div className="mt-4 rounded-2xl bg-gray-50 p-5">
-                        <p className="whitespace-pre-wrap text-gray-700">
+                    <div
+                        className="
+    mt-4
+    rounded-2xl
+    bg-green-50
+    border
+    border-green-100
+    p-4
+    sm:p-5
+    "
+                    >
+                        <p
+                            className="
+    whitespace-pre-wrap
+    text-sm
+    sm:text-base
+    leading-6
+    text-gray-700
+    "
+                        >
                             {answer}
                         </p>
                     </div>
@@ -196,7 +299,21 @@ export default function QuestionCard({
                             <button
                                 onClick={handleSubmit}
                                 disabled={submitting}
-                                className="mt-4 rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
+                                className="
+mt-4
+w-full
+sm:w-auto
+rounded-2xl
+bg-black
+px-6
+py-3
+text-sm
+sm:text-base
+text-white
+transition
+hover:bg-gray-800
+disabled:opacity-50
+"
                             >
                                 {submitting ? "Submitting..." : "Submit Answer"}
                             </button>
