@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 import { submitCommunityAnswer } from "@/services/firestore";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
 
 import { getApprovedAnswers } from "@/services/firestore";
 import CommunityAnswer from "./CommunityAnswer";
@@ -25,6 +25,9 @@ interface Props {
     mmd: string;
     surveyor: string;
     topic: string;
+
+    isOpen: boolean;
+    onToggle: () => void;
 }
 
 export default function QuestionCard({
@@ -35,8 +38,9 @@ export default function QuestionCard({
     mmd,
     surveyor,
     topic,
+    isOpen,
+    onToggle,
 }: Props) {
-    const [showAnswer, setShowAnswer] = useState(false);
 
     const [communityAnswers, setCommunityAnswers] = useState<
         ApprovedAnswer[]
@@ -100,97 +104,106 @@ export default function QuestionCard({
 
     return (
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-            {/* Question */}
-            <h2 className="text-xl font-semibold">
-                {question}
-            </h2>
+            <div
+                onClick={onToggle}
+                className="cursor-pointer"
+            >
+                <div className="flex items-start justify-between gap-4">
 
-            {/* Tags */}
-            <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
-                    {mmd}
-                </span>
+                    <div className="flex items-start gap-3">
+                        <ClipboardList
+                            size={18}
+                            className="mt-1 text-green-600"
+                        />
 
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
-                    {surveyor}
-                </span>
+                        <h2 className="text-xl font-semibold leading-7">
+                            {question}
+                        </h2>
+                    </div>
 
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
-                    {topic}
-                </span>
+                    {isOpen ? (
+                        <ChevronUp size={20} />
+                    ) : (
+                        <ChevronDown size={20} />
+                    )}
+
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+                        {mmd}
+                    </span>
+
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+                        {surveyor}
+                    </span>
+
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+                        {topic}
+                    </span>
+
+                </div>
             </div>
 
             {/* Official Answer */}
-            <button
-                onClick={() => setShowAnswer((prev) => !prev)}
-                className="mt-6 flex items-center gap-2 font-medium text-blue-600"
-            >
-                {showAnswer ? (
-                    <>
-                        <ChevronUp size={18} />
-                        Hide Official Answer
-                    </>
-                ) : (
-                    <>
-                        <ChevronDown size={18} />
-                        Show Official Answer
-                    </>
-                )}
-            </button>
 
-            {showAnswer && (
-                <div className="mt-4 rounded-2xl bg-gray-50 p-5">
-                    <p className="whitespace-pre-wrap text-gray-700">
-                        {answer}
-                    </p>
-                </div>
-            )}
 
-            {/* Community Answers */}
-            <div className="mt-8 border-t pt-6">
-                <h3 className="mb-4 text-lg font-semibold">
-                    Community Answers
-                </h3>
-
-                {communityAnswers.length === 0 ? (
-                    <p className="text-sm text-gray-500">
-                        No community answers yet.
-                    </p>
-                ) : (
-                    <div className="space-y-4">
-                        {communityAnswers.map((item) => (
-                            <CommunityAnswer
-                                key={item.id}
-                                userName={item.userName}
-                                answer={item.answer}
-                                likes={item.likes}
-                            />
-                        ))}
+            {isOpen && (
+                <>
+                    {/* Official Answer */}
+                    <div className="mt-4 rounded-2xl bg-gray-50 p-5">
+                        <p className="whitespace-pre-wrap text-gray-700">
+                            {answer}
+                        </p>
                     </div>
-                )}
 
-                {/* Submit Your Answer */}
-                <div className="mt-8 border-t pt-6">
-                    <h3 className="mb-4 text-lg font-semibold">
-                        Submit Your Answer
-                    </h3>
+                    {/* Community Answers */}
+                    <div className="mt-8 border-t pt-6">
+                        <h3 className="mb-4 text-lg font-semibold">
+                            Community Answers
+                        </h3>
 
-                    <textarea
-                        value={myAnswer}
-                        onChange={(e) => setMyAnswer(e.target.value)}
-                        placeholder="Write your answer here..."
-                        className="min-h-36 w-full rounded-2xl border border-gray-300 p-4 outline-none focus:border-black"
-                    />
+                        {communityAnswers.length === 0 ? (
+                            <p className="text-sm text-gray-500">
+                                No community answers yet.
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {communityAnswers.map((item) => (
+                                    <CommunityAnswer
+                                        key={item.id}
+                                        userName={item.userName}
+                                        answer={item.answer}
+                                        likes={item.likes}
+                                    />
+                                ))}
+                            </div>
+                        )}
 
-                    <button
-                        onClick={handleSubmit}
-                        disabled={submitting}
-                        className="mt-4 rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
-                    >
-                        {submitting ? "Submitting..." : "Submit Answer"}
-                    </button>
-                </div>
-            </div>
+                        <div className="mt-8 border-t pt-6">
+                            <h3 className="mb-4 text-lg font-semibold">
+                                Submit Your Answer
+                            </h3>
+
+                            <textarea
+                                value={myAnswer}
+                                onChange={(e) => setMyAnswer(e.target.value)}
+                                placeholder="Write your answer here..."
+                                className="min-h-36 w-full rounded-2xl border border-gray-300 p-4 outline-none focus:border-black"
+                            />
+
+                            <button
+                                onClick={handleSubmit}
+                                disabled={submitting}
+                                className="mt-4 rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
+                            >
+                                {submitting ? "Submitting..." : "Submit Answer"}
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

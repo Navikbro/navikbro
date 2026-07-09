@@ -32,8 +32,6 @@ export default function QuestionsList({
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-
   const [selectedMmd, setSelectedMmd] = useState("All");
   const [selectedSurveyor, setSelectedSurveyor] = useState("All");
   const [selectedTopic, setSelectedTopic] = useState("All");
@@ -108,16 +106,7 @@ export default function QuestionsList({
     selectedTopic,
   ]);
 
-  const currentQuestion = filteredQuestions[currentIndex];
-
-  useEffect(() => {
-    setCurrentIndex(0);
-  }, [
-    search,
-    selectedMmd,
-    selectedSurveyor,
-    selectedTopic,
-  ]);
+  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
   return (
     <>
       {/* SEARCH */}
@@ -213,9 +202,9 @@ export default function QuestionsList({
         <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
           <span className="text-gray-500">Current:</span>{" "}
           <span className="font-bold text-black">
-            {filteredQuestions.length > 0
-              ? `${currentIndex + 1} / ${filteredQuestions.length}`
-              : "0 / 0"}
+            <span className="font-bold text-black">
+              {filteredQuestions.length}
+            </span>
           </span>
 
           <span className="mx-2 text-gray-300">|</span>
@@ -225,52 +214,25 @@ export default function QuestionsList({
       </div>
 
       {/* QUESTIONS */}
-      <div className="space-y-6">
-
-        {currentQuestion && (
-          <>
-            <QuestionCard
-              questionId={currentQuestion.id}
-              category={category}
-              question={currentQuestion.question}
-              answer={currentQuestion.answer}
-              mmd={currentQuestion.mmd}
-              surveyor={currentQuestion.surveyor}
-              topic={currentQuestion.topic}
-            />
-
-            {/* Navigation */}
-            <div className="mt-6 flex items-center justify-between">
-
-              <button
-                onClick={() =>
-                  setCurrentIndex((prev) => prev - 1)
-                }
-                disabled={currentIndex === 0}
-                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
-                  ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                  : "bg-black text-white hover:bg-gray-800"
-                  }`}
-              >
-                ◀ Previous
-              </button>
-
-              <button
-                onClick={() =>
-                  setCurrentIndex((prev) => prev + 1)
-                }
-                disabled={currentIndex === filteredQuestions.length - 1}
-                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
-                    ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                    : "bg-black text-white hover:bg-gray-800"
-                  }`}
-              >
-                Next ▶
-              </button>
-
-            </div>
-          </>
-        )}
+      <div className="space-y-4">
+        {filteredQuestions.map((q) => (
+          <QuestionCard
+            key={q.id}
+            questionId={q.id}
+            category={category}
+            question={q.question}
+            answer={q.answer}
+            mmd={q.mmd}
+            surveyor={q.surveyor}
+            topic={q.topic}
+            isOpen={openQuestion === q.id}
+            onToggle={() =>
+              setOpenQuestion(
+                openQuestion === q.id ? null : q.id
+              )
+            }
+          />
+        ))}
 
         {filteredQuestions.length === 0 && (
           <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
@@ -279,8 +241,8 @@ export default function QuestionsList({
             </p>
           </div>
         )}
-
       </div>
+
     </>
-  );
+  )
 }
