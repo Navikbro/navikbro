@@ -3,7 +3,10 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
 
-import { bulkUploadQuestions } from "@/services/firestore";
+import {
+    bulkUploadQuestions,
+    getOralQuestionCount,
+} from "@/services/firestore";
 
 interface ExcelQuestion {
     Category: string;
@@ -17,6 +20,12 @@ interface ExcelQuestion {
 export default function BulkUploadPage() {
     const [rows, setRows] = useState<ExcelQuestion[]>([]);
     const [uploading, setUploading] = useState(false);
+
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    const [existingCount, setExistingCount] = useState(0);
+
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
     function handleFile(file: File) {
         const reader = new FileReader();
@@ -35,33 +44,166 @@ export default function BulkUploadPage() {
             console.table(json);
 
             setRows(json);
+            setValidationErrors([]);
         };
 
         reader.readAsBinaryString(file);
     }
 
+    function validateExcel(rows: ExcelQuestion[]) {
+        const errors: string[] = [];
+
+        const validCategories = [
+            "fn3",
+            "fn4b",
+            "fn5",
+            "fn6",
+            "safety",
+            "motor",
+            "electrical",
+            "mep",
+        ];
+
+        const seenQuestions = new Set<string>();
+
+        rows.forEach((row, index) => {
+            const rowNo = index + 2; // Excel row number
+
+            if (!row.Category.trim()) {
+                errors.push(`Row ${rowNo}: Category is required.`);
+            }
+
+            if (
+                row.Category &&
+                !validCategories.includes(
+                    row.Category.trim().toLowerCase()
+                )
+            ) {
+                errors.push(
+                    `Row ${rowNo}: Invalid Category "${row.Category}".`
+                );
+            }
+
+            if (!row.Question.trim()) {
+                errors.push(`Row ${rowNo}: Question is required.`);
+            }
+
+            if (!row.Answer.trim()) {
+                errors.push(`Row ${rowNo}: Answer is required.`);
+            }
+
+            const key = row.Question.trim().toLowerCase();
+
+            if (seenQuestions.has(key)) {
+                errors.push(
+                    `Row ${rowNo}: Duplicate question found.`
+                );
+            } else {
+                seenQuestions.add(key);
+            }
+        });
+
+        return errors;
+    }
+
     async function handleUpload() {
-        if (rows.length === 0) {
+
+        if (!rows.length) {
             alert("Please upload an Excel file.");
             return;
         }
 
+        const errors = validateExcel(rows);
+
+        if (errors.length) {
+            setValidationErrors(errors);
+            return;
+        }
+
+
+        const categories = [
+            ...new Set(
+                rows.map(
+                    (row) =>
+                        row.Category
+                            .trim()
+                            .toLowerCase()
+                )
+            ),
+        ];
+
+
+        let count = 0;
+
+
+        for (const category of categories) {
+
+            const existing =
+                await getOralQuestionCount(
+                    category
+                );
+
+            count += existing;
+
+        }
+
+
+        setExistingCount(count);
+
+        setShowConfirm(true);
+
+    }
+
+    async function confirmUpload() {
+
         try {
+
             setUploading(true);
 
-            await bulkUploadQuestions(rows);
+
+            await bulkUploadQuestions(
+                rows
+            );
+
 
             alert(
                 `${rows.length} questions uploaded successfully.`
             );
 
+
             setRows([]);
+
+            setShowConfirm(false);
+
+            setExistingCount(0);
+
+
+            const input =
+                document.getElementById(
+                    "oralExcel"
+                ) as HTMLInputElement;
+
+
+            if (input) {
+                input.value = "";
+            }
+
+
         } catch (error) {
+
             console.error(error);
-            alert("Upload failed.");
-        } finally {
-            setUploading(false);
+
+            alert(
+                "Upload failed."
+            );
+
         }
+        finally {
+
+            setUploading(false);
+
+        }
+
     }
     return (
         <main className="min-h-screen bg-[#f5f5f5]">
@@ -82,6 +224,7 @@ export default function BulkUploadPage() {
                     </label>
 
                     <input
+                        id="oralExcel"
                         type="file"
                         accept=".xlsx,.xls"
                         onChange={(e) => {
@@ -122,6 +265,20 @@ export default function BulkUploadPage() {
                     </div>
 
                 </div>
+
+                {validationErrors.length > 0 && (
+                    <div className="mt-8 rounded-3xl border border-red-200 bg-red-50 p-6">
+                        <h2 className="text-xl font-bold text-red-700">
+                            Validation Errors
+                        </h2>
+
+                        <ul className="mt-4 list-disc space-y-2 pl-6 text-red-600">
+                            {validationErrors.map((error, index) => (
+                                <li key={index}>{error}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}d
 
                 {rows.length > 0 && (
 
@@ -185,6 +342,77 @@ export default function BulkUploadPage() {
                 )}
 
             </div>
+
+            {
+                showConfirm && (
+
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+
+                        <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+
+                            <h2 className="text-2xl font-bold">
+                                Replace Question Bank?
+                            </h2>
+
+
+                            <p className="mt-4 text-gray-600">
+
+                                Existing Questions:
+                                <b className="ml-2">
+                                    {existingCount}
+                                </b>
+
+                            </p>
+
+
+                            <p className="mt-2 text-gray-600">
+
+                                New Upload:
+                                <b className="ml-2">
+                                    {rows.length}
+                                </b>
+
+                            </p>
+
+
+                            <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-600">
+
+                                Warning:
+                                Existing questions for this category
+                                will be permanently replaced.
+
+                            </p>
+
+
+                            <div className="mt-6 flex justify-end gap-3">
+
+
+                                <button
+                                    onClick={() =>
+                                        setShowConfirm(false)
+                                    }
+                                    className="rounded-xl border px-5 py-2"
+                                >
+                                    Cancel
+                                </button>
+
+
+                                <button
+                                    onClick={confirmUpload}
+                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white"
+                                >
+                                    Replace
+                                </button>
+
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                )
+            }
+
         </main>
     );
 }

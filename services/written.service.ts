@@ -5,8 +5,9 @@ import {
     orderBy,
     query,
     serverTimestamp,
-    updateDoc,
+    setDoc,
     writeBatch,
+    deleteDoc,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -59,6 +60,48 @@ export async function getWrittenQuestions(
     return result;
 }
 
+async function deleteExistingWrittenQuestions(
+    category: string
+) {
+    const questionsRef = collection(
+        db,
+        "writtens",
+        category,
+        "questions"
+    );
+
+    const snapshot = await getDocs(
+        questionsRef
+    );
+
+    const deleteBatch = writeBatch(db);
+
+    snapshot.docs.forEach((questionDoc) => {
+        deleteBatch.delete(questionDoc.ref);
+    });
+
+    await deleteBatch.commit();
+}
+
+export async function getWrittenQuestionCount(
+    category: string
+) {
+
+    const snapshot =
+        await getDocs(
+            collection(
+                db,
+                "writtens",
+                category,
+                "questions"
+            )
+        );
+
+
+    return snapshot.size;
+
+}
+
 export async function bulkUploadWrittenQuestions(
     rows: any[]
 ) {
@@ -66,6 +109,8 @@ export async function bulkUploadWrittenQuestions(
 
     const orderCounter: Record<string, number> = {};
     const topicCounter: Record<string, Set<string>> = {};
+
+    const categories = new Set<string>();
 
     rows.forEach((rawRow, index) => {
         const row: Record<string, any> = {};
@@ -83,6 +128,7 @@ export async function bulkUploadWrittenQuestions(
                 `Row ${index + 1}: Category missing`
             );
         }
+        categories.add(category);
 
         if (!orderCounter[category]) {
             orderCounter[category] = 1;
@@ -132,13 +178,29 @@ export async function bulkUploadWrittenQuestions(
         });
     });
 
+    for (const category of categories) {
+
+        await deleteExistingWrittenQuestions(
+            category
+        );
+
+    }
+
     await batch.commit();
 
     for (const category of Object.keys(orderCounter)) {
-        await updateDoc(doc(db, "writtens", category), {
-            questionCount: orderCounter[category] - 1,
-            topicCount: topicCounter[category].size,
-            updatedAt: serverTimestamp(),
-        });
+
+        await setDoc(
+            doc(db, "writtens", category),
+            {
+                questionCount: orderCounter[category] - 1,
+                topicCount: topicCounter[category].size,
+                updatedAt: serverTimestamp(),
+            },
+            {
+                merge: true,
+            }
+        );
+
     }
 }

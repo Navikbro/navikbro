@@ -7,6 +7,7 @@ import {
     orderBy,
     query,
     serverTimestamp,
+    setDoc,
     updateDoc,
     where,
     writeBatch,
@@ -15,6 +16,18 @@ import {
 import { db } from "@/lib/firebase";
 
 const questionCache = new Map<string, Question[]>();
+
+export function clearQuestionCache(
+    category?: string
+) {
+    if (category) {
+        questionCache.delete(
+            category.toLowerCase()
+        );
+    } else {
+        questionCache.clear();
+    }
+}
 
 export interface Question {
     id: string;
@@ -138,15 +151,67 @@ export async function rejectAnswer(id: string) {
     await deleteDoc(doc(db, "communityAnswers", id));
 }
 
+async function deleteExistingOralQuestions(
+    category: string
+) {
+
+    const questionsRef = collection(
+        db,
+        "orals",
+        category,
+        "questions"
+    );
+
+
+    const snapshot = await getDocs(
+        questionsRef
+    );
+
+
+    const deleteBatch = writeBatch(db);
+
+
+    snapshot.docs.forEach((questionDoc) => {
+
+        deleteBatch.delete(
+            questionDoc.ref
+        );
+
+    });
+
+
+    await deleteBatch.commit();
+}
+
+export async function getOralQuestionCount(
+    category: string
+) {
+    const snapshot = await getDocs(
+        collection(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions"
+        )
+    );
+
+    return snapshot.size;
+}
+
+
 /* ===========================
    BULK EXCEL UPLOAD
 =========================== */
 
 export async function bulkUploadQuestions(rows: any[]) {
+
     const batch = writeBatch(db);
 
     const orderCounter: Record<string, number> = {};
+
     const topicCounter: Record<string, Set<string>> = {};
+
+    const categories = new Set<string>();
 
     rows.forEach((rawRow, index) => {
         // Remove hidden spaces from Excel column names
@@ -158,15 +223,35 @@ export async function bulkUploadQuestions(rows: any[]) {
 
         console.log("Uploading Row", index + 1, row);
 
-        const category = String(row.Category ?? "")
+        let category = String(row.Category ?? "")
             .trim()
             .toLowerCase();
+
+
+        const categoryMap: Record<string, string> = {
+            safety: "fn3",
+            fn3: "fn3",
+
+            motor: "fn4b",
+            fn4b: "fn4b",
+
+            electrical: "fn5",
+            fn5: "fn5",
+
+            mep: "fn6",
+            fn6: "fn6",
+        };
+
+
+        category = categoryMap[category] ?? category;
 
         if (!category) {
             throw new Error(
                 `Row ${index + 1}: Category is missing.`
             );
         }
+
+        categories.add(category);
 
         if (!orderCounter[category]) {
             orderCounter[category] = 1;
@@ -202,14 +287,36 @@ export async function bulkUploadQuestions(rows: any[]) {
         });
     });
 
+    for (const category of categories) {
+
+        await deleteExistingOralQuestions(
+            category
+        );
+
+    }
+
     await batch.commit();
 
     // Update category metadata
     for (const category of Object.keys(orderCounter)) {
-        await updateDoc(doc(db, "orals", category), {
-            questionCount: orderCounter[category] - 1,
-            topicCount: topicCounter[category].size,
-            updatedAt: serverTimestamp(),
-        });
+        await setDoc(
+            doc(db, "orals", category),
+            {
+                questionCount:
+                    orderCounter[category] - 1,
+
+                topicCount:
+                    topicCounter[category].size,
+
+                updatedAt:
+                    serverTimestamp(),
+            },
+            {
+                merge: true,
+            }
+        );
+    }
+    for (const category of Object.keys(orderCounter)) {
+        clearQuestionCache(category);
     }
 }
