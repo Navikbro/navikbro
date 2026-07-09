@@ -14,6 +14,8 @@ import {
 
 import { db } from "@/lib/firebase";
 
+const questionCache = new Map<string, Question[]>();
+
 export interface Question {
     id: string;
     question: string;
@@ -39,6 +41,11 @@ export interface CommunityAnswer {
 export async function getQuestions(
     category: string
 ): Promise<Question[]> {
+    const key = category.toLowerCase();
+
+    if (questionCache.has(key)) {
+        return questionCache.get(key)!;
+    }
     const q = query(
         collection(
             db,
@@ -51,7 +58,7 @@ export async function getQuestions(
 
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => {
+    const result = snapshot.docs.map((doc) => {
         const data = doc.data();
 
         return {
@@ -65,6 +72,10 @@ export async function getQuestions(
             isActive: data.isActive ?? true,
         };
     });
+
+    questionCache.set(key, result);
+
+    return result;
 }
 
 export async function submitCommunityAnswer(data: {
@@ -135,6 +146,7 @@ export async function bulkUploadQuestions(rows: any[]) {
     const batch = writeBatch(db);
 
     const orderCounter: Record<string, number> = {};
+    const topicCounter: Record<string, Set<string>> = {};
 
     rows.forEach((rawRow, index) => {
         // Remove hidden spaces from Excel column names
@@ -160,6 +172,16 @@ export async function bulkUploadQuestions(rows: any[]) {
             orderCounter[category] = 1;
         }
 
+        if (!topicCounter[category]) {
+            topicCounter[category] = new Set();
+        }
+
+        const topic = String(row.Topic ?? "").trim();
+
+        if (topic) {
+            topicCounter[category].add(topic);
+        }
+
         const ref = doc(
             collection(db, "orals", category, "questions")
         );
@@ -181,4 +203,13 @@ export async function bulkUploadQuestions(rows: any[]) {
     });
 
     await batch.commit();
+
+    // Update category metadata
+    for (const category of Object.keys(orderCounter)) {
+        await updateDoc(doc(db, "orals", category), {
+            questionCount: orderCounter[category] - 1,
+            topicCount: topicCounter[category].size,
+            updatedAt: serverTimestamp(),
+        });
+    }
 }

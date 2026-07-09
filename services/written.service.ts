@@ -5,6 +5,7 @@ import {
     orderBy,
     query,
     serverTimestamp,
+    updateDoc,
     writeBatch,
 } from "firebase/firestore";
 
@@ -64,6 +65,7 @@ export async function bulkUploadWrittenQuestions(
     const batch = writeBatch(db);
 
     const orderCounter: Record<string, number> = {};
+    const topicCounter: Record<string, Set<string>> = {};
 
     rows.forEach((rawRow, index) => {
         const row: Record<string, any> = {};
@@ -84,6 +86,16 @@ export async function bulkUploadWrittenQuestions(
 
         if (!orderCounter[category]) {
             orderCounter[category] = 1;
+        }
+
+        if (!topicCounter[category]) {
+            topicCounter[category] = new Set();
+        }
+
+        const topic = String(row.Topic ?? "").trim();
+
+        if (topic) {
+            topicCounter[category].add(topic);
         }
 
         const ref = doc(
@@ -121,4 +133,12 @@ export async function bulkUploadWrittenQuestions(
     });
 
     await batch.commit();
+
+    for (const category of Object.keys(orderCounter)) {
+        await updateDoc(doc(db, "writtens", category), {
+            questionCount: orderCounter[category] - 1,
+            topicCount: topicCounter[category].size,
+            updatedAt: serverTimestamp(),
+        });
+    }
 }

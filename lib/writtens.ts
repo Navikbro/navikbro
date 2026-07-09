@@ -1,34 +1,24 @@
-import { collection, getDocs } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export async function getWrittenStats(category: string) {
-  const questionsRef = collection(db, "writtens", category, "questions");
+  const ref = doc(db, "writtens", category);
 
-  const snapshot = await getDocs(questionsRef);
+  const snapshot = await getDoc(ref);
 
-  const topics = new Set<string>();
+  if (!snapshot.exists()) {
+    return {
+      questions: 0,
+      topics: 0,
+      updatedAt: null,
+    };
+  }
 
-  let latestUpdated: Date | null = null;
-
-  snapshot.forEach((doc) => {
-    const data = doc.data();
-
-    if (typeof data.topic === "string" && data.topic.trim() !== "") {
-      topics.add(data.topic.trim());
-    }
-
-    if (data.updatedAt?.toDate) {
-      const date = data.updatedAt.toDate();
-
-      if (!latestUpdated || date > latestUpdated) {
-        latestUpdated = date;
-      }
-    }
-  });
+  const data = snapshot.data();
 
   return {
-    questions: snapshot.size,
-    topics: topics.size,
-    updatedAt: latestUpdated,
+    questions: data.questionCount ?? 0,
+    topics: data.topicCount ?? 0,
+    updatedAt: data.updatedAt?.toDate?.() ?? null,
   };
 }
