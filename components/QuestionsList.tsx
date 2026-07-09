@@ -1,6 +1,7 @@
-"use client";
+"use client"
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+
 import {
   ChevronDown,
   ChevronUp,
@@ -107,6 +108,7 @@ export default function QuestionsList({
   ]);
 
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
+
   return (
     <>
       {/* SEARCH */}
@@ -215,7 +217,9 @@ export default function QuestionsList({
 
       {/* QUESTIONS */}
       <div className="space-y-4">
+
         {filteredQuestions.map((q) => (
+
           <QuestionCard
             key={q.id}
             questionId={q.id}
@@ -226,21 +230,27 @@ export default function QuestionsList({
             surveyor={q.surveyor}
             topic={q.topic}
             isOpen={openQuestion === q.id}
-            onToggle={() =>
+            onToggle={() => {
+
+              const currentScroll = window.scrollY;
+
               setOpenQuestion(
                 openQuestion === q.id ? null : q.id
-              )
-            }
-          />
-        ))}
+              );
 
-        {filteredQuestions.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
-            <p className="text-gray-500">
-              No questions found.
-            </p>
-          </div>
-        )}
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  window.scrollTo({
+                    top: currentScroll,
+                    behavior: "instant",
+                  });
+                });
+              });
+
+            }}
+          />
+
+        ))}
       </div>
 
     </>

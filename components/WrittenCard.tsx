@@ -36,237 +36,213 @@ export default function WrittenCard({ question }: Props) {
   }, [question.id]);
 
   return (
-
     <div
       className="
-rounded-2xl
-border
-border-gray-200
-bg-white
-p-4
-sm:p-5
-md:p-6
-shadow-sm
-hover:shadow-md
-transition
-min-h-[180px]
-"
+        rounded-3xl
+        border
+        border-gray-200
+        bg-white
+        p-4
+        sm:p-5
+        md:p-6
+        shadow-sm
+        transition
+        hover:shadow-lg
+        "
     >
 
-
-      {/* Tags */}
+      {/* Header Tags */}
 
       <div
         className="
-  flex
-  flex-wrap
-  gap-2
-  mb-5
-  "
+            flex
+            flex-wrap
+            gap-2
+            mb-5
+            "
       >
 
-        <span className="rounded-full bg-blue-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-blue-700">
+        <span
+          className="
+                rounded-full
+                bg-blue-100
+                px-3
+                py-1
+                text-xs
+                sm:text-sm
+                font-semibold
+                text-blue-700
+                "
+        >
           {question.class}
         </span>
 
-        <span className="rounded-full bg-green-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-green-700">
-          {question.month}
-        </span>
 
-        <span className="rounded-full bg-yellow-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-yellow-700">
+        <span
+          className="
+                rounded-full
+                bg-green-100
+                px-3
+                py-1
+                text-xs
+                sm:text-sm
+                font-semibold
+                text-green-700
+                "
+        >
           {question.year}
         </span>
 
-        <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700">
+
+        <span
+          className="
+                rounded-full
+                bg-purple-100
+                px-3
+                py-1
+                text-xs
+                sm:text-sm
+                font-semibold
+                text-purple-700
+                "
+        >
+          {question.month}
+        </span>
+
+        <span
+          className="
+    max-w-full
+    truncate
+    rounded-full
+    bg-orange-100
+    px-3
+    py-1
+    text-xs
+    sm:text-sm
+    font-semibold
+    text-orange-700
+  "
+        >
           {question.topic}
         </span>
 
+
       </div>
+      {/* Question */ }
+
+  <div>
+
+    <h2
+      className="
+                whitespace-pre-wrap
+                break-words
+                text-base
+                sm:text-lg
+                md:text-xl
+                font-medium
+                leading-7
+                sm:leading-8
+                text-gray-900
+                "
+    >
+      {formatQuestion(question.question)}
+    </h2>
+
+  </div>
 
 
 
-      {/* Question Box */}
+  {/* Answer Button */ }
+
+  <button
+    onClick={() => setShowAnswer(!showAnswer)}
+    className="
+            mt-6
+            flex
+            w-full
+            sm:w-auto
+            sm:ml-auto
+            items-center
+            justify-center
+            gap-2
+            rounded-xl
+            bg-black
+            px-5
+            py-3
+            text-sm
+            sm:text-base
+            font-semibold
+            text-white
+            transition
+            hover:bg-gray-800
+            "
+  >
+
+    {showAnswer ? (
+      <>
+        <ChevronUp size={18} />
+        Hide Answer
+      </>
+    ) : (
+      <>
+        <ChevronDown size={18} />
+        Show Answer
+      </>
+    )}
+
+  </button>
+
+
+
+  {/* Answer */ }
+
+  {
+    showAnswer && (
 
       <div
         className="
-border-l-4
-border-blue-500
-pl-3
-sm:pl-4
-md:pl-5
-"
+                mt-5
+                rounded-2xl
+                border
+                border-green-200
+                bg-green-50
+                p-4
+                sm:p-5
+                "
       >
 
-        <h2
-          className={`
-whitespace-pre-wrap
-break-words
-text-[15px]
-sm:text-[17px]
-md:text-[19px]
-lg:text-[20px]
-xl:text-[21px]
-leading-7
-sm:leading-8
-md:leading-9
-font-medium
-italic
-tracking-[0.01em]
-text-gray-800
-antialiased
-transition-all
-duration-300
-${expanded ? "" : "line-clamp-4"}
-`}
+        <h3
+          className="
+                    mb-3
+                    text-sm
+                    sm:text-base
+                    font-bold
+                    text-green-700
+                    "
         >
+          Official Answer
+        </h3>
 
-          {formatQuestion(question.question)}
 
-        </h2>
+        <p
+          className="
+                    whitespace-pre-wrap
+                    break-words
+                    text-sm
+                    sm:text-base
+                    leading-7
+                    text-gray-700
+                    "
+        >
+          {question.answer}
+        </p>
 
-        {!expanded && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="
-mt-5
-flex
-items-center
-gap-2
-text-sm
-sm:text-base
-font-semibold
-text-blue-600
-hover:text-blue-800
-transition-colors
-"
-          >
-            {expanded ? (
-              <>
-                <ChevronUp size={18} />
-                Hide Question
-              </>
-            ) : (
-              <>
-                <ChevronDown size={18} />
-                Read Full Question
-              </>
-            )}
-          </button>
-        )}
 
       </div>
 
+    )
+  }
 
-
-      {/* Button */}
-
-      {expanded && (
-        <button
-          onClick={() => setShowAnswer(!showAnswer)}
-          className="
-mt-6
-flex
-items-center
-gap-2
-text-sm
-sm:text-base
-font-semibold
-text-blue-600
-hover:text-blue-800
-transition-colors
-"
-        >
-          {showAnswer ? (
-            <>
-              <ChevronUp size={18} />
-              Hide Answer
-            </>
-          ) : (
-            <>
-              <ChevronDown size={18} />
-              Show Answer
-            </>
-          )}
-        </button>
-      )}
-
-
-      {/* Answer */}
-
-      {
-        expanded && showAnswer &&
-
-        <div
-          className="
-mt-5
-rounded-xl
-border
-border-green-200
-bg-green-50
-p-4
-sm:p-5
-md:p-6
-"
-        >
-
-          <h3
-            className="
-mb-3
-font-semibold
-text-green-700
-text-base
-sm:text-lg
-"
-          >
-            Official Answer
-          </h3>
-
-
-          <p
-            className="
-whitespace-pre-wrap
-break-words
-text-[15px]
-sm:text-[16px]
-md:text-[17px]
-lg:text-[18px]
-leading-7
-sm:leading-8
-font-normal
-italic
-tracking-[0.01em]
-text-gray-700
-antialiased
-"
-          >
-            {question.answer}
-          </p>
-
-
-        </div>
-
-      }
-
-      {expanded && (
-        <button
-          onClick={() => setExpanded(false)}
-          className="
-mt-5
-flex
-items-center
-gap-2
-text-sm
-sm:text-base
-font-semibold
-text-red-600
-hover:text-red-800
-transition-colors
-"
-        >
-          <ChevronUp size={18} />
-          Hide Question
-        </button>
-      )}
-    </div>
+    </div >
   );
 }

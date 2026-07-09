@@ -52,6 +52,14 @@ export default function QuestionCard({
 
     const [submitting, setSubmitting] = useState(false);
 
+    const [showCommunity, setShowCommunity] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setShowCommunity(false);
+        }
+    }, [isOpen]);
+
     useEffect(() => {
         async function loadAnswers() {
             try {
@@ -92,6 +100,8 @@ export default function QuestionCard({
             });
 
             alert("Answer submitted for admin approval.");
+            setShowCommunity(false);
+
 
             setMyAnswer("");
         } catch (error) {
@@ -119,7 +129,10 @@ export default function QuestionCard({
         >
             <div
                 onClick={onToggle}
-                className="cursor-pointer"
+                className="
+    cursor-pointer
+    select-none
+    "
             >
                 <div
                     className="
@@ -234,11 +247,18 @@ export default function QuestionCard({
             {/* Official Answer */}
 
 
-            {isOpen && (
-                <>
-                    {/* Official Answer */}
-                    <div
-                        className="
+            <div
+                className={`
+    overflow-hidden
+    transition-all
+    duration-300
+    ease-in-out
+   ${isOpen ? "max-h-[10000px] opacity-100 mt-4" : "max-h-0 opacity-0"}
+    `}
+            >
+                {/* Official Answer */}
+                <div
+                    className="
     mt-4
     rounded-2xl
     bg-green-50
@@ -247,80 +267,171 @@ export default function QuestionCard({
     p-4
     sm:p-5
     "
-                    >
-                        <p
-                            className="
+                >
+                    <p
+                        className="
     whitespace-pre-wrap
     text-sm
     sm:text-base
     leading-6
     text-gray-700
     "
-                        >
-                            {answer}
-                        </p>
-                    </div>
+                    >
+                        {answer}
+                    </p>
+                </div>
 
-                    {/* Community Answers */}
-                    <div className="mt-8 border-t pt-6">
-                        <h3 className="mb-4 text-lg font-semibold">
-                            Community Answers
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCommunity(!showCommunity);
+                    }}
+                    className="
+    mt-6
+    flex
+    w-full
+    items-center
+    justify-between
+    rounded-xl
+    border
+    border-gray-200
+    bg-gray-50
+    px-4
+    py-3
+    text-sm
+    sm:text-base
+    font-semibold
+    text-gray-700
+    hover:bg-gray-100
+    "
+                >
+                    <span>
+                        💬 Community Discussion
+                    </span>
+
+                    {showCommunity ? (
+                        <ChevronUp size={18} />
+                    ) : (
+                        <ChevronDown size={18} />
+                    )}
+
+                </button>
+
+                <div
+                    className={`
+    overflow-hidden
+    transition-all
+    duration-300
+    ease-in-out
+    ${showCommunity
+                            ? "max-h-[10000px] opacity-100 mt-4"
+                            : "max-h-0 opacity-0 pointer-events-none"
+                        }
+    `}
+                >
+
+                    <h3
+                        className="
+mb-4
+text-lg
+font-semibold
+"
+                    >
+                        Community Answers
+                    </h3>
+
+
+                    {communityAnswers.length === 0 ? (
+
+                        <p className="text-sm text-gray-500">
+                            No community answers yet.
+                        </p>
+
+                    ) : (
+
+                        <div className="space-y-4">
+
+                            {communityAnswers.map((item) => (
+                                <CommunityAnswer
+                                    key={item.id}
+                                    userName={item.userName}
+                                    answer={item.answer}
+                                    likes={item.likes}
+                                />
+                            ))}
+
+                        </div>
+
+                    )}
+
+
+
+                    {/* Submit Your Answer */}
+
+                    <div
+                        className="
+        mt-8
+        border-t
+        pt-6
+        "
+                    >
+
+                        <h3
+                            className="
+            mb-4
+            text-lg
+            font-semibold
+            "
+                        >
+                            Submit Your Answer
                         </h3>
 
-                        {communityAnswers.length === 0 ? (
-                            <p className="text-sm text-gray-500">
-                                No community answers yet.
-                            </p>
-                        ) : (
-                            <div className="space-y-4">
-                                {communityAnswers.map((item) => (
-                                    <CommunityAnswer
-                                        key={item.id}
-                                        userName={item.userName}
-                                        answer={item.answer}
-                                        likes={item.likes}
-                                    />
-                                ))}
-                            </div>
-                        )}
 
-                        <div className="mt-8 border-t pt-6">
-                            <h3 className="mb-4 text-lg font-semibold">
-                                Submit Your Answer
-                            </h3>
+                        <textarea
+                            value={myAnswer}
+                            onChange={(e) => setMyAnswer(e.target.value)}
+                            placeholder="Write your answer here..."
+                            className="
+            min-h-36
+            w-full
+            rounded-2xl
+            border
+            border-gray-300
+            p-4
+            outline-none
+            focus:border-black
+            "
+                        />
 
-                            <textarea
-                                value={myAnswer}
-                                onChange={(e) => setMyAnswer(e.target.value)}
-                                placeholder="Write your answer here..."
-                                className="min-h-36 w-full rounded-2xl border border-gray-300 p-4 outline-none focus:border-black"
-                            />
 
-                            <button
-                                onClick={handleSubmit}
-                                disabled={submitting}
-                                className="
-mt-4
-w-full
-sm:w-auto
-rounded-2xl
-bg-black
-px-6
-py-3
-text-sm
-sm:text-base
-text-white
-transition
-hover:bg-gray-800
-disabled:opacity-50
-"
-                            >
-                                {submitting ? "Submitting..." : "Submit Answer"}
-                            </button>
-                        </div>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={submitting}
+                            className="
+            mt-4
+            w-full
+            sm:w-auto
+            rounded-2xl
+            bg-black
+            px-6
+            py-3
+            text-white
+            disabled:opacity-50
+            "
+                        >
+                            {submitting ? "Submitting..." : "Submit Answer"}
+                        </button>
+
+
                     </div>
-                </>
-            )}
+
+
+                </div>
+
+
+
+            </div>
+
         </div>
     );
 }
