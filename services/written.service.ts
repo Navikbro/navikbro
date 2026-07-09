@@ -38,7 +38,7 @@ export async function getWrittenQuestions(
 
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => {
+    const result = snapshot.docs.map((doc) => {
         const data = doc.data();
 
         return {
@@ -54,6 +54,8 @@ export async function getWrittenQuestions(
             isActive: data.isActive ?? true,
         };
     });
+
+    return result;
 }
 
 export async function bulkUploadWrittenQuestions(

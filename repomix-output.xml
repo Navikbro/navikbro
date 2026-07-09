@@ -51,6 +51,7 @@ app/context/AuthContext.tsx
 app/favicon.ico
 app/globals.css
 app/layout.tsx
+app/loading.tsx
 app/page.tsx
 components/AdminAnswerCard.tsx
 components/AuthModal.tsx
@@ -58,14 +59,19 @@ components/CategoryCard.tsx
 components/CommunityAnswer.tsx
 components/FilterBar.tsx
 components/Header.tsx
+components/InitialLoader.tsx
+components/LoadingScreen.tsx
 components/ProtectedRoute.tsx
 components/QuestionCard.tsx
 components/QuestionsList.tsx
 components/SectionHeading.tsx
+components/UserGreeting.tsx
 components/WrittenCard.tsx
 components/WrittenFilters.tsx
 eslint.config.mjs
 lib/firebase.ts
+lib/orals.ts
+lib/writtens.ts
 next.config.ts
 package.json
 postcss.config.mjs
@@ -584,50 +590,6 @@ export default function ProtectedLayout({
 }
 </file>
 
-<file path="app/(protected)/orals/[category]/page.tsx">
-import QuestionsList from "@/components/QuestionsList";
-import { getQuestions } from "@/services/firestore";
-
-interface PageProps {
-  params: Promise<{
-    category: string;
-  }>;
-}
-
-export default async function OralCategoryPage({
-  params,
-}: PageProps) {
-  const { category } = await params;
-
-  const questions = await getQuestions(category);
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-5xl px-5 py-10">
-
-        {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold uppercase">
-            {category}
-          </h1>
-
-          <p className="mt-2 text-gray-500">
-            Browse all oral questions for this category.
-          </p>
-        </div>
-
-        {/* Questions */}
-        <QuestionsList
-          category={category}
-          questions={questions}
-        />
-
-      </div>
-    </main>
-  );
-}
-</file>
-
 <file path="app/context/AuthContext.tsx">
 "use client";
 
@@ -714,32 +676,11 @@ export function useAuth() {
 }
 </file>
 
-<file path="app/globals.css">
-@import "tailwindcss";
+<file path="app/loading.tsx">
+import LoadingScreen from "@/components/LoadingScreen";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+export default function Loading() {
+  return <LoadingScreen />;
 }
 </file>
 
@@ -816,240 +757,6 @@ export default function AdminAnswerCard({
       </div>
 
     </div>
-  );
-}
-</file>
-
-<file path="components/AuthModal.tsx">
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { X, Mail } from "lucide-react";
-import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase";
-
-interface Props {
-  show: boolean;
-  setShow: (show: boolean) => void;
-  redirectPath: string;
-}
-
-export default function AuthModal({
-  show,
-  setShow,
-  redirectPath,
-}: Props) {
-  const router = useRouter();
-
-  const [isSignup, setIsSignup] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  if (!show) return null;
-
-  const redirectUser = () => {
-    setShow(false);
-
-    if (redirectPath) {
-      router.push(redirectPath);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      setLoading(true);
-
-      const provider = new GoogleAuthProvider();
-
-      await signInWithPopup(auth, provider);
-
-      redirectUser();
-    } catch (err) {
-      console.error(err);
-      alert("Google Sign In Failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEmailAuth = async () => {
-    try {
-      setLoading(true);
-
-      if (isSignup) {
-        await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-      } else {
-        await signInWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-      }
-
-      setEmail("");
-      setPassword("");
-
-      redirectUser();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-5">
-      <div className="w-full max-w-sm rounded-[32px] bg-white p-7 shadow-2xl">
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <h2 className="text-3xl font-bold">
-              {isSignup ? "Create Account" : "Welcome"}
-            </h2>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Sign in to continue using NAVIK.
-            </p>
-          </div>
-
-          <button
-            onClick={() => setShow(false)}
-            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-300 px-4 py-4 font-medium hover:bg-gray-50 disabled:opacity-60"
-        >
-          <img
-            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-            alt="Google"
-            className="h-5 w-5"
-          />
-
-          Continue with Google
-        </button>
-
-        <div className="mb-5 flex items-center gap-4">
-          <div className="h-px flex-1 bg-gray-200" />
-          <span className="text-xs text-gray-400">OR</span>
-          <div className="h-px flex-1 bg-gray-200" />
-        </div>
-
-        <div className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-2xl border border-gray-300 px-4 py-4 outline-none focus:border-black"
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-2xl border border-gray-300 px-4 py-4 outline-none focus:border-black"
-          />
-        </div>
-
-        <button
-          onClick={handleEmailAuth}
-          disabled={loading}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white disabled:opacity-60"
-        >
-          <Mail size={18} />
-
-          {loading
-            ? "Please wait..."
-            : isSignup
-            ? "Create Account"
-            : "Login"}
-        </button>
-
-        <button
-          onClick={() => setIsSignup(!isSignup)}
-          className="mt-5 w-full text-sm text-gray-500 hover:text-black"
-        >
-          {isSignup
-            ? "Already have an account? Login"
-            : "New here? Create account"}
-        </button>
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="components/CategoryCard.tsx">
-"use client";
-
-import { LucideIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/app/context/AuthContext";
-
-interface CategoryCardProps {
-  href: string;
-  title: string;
-  subtitle?: string;
-  icon: LucideIcon;
-  onRequireLogin: (path: string) => void;
-}
-
-export default function CategoryCard({
-  href,
-  title,
-  subtitle,
-  icon: Icon,
-  onRequireLogin,
-}: CategoryCardProps) {
-  const router = useRouter();
-  const { user } = useAuth();
-
-  const handleClick = () => {
-    if (user) {
-      router.push(href);
-    } else {
-      onRequireLogin(href);
-    }
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      className="group w-full rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-black hover:shadow-md active:scale-[0.98]"
-    >
-      <Icon
-        size={34}
-        strokeWidth={1.8}
-        className="mb-5 transition-transform duration-200 group-hover:scale-110"
-      />
-
-      <h3 className="text-lg font-bold">
-        {title}
-      </h3>
-
-      {subtitle && (
-        <p className="mt-1 text-sm text-gray-500">
-          {subtitle}
-        </p>
-      )}
-    </button>
   );
 }
 </file>
@@ -1162,84 +869,55 @@ export default function FilterBar({
 }
 </file>
 
-<file path="components/Header.tsx">
+<file path="components/LoadingScreen.tsx">
 "use client";
 
-import { Sailboat, User, LogOut } from "lucide-react";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useAuth } from "@/app/context/AuthContext";
+import { Sailboat } from "lucide-react";
 
-interface HeaderProps {
-  setShowAuth: (show: boolean) => void;
+interface Props {
+  text?: string;
 }
 
-export default function Header({ setShowAuth }: HeaderProps) {
-  const { user } = useAuth();
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const shortName =
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "";
-
+export default function LoadingScreen({
+  text = "Loading Questions..."
+}: Props) {
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        {/* Left */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center -rotate-6">
-            <Sailboat size={30} />
+    <div className="fixed inset-0 z-50 bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
+
+      <div className="flex flex-col items-center">
+
+        {/* WAVES */}
+        <div className="relative w-64 h-24 flex items-end justify-center overflow-hidden mb-2">
+
+          <div className="absolute bottom-0 w-[300px] h-6 bg-black/10 rounded-[100%] animate-wave1" />
+
+          <div className="absolute bottom-2 w-[260px] h-5 bg-black/5 rounded-[100%] animate-wave2" />
+
+
+          {/* SHIP */}
+          <div className="relative animate-float">
+            <Sailboat
+              size={70}
+              strokeWidth={2}
+              className="text-black"
+            />
           </div>
 
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              NAVIK
-            </h1>
-
-            <p className="text-xs text-gray-500">
-              Sail Towards COC
-            </p>
-          </div>
         </div>
 
-        {/* Right */}
-        {user ? (
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-gray-100 px-3 py-2">
-              <p className="text-[10px] text-gray-500">
-                Signed In
-              </p>
 
-              <p className="max-w-[90px] truncate text-xs font-semibold">
-                {shortName}
-              </p>
-            </div>
+        <h2 className="text-2xl font-bold tracking-tight mt-6">
+          NAVIK
+        </h2>
 
-            <button
-              onClick={handleLogout}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black text-white transition hover:opacity-90"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowAuth(true)}
-            className="flex items-center gap-2 rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-          >
-            <User size={16} />
-            Login
-          </button>
-        )}
+
+        <p className="text-gray-500 mt-2 text-sm tracking-wide text-center px-5">
+          {text}
+        </p>
+
+
       </div>
+
     </div>
   );
 }
@@ -1481,326 +1159,29 @@ export default function QuestionCard({
 }
 </file>
 
-<file path="components/QuestionsList.tsx">
+<file path="components/UserGreeting.tsx">
 "use client";
 
-import { useMemo, useState } from "react";
+import { useAuth } from "@/app/context/AuthContext";
 
-import FilterBar from "./FilterBar";
-import QuestionCard from "./QuestionCard";
+export default function UserGreeting() {
+  const { user } = useAuth();
 
-interface Question {
-  id: string;
-  question: string;
-  answer: string;
-  mmd: string;
-  surveyor: string;
-  topic: string;
-  order: number;
-  isActive: boolean;
-}
-
-interface Props {
-  category: string;
-  questions: Question[];
-}
-
-export default function QuestionsList({
-  category,
-  questions,
-}: Props) {
-  const [selectedMmd, setSelectedMmd] = useState("");
-  const [selectedSurveyor, setSelectedSurveyor] = useState("");
-  const [selectedTopic, setSelectedTopic] = useState("");
-
-  const mmds = useMemo(
-    () => [...new Set(questions.map((q) => q.mmd).filter(Boolean))],
-    [questions]
-  );
-
-  const surveyors = useMemo(
-    () => [...new Set(questions.map((q) => q.surveyor).filter(Boolean))],
-    [questions]
-  );
-
-  const topics = useMemo(
-    () => [...new Set(questions.map((q) => q.topic).filter(Boolean))],
-    [questions]
-  );
-
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((q) => {
-      if (!q.isActive) return false;
-      if (selectedMmd && q.mmd !== selectedMmd) return false;
-      if (selectedSurveyor && q.surveyor !== selectedSurveyor) return false;
-      if (selectedTopic && q.topic !== selectedTopic) return false;
-
-      return true;
-    });
-  }, [
-    questions,
-    selectedMmd,
-    selectedSurveyor,
-    selectedTopic,
-  ]);
+  const name =
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Sailor";
 
   return (
     <>
-      <FilterBar
-        mmds={mmds}
-        surveyors={surveyors}
-        topics={topics}
-        selectedMmd={selectedMmd}
-        selectedSurveyor={selectedSurveyor}
-        selectedTopic={selectedTopic}
-        onMmdChange={setSelectedMmd}
-        onSurveyorChange={setSelectedSurveyor}
-        onTopicChange={setSelectedTopic}
-      />
-
-      <div className="space-y-6">
-        {filteredQuestions.map((q) => (
-          <QuestionCard
-            key={q.id}
-            questionId={q.id}
-            category={category}
-            question={q.question}
-            answer={q.answer}
-            mmd={q.mmd}
-            surveyor={q.surveyor}
-            topic={q.topic}
-          />
-        ))}
-
-        {filteredQuestions.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-center">
-            <p className="text-gray-500">
-              No questions found.
-            </p>
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-</file>
-
-<file path="components/SectionHeading.tsx">
-interface Props {
-  title: string;
-}
-
-export default function SectionHeading({
-  title,
-}: Props) {
-  return (
-    <h2 className="mb-5 text-xs font-bold uppercase tracking-[3px] text-gray-500">
-      {title}
-    </h2>
-  );
-}
-</file>
-
-<file path="components/WrittenCard.tsx">
-"use client";
-
-import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { WrittenQuestion } from "@/services/written.service";
-
-interface Props {
-  question: WrittenQuestion;
-}
-
-export default function WrittenCard({ question }: Props) {
-  const [showAnswer, setShowAnswer] = useState(false);
-
-  return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="flex flex-wrap gap-2 mb-4">
-        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
-          {question.class}
-        </span>
-
-        <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
-          {question.month}
-        </span>
-
-        <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
-          {question.year}
-        </span>
-
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
-          {question.topic}
-        </span>
-      </div>
-
-      <h2 className="text-xl font-semibold">
-        {question.question}
+      <h2 className="text-2xl font-bold">
+        Hi, {name} 👋
       </h2>
 
-      <button
-        onClick={() => setShowAnswer(!showAnswer)}
-        className="mt-6 flex items-center gap-2 font-medium text-blue-600"
-      >
-        {showAnswer ? (
-          <>
-            <ChevronUp size={18} />
-            Hide Answer
-          </>
-        ) : (
-          <>
-            <ChevronDown size={18} />
-            Show Answer
-          </>
-        )}
-      </button>
-
-      {showAnswer && (
-        <div className="mt-4 rounded-2xl bg-gray-50 p-5">
-          <p className="whitespace-pre-wrap text-gray-700">
-            {question.answer}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-</file>
-
-<file path="components/WrittenFilters.tsx">
-"use client";
-
-interface Props {
-  search: string;
-  setSearch: (value: string) => void;
-
-  selectedClass: string;
-  setSelectedClass: (value: string) => void;
-
-  selectedYear: string;
-  setSelectedYear: (value: string) => void;
-
-  selectedMonth: string;
-  setSelectedMonth: (value: string) => void;
-
-  selectedTopic: string;
-  setSelectedTopic: (value: string) => void;
-
-  years: number[];
-  topics: string[];
-}
-
-const classes = [
-  "All",
-  "Class 4",
-  "Class 2",
-  "Chief Mate",
-  "Second Mate",
-  "Master",
-];
-
-const months = [
-  "All",
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-export default function WrittenFilters({
-  search,
-  setSearch,
-
-  selectedClass,
-  setSelectedClass,
-
-  selectedYear,
-  setSelectedYear,
-
-  selectedMonth,
-  setSelectedMonth,
-
-  selectedTopic,
-  setSelectedTopic,
-
-  years,
-  topics,
-}: Props) {
-  return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-
-        <input
-          type="text"
-          placeholder="Search Question..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3 outline-none focus:border-black"
-        />
-
-        <select
-          value={selectedClass}
-          onChange={(e) => setSelectedClass(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3"
-        >
-          {classes.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3"
-        >
-          <option value="All">All Years</option>
-
-          {years.map((year) => (
-            <option key={year} value={String(year)}>
-              {year}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3"
-        >
-          {months.map((month) => (
-            <option key={month} value={month}>
-              {month}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedTopic}
-          onChange={(e) => setSelectedTopic(e.target.value)}
-          className="rounded-2xl border border-gray-300 p-3"
-        >
-          <option value="All">All Topics</option>
-
-          {topics.map((topic) => (
-            <option key={topic} value={topic}>
-              {topic}
-            </option>
-          ))}
-        </select>
-
-      </div>
-    </div>
+      <p className="text-gray-500">
+        Welcome Back
+      </p>
+    </>
   );
 }
 </file>
@@ -1847,6 +1228,79 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 export default app;
+</file>
+
+<file path="lib/orals.ts">
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export async function getOralStats(category: string) {
+  const questionsRef = collection(db, "orals", category, "questions");
+
+  const snapshot = await getDocs(questionsRef);
+
+  const topics = new Set<string>();
+  let latestUpdated: Date | null = null;
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+
+    if (typeof data.topic === "string" && data.topic.trim() !== "") {
+      topics.add(data.topic.trim());
+    }
+
+    if (data.updatedAt?.toDate) {
+      const date = data.updatedAt.toDate();
+
+      if (!latestUpdated || date > latestUpdated) {
+        latestUpdated = date;
+      }
+    }
+  });
+
+  return {
+    questions: snapshot.size,
+    topics: topics.size,
+    updatedAt: latestUpdated,
+  };
+}
+</file>
+
+<file path="lib/writtens.ts">
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export async function getWrittenStats(category: string) {
+  const questionsRef = collection(db, "writtens", category, "questions");
+
+  const snapshot = await getDocs(questionsRef);
+
+  const topics = new Set<string>();
+
+  let latestUpdated: Date | null = null;
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+
+    if (typeof data.topic === "string" && data.topic.trim() !== "") {
+      topics.add(data.topic.trim());
+    }
+
+    if (data.updatedAt?.toDate) {
+      const date = data.updatedAt.toDate();
+
+      if (!latestUpdated || date > latestUpdated) {
+        latestUpdated = date;
+      }
+    }
+  });
+
+  return {
+    questions: snapshot.size,
+    topics: topics.size,
+    updatedAt: latestUpdated,
+  };
+}
 </file>
 
 <file path="next.config.ts">
@@ -2457,14 +1911,1266 @@ export default function AdminPage() {
 }
 </file>
 
+<file path="app/globals.css">
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+@keyframes wave1 {
+  0%, 100% {
+    transform: translateX(-20px);
+  }
+
+  50% {
+    transform: translateX(20px);
+  }
+}
+
+
+@keyframes wave2 {
+  0%, 100% {
+    transform: translateX(20px);
+  }
+
+  50% {
+    transform: translateX(-20px);
+  }
+}
+
+
+@keyframes float {
+  0%,100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+
+.animate-wave1 {
+  animation: wave1 3s ease-in-out infinite;
+}
+
+
+.animate-wave2 {
+  animation: wave2 2.5s ease-in-out infinite;
+}
+
+
+.animate-float {
+  animation: float 2s ease-in-out infinite;
+}
+</file>
+
+<file path="components/AuthModal.tsx">
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { X, Mail } from "lucide-react";
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+} from "firebase/auth";
+import { auth } from "@/lib/firebase";
+
+interface Props {
+  show: boolean;
+  setShow: (show: boolean) => void;
+  redirectPath: string;
+}
+
+export default function AuthModal({
+  show,
+  setShow,
+  redirectPath,
+}: Props) {
+  const router = useRouter();
+
+  const [isSignup, setIsSignup] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  if (!show) return null;
+
+  const redirectUser = () => {
+    setShow(false);
+
+    router.replace("/");
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+
+      const provider = new GoogleAuthProvider();
+
+      await signInWithPopup(auth, provider);
+
+      redirectUser();
+    } catch (err) {
+      console.error(err);
+      alert("Google Sign In Failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailAuth = async () => {
+    try {
+      setLoading(true);
+
+      if (isSignup) {
+        await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+      } else {
+        await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+      }
+
+      setEmail("");
+      setPassword("");
+
+      redirectUser();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-5">
+      <div className="w-full max-w-sm rounded-[32px] bg-white p-7 shadow-2xl">
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h2 className="text-3xl font-bold">
+              {isSignup ? "Create Account" : "Welcome"}
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Sign in to continue using NAVIK.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setShow(false)}
+            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-300 px-4 py-4 font-medium hover:bg-gray-50 disabled:opacity-60"
+        >
+          <img
+            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+            alt="Google"
+            className="h-5 w-5"
+          />
+
+          Continue with Google
+        </button>
+
+        <div className="mb-5 flex items-center gap-4">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs text-gray-400">OR</span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        <div className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-2xl border border-gray-300 px-4 py-4 outline-none focus:border-black"
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-2xl border border-gray-300 px-4 py-4 outline-none focus:border-black"
+          />
+        </div>
+
+        <button
+          onClick={handleEmailAuth}
+          disabled={loading}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white disabled:opacity-60"
+        >
+          <Mail size={18} />
+
+          {loading
+            ? "Please wait..."
+            : isSignup
+              ? "Create Account"
+              : "Login"}
+        </button>
+
+        <button
+          onClick={() => setIsSignup(!isSignup)}
+          className="mt-5 w-full text-sm text-gray-500 hover:text-black"
+        >
+          {isSignup
+            ? "Already have an account? Login"
+            : "New here? Create account"}
+        </button>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="components/InitialLoader.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import LoadingScreen from "./LoadingScreen";
+
+export default function InitialLoader({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+
+  const [loading,setLoading] = useState(true);
+
+  useEffect(()=>{
+
+    const timer=setTimeout(()=>{
+      setLoading(false);
+    },2000);
+
+    return ()=>clearTimeout(timer);
+
+  },[]);
+
+
+  if(loading){
+    return (
+      <LoadingScreen 
+        text="Setting your course..."
+      />
+    );
+  }
+
+
+  return children;
+}
+</file>
+
+<file path="components/SectionHeading.tsx">
+interface Props {
+  title: string;
+}
+
+export default function SectionHeading({
+  title,
+}: Props) {
+  return (
+    <h2 className="text-sm font-bold tracking-[2px] text-gray-500 mb-4">
+      {title}
+    </h2>
+  );
+}
+</file>
+
+<file path="components/WrittenFilters.tsx">
+"use client";
+
+interface Props {
+
+  selectedClass: string;
+  setSelectedClass: (value: string) => void;
+
+  selectedYear: string;
+  setSelectedYear: (value: string) => void;
+
+  selectedMonth: string;
+  setSelectedMonth: (value: string) => void;
+
+  selectedTopic: string;
+  setSelectedTopic: (value: string) => void;
+
+  years: number[];
+  topics: string[];
+}
+
+const classes = [
+  "All",
+  "Class 4",
+  "Class 2",
+];
+
+const months = [
+  "All",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+export default function WrittenFilters({
+
+  selectedClass,
+  setSelectedClass,
+
+  selectedYear,
+  setSelectedYear,
+
+  selectedMonth,
+  setSelectedMonth,
+
+  selectedTopic,
+  setSelectedTopic,
+
+  years,
+  topics,
+}: Props) {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+
+        <select
+          value={selectedClass}
+          onChange={(e) => setSelectedClass(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          {classes.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          <option value="All">All Years</option>
+
+          {years.map((year) => (
+            <option key={year} value={String(year)}>
+              {year}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          <option value="All">All Months</option>
+
+          {months.slice(1).map((month) => (
+            <option key={month} value={month}>
+              {month}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedTopic}
+          onChange={(e) => setSelectedTopic(e.target.value)}
+          className="rounded-2xl border border-gray-300 p-3"
+        >
+          <option value="All">All Topics</option>
+
+          {topics.map((topic) => (
+            <option key={topic} value={topic}>
+              {topic}
+            </option>
+          ))}
+        </select>
+
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "firebase": "^12.15.0",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="app/(protected)/orals/[category]/page.tsx">
+import QuestionsList from "@/components/QuestionsList";
+import { getQuestions } from "@/services/firestore";
+import UserGreeting from "@/components/UserGreeting";
+
+import Link from "next/link";
+import { ArrowLeft, Sailboat } from "lucide-react";
+
+interface PageProps {
+  params: Promise<{
+    category: string;
+  }>;
+}
+
+export default async function OralCategoryPage({
+  params,
+}: PageProps) {
+  const { category } = await params;
+
+  const questions = await getQuestions(category);
+
+  const titles: Record<
+    string,
+    {
+      title: string;
+      subtitle: string;
+      quote: string;
+    }
+  > = {
+    fn3: {
+      title: "FN3",
+      subtitle: "SAFETY",
+      quote:
+        "Every question you revise today increases your confidence tomorrow.",
+    },
+    fn4b: {
+      title: "FN4B",
+      subtitle: "MOTOR",
+      quote:
+        "Knowledge grows one question at a time.",
+    },
+    fn5: {
+      title: "FN5",
+      subtitle: "ELECTRICAL",
+      quote:
+        "Consistency beats intensity in exam preparation.",
+    },
+    fn6: {
+      title: "FN6",
+      subtitle: "MEP",
+      quote:
+        "Small improvements every day lead to big results.",
+    },
+  };
+
+  const page = titles[category.toLowerCase()] ?? {
+    title: category.toUpperCase(),
+    subtitle: "ORAL QUESTIONS",
+    quote:
+      "Success belongs to those who prepare before opportunity arrives.",
+  };
+
+  // Count Topics
+  const topics = new Set(
+    questions.map((q: any) => q.topic).filter(Boolean)
+  ).size;
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-5xl px-5 py-8">
+
+        {/* HEADER */}
+        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+          {/* Top Row */}
+          <div className="flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+
+            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+              <Sailboat
+                size={30}
+                strokeWidth={2}
+                className="text-black"
+              />
+            </div>
+
+          </div>
+
+          {/* Greeting */}
+          <div className="mt-7">
+            <UserGreeting />
+          </div>
+
+          {/* Quote */}
+          <div className="mt-6 border-l-4 border-black pl-4">
+
+            <p className="text-sm italic leading-6 text-gray-600">
+              {page.quote}
+            </p>
+
+          </div>
+
+          {/* Badge */}
+          <div className="mt-6">
+
+            <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
+              {page.title}
+            </span>
+
+          </div>
+
+          {/* Category */}
+          <div className="mt-5">
+
+            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
+              {page.subtitle}
+            </h1>
+
+          </div>
+
+          {/* Stats */}
+          <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
+
+            <span>{questions.length} Questions</span>
+
+            <span>•</span>
+
+            <span>{topics} Topics</span>
+
+          </div>
+
+        </div>
+
+        {/* Questions */}
+        <QuestionsList
+          category={category}
+          questions={questions}
+        />
+
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata } from "next";
+import "./globals.css";
+import { AuthProvider } from "@/app/context/AuthContext";
+import InitialLoader from "@/components/InitialLoader";
+export const metadata: Metadata = {
+  title: "Navik",
+  description: "Sail Towards COC",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider>
+
+          <InitialLoader>
+            {children}
+          </InitialLoader>
+
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="components/CategoryCard.tsx">
+"use client";
+
+import { LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
+
+interface CategoryCardProps {
+  href: string;
+  title: string;
+  icon: LucideIcon;
+  badge?: string;
+
+  questions?: number;
+  topics?: number;
+  updatedAt?: Date | null;
+
+  onRequireLogin: (path: string) => void;
+}
+
+export default function CategoryCard({
+  href,
+  title,
+  icon: Icon,
+  badge,
+  questions = 0,
+  topics = 0,
+  updatedAt = null,
+  onRequireLogin,
+}: CategoryCardProps) {
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const handleClick = () => {
+    if (user) {
+      router.push(href);
+    } else {
+      onRequireLogin(href);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="group flex aspect-square w-full flex-col rounded-3xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-gray-300 hover:shadow-lg active:scale-[0.98]"
+    >
+      {/* Badge */}
+      {badge && (
+        <div className="inline-flex w-fit rounded-md bg-black px-2.5 py-1 text-[9px] font-semibold tracking-wide text-white md:text-[10px]">
+          {badge}
+        </div>
+      )}
+
+      {/* Icon */}
+      <div className="mt-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 transition-colors group-hover:bg-gray-200 md:h-12 md:w-12">
+        <Icon
+          size={26}
+          strokeWidth={1.8}
+          className="text-gray-700 transition-transform duration-300 group-hover:scale-110 md:h-7 md:w-7"
+        />
+      </div>
+
+      {/* Title */}
+      <h3 className="mt-4 text-[15px] font-bold leading-tight text-gray-900 md:text-[17px] lg:text-[18px]">
+        {title}
+      </h3>
+
+      {/* Breathing Space */}
+      <div className="mt-5" />
+
+      {/* Stats */}
+      <div className="space-y-1">
+        <p className="text-[12px] font-medium text-gray-800 md:text-[13px]">
+          {questions.toLocaleString()} Questions
+        </p>
+
+        <p className="text-[12px] font-medium text-gray-800 md:text-[13px]">
+          {topics.toLocaleString()} Topics
+        </p>
+      </div>
+
+      {/* Push Footer Down */}
+      <div className="flex-1" />
+
+      {/* Footer */}
+      <div className="border-t border-gray-100 pt-3">
+        <p className="text-[10px] text-gray-400 md:text-[11px]">
+          Updated •{" "}
+          {updatedAt
+            ? updatedAt.toLocaleDateString("en-IN", {
+                month: "short",
+                year: "numeric",
+              })
+            : "-"}
+        </p>
+      </div>
+    </button>
+  );
+}
+</file>
+
+<file path="components/QuestionsList.tsx">
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
+
+import QuestionCard from "./QuestionCard";
+
+interface Question {
+  id: string;
+  question: string;
+  answer: string;
+  mmd: string;
+  surveyor: string;
+  topic: string;
+  order: number;
+  isActive: boolean;
+}
+
+interface Props {
+  category: string;
+  questions: Question[];
+}
+
+export default function QuestionsList({
+  category,
+  questions,
+}: Props) {
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [selectedMmd, setSelectedMmd] = useState("All");
+  const [selectedSurveyor, setSelectedSurveyor] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+
+  const mmds = useMemo(
+    () => [...new Set(questions.map((q) => q.mmd).filter(Boolean))],
+    [questions]
+  );
+
+  const surveyors = useMemo(
+    () => [...new Set(questions.map((q) => q.surveyor).filter(Boolean))],
+    [questions]
+  );
+
+  const topics = useMemo(
+    () => [...new Set(questions.map((q) => q.topic).filter(Boolean))],
+    [questions]
+  );
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      if (!q.isActive) return false;
+
+      if (
+        selectedMmd !== "All" &&
+        q.mmd !== selectedMmd
+      )
+        return false;
+
+      if (
+        selectedSurveyor !== "All" &&
+        q.surveyor !== selectedSurveyor
+      )
+        return false;
+
+      if (
+        selectedTopic !== "All" &&
+        q.topic !== selectedTopic
+      )
+        return false;
+
+      if (
+        search.trim() &&
+        !(
+          q.question
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.answer
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.topic
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.mmd
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.surveyor
+            .toLowerCase()
+            .includes(search.toLowerCase())
+        )
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    questions,
+    search,
+    selectedMmd,
+    selectedSurveyor,
+    selectedTopic,
+  ]);
+
+  const currentQuestion = filteredQuestions[currentIndex];
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [
+    search,
+    selectedMmd,
+    selectedSurveyor,
+    selectedTopic,
+  ]);
+  return (
+    <>
+      {/* SEARCH */}
+      <div className="mt-8">
+        <input
+          type="text"
+          placeholder="🔍 Search Questions..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+        />
+      </div>
+
+      {/* FILTER BUTTON */}
+      <button
+        onClick={() => setShowFilters(!showFilters)}
+        className="mt-4 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+      >
+        <div className="flex items-center gap-3">
+          <SlidersHorizontal size={18} />
+
+          <span className="font-semibold">
+            Filters
+          </span>
+        </div>
+
+        {showFilters ? (
+          <ChevronUp size={18} />
+        ) : (
+          <ChevronDown size={18} />
+        )}
+      </button>
+
+      {/* FILTERS */}
+      {showFilters && (
+        <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+
+          <div className="grid gap-4 md:grid-cols-3">
+
+            <select
+              value={selectedMmd}
+              onChange={(e) => setSelectedMmd(e.target.value)}
+              className="rounded-xl border border-gray-300 p-3"
+            >
+              <option value="All">All MMDs</option>
+
+              {mmds.map((mmd) => (
+                <option key={mmd} value={mmd}>
+                  {mmd}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedSurveyor}
+              onChange={(e) => setSelectedSurveyor(e.target.value)}
+              className="rounded-xl border border-gray-300 p-3"
+            >
+              <option value="All">All Surveyors</option>
+
+              {surveyors.map((surveyor) => (
+                <option key={surveyor} value={surveyor}>
+                  {surveyor}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedTopic}
+              onChange={(e) => setSelectedTopic(e.target.value)}
+              className="rounded-xl border border-gray-300 p-3"
+            >
+              <option value="All">All Topics</option>
+
+              {topics.map((topic) => (
+                <option key={topic} value={topic}>
+                  {topic}
+                </option>
+              ))}
+            </select>
+
+          </div>
+        </div>
+      )}
+
+      {/* HEADING */}
+      <div className="mt-8 mb-6 flex items-center justify-between gap-4">
+
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+          Questions
+        </h2>
+
+        <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+          <span className="text-gray-500">Current:</span>{" "}
+          <span className="font-bold text-black">
+            {filteredQuestions.length > 0
+              ? `${currentIndex + 1} / ${filteredQuestions.length}`
+              : "0 / 0"}
+          </span>
+
+          <span className="mx-2 text-gray-300">|</span>
+
+        </div>
+
+      </div>
+
+      {/* QUESTIONS */}
+      <div className="space-y-6">
+
+        {currentQuestion && (
+          <>
+            <QuestionCard
+              questionId={currentQuestion.id}
+              category={category}
+              question={currentQuestion.question}
+              answer={currentQuestion.answer}
+              mmd={currentQuestion.mmd}
+              surveyor={currentQuestion.surveyor}
+              topic={currentQuestion.topic}
+            />
+
+            {/* Navigation */}
+            <div className="mt-6 flex items-center justify-between">
+
+              <button
+                onClick={() =>
+                  setCurrentIndex((prev) => prev - 1)
+                }
+                disabled={currentIndex === 0}
+                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
+                  ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                  : "bg-black text-white hover:bg-gray-800"
+                  }`}
+              >
+                ◀ Previous
+              </button>
+
+              <button
+                onClick={() =>
+                  setCurrentIndex((prev) => prev + 1)
+                }
+                disabled={currentIndex === filteredQuestions.length - 1}
+                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
+                    ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                    : "bg-black text-white hover:bg-gray-800"
+                  }`}
+              >
+                Next ▶
+              </button>
+
+            </div>
+          </>
+        )}
+
+        {filteredQuestions.length === 0 && (
+          <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
+            <p className="text-gray-500">
+              No questions found.
+            </p>
+          </div>
+        )}
+
+      </div>
+    </>
+  );
+}
+</file>
+
+<file path="components/WrittenCard.tsx">
+"use client";
+
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { WrittenQuestion } from "@/services/written.service";
+
+interface Props {
+  question: WrittenQuestion;
+}
+
+function formatQuestion(text: string) {
+  return text
+    .replace(/(\b(?:19|20)\d{2}\b) (?=\S)/g, "$1\n\n")
+    .replace(/\s*A\.\s*/g, "\n\nA. ")
+    .replace(/\s*B\.\s*/g, "\n\nB. ")
+    .replace(/\s*C\.\s*/g, "\n\nC. ")
+    .replace(/\s*D\.\s*/g, "\n\nD. ")
+    .replace(/\s*a\)\s*/gi, "\n\na) ")
+    .replace(/\s*b\)\s*/gi, "\n\nb) ")
+    .replace(/\s*c\)\s*/gi, "\n\nc) ")
+    .replace(/\s*d\)\s*/gi, "\n\nd) ")
+    .replace(/\(a\)/gi, "\n\n(a) ")
+    .replace(/\(b\)/gi, "\n\n(b) ")
+    .replace(/\(c\)/gi, "\n\n(c) ")
+    .replace(/\(d\)/gi, "\n\n(d) ");
+}
+
+export default function WrittenCard({ question }: Props) {
+
+  const [showAnswer, setShowAnswer] = useState(false);
+
+  return (
+
+    <div
+      className="
+rounded-2xl
+border
+border-gray-200
+bg-white
+p-4
+sm:p-5
+md:p-6
+lg:p-7
+shadow-sm
+hover:shadow-md
+transition
+"
+    >
+
+
+      {/* Tags */}
+
+      <div
+        className="
+  flex
+  flex-wrap
+  gap-2
+  mb-5
+  "
+      >
+
+        <span className="rounded-full bg-blue-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-blue-700">
+          {question.class}
+        </span>
+
+        <span className="rounded-full bg-green-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-green-700">
+          {question.month}
+        </span>
+
+        <span className="rounded-full bg-yellow-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-yellow-700">
+          {question.year}
+        </span>
+
+        <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700">
+          {question.topic}
+        </span>
+
+      </div>
+
+
+
+      {/* Question Box */}
+
+      <div
+        className="
+border-l-4
+border-blue-500
+pl-3
+sm:pl-4
+md:pl-5
+"
+      >
+
+        <h2
+          className="
+whitespace-pre-wrap
+text-base
+sm:text-lg
+md:text-xl
+lg:text-[21px]
+font-semibold
+leading-7
+sm:leading-8
+text-gray-900
+"
+        >
+
+          {formatQuestion(question.question)}
+
+        </h2>
+
+      </div>
+
+
+
+      {/* Button */}
+
+      <button
+
+        onClick={() => setShowAnswer(!showAnswer)}
+
+        className="
+mt-6
+flex
+items-center
+gap-2
+text-sm
+sm:text-base
+font-semibold
+text-blue-600
+"
+
+      >
+
+        {
+          showAnswer
+            ?
+            <>
+              <ChevronUp size={18} />
+              Hide Answer
+            </>
+            :
+            <>
+              <ChevronDown size={18} />
+              Show Answer
+            </>
+        }
+
+      </button>
+
+
+
+      {/* Answer */}
+
+      {
+        showAnswer &&
+
+        <div
+          className="
+mt-5
+rounded-xl
+border
+border-green-200
+bg-green-50
+p-4
+sm:p-5
+md:p-6
+"
+        >
+
+          <h3
+            className="
+mb-3
+font-semibold
+text-green-700
+text-base
+sm:text-lg
+"
+          >
+            Official Answer
+          </h3>
+
+
+          <p
+            className="
+whitespace-pre-wrap
+text-sm
+sm:text-base
+leading-7
+text-gray-700
+"
+          >
+            {question.answer}
+          </p>
+
+
+        </div>
+
+      }
+
+
+    </div>
+
+  )
+
+}
+</file>
+
 <file path="app/(protected)/writtens/[category]/page.tsx">
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Sailboat,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
 
 import WrittenCard from "@/components/WrittenCard";
 import WrittenFilters from "@/components/WrittenFilters";
+import { useAuth } from "@/app/context/AuthContext";
 
 import {
   getWrittenQuestions,
@@ -2473,6 +3179,12 @@ import {
 
 export default function WrittensPage() {
   const params = useParams();
+  const { user } = useAuth();
+
+  const name =
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Sailor";
 
   const category =
     typeof params.category === "string"
@@ -2483,6 +3195,8 @@ export default function WrittensPage() {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   const [selectedClass, setSelectedClass] = useState("All");
   const [selectedYear, setSelectedYear] = useState("All");
@@ -2497,8 +3211,6 @@ export default function WrittensPage() {
         const data = await getWrittenQuestions(category);
 
         setQuestions(data);
-      } catch (error) {
-        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -2566,91 +3278,246 @@ export default function WrittensPage() {
     selectedTopic,
   ]);
 
+  const currentQuestion = filteredQuestions[currentIndex];
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+  ]);
+
+  const titles: Record<
+    string,
+    {
+      badge: string;
+      title: string;
+    }
+  > = {
+    general: {
+      badge: "MEKG",
+      title: "GENERAL WRITTEN",
+    },
+    mep: {
+      badge: "MEP",
+      title: "MEP WRITTEN",
+    },
+    motor: {
+      badge: "MEKM",
+      title: "MOTOR WRITTEN",
+    },
+    met: {
+      badge: "MET",
+      title: "ELECTRICAL WRITTEN",
+    },
+    naval: {
+      badge: "SHIP-CO",
+      title: "NAVAL WRITTEN",
+    },
+    ssep: {
+      badge: "SSEP",
+      title: "SAFETY WRITTEN",
+    },
+  };
+  const page = titles[category] ?? {
+    badge: category.toUpperCase(),
+    title: "Written Questions",
+  };
+
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold capitalize">
-            {category} Written Questions
-          </h1>
+      <div className="mx-auto max-w-7xl px-5 py-8">
 
-          <p className="mt-2 text-gray-500">
-            Practice company written interview questions.
-          </p>
+        {/* HEADER CARD */}
+        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+
+            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+              <Sailboat
+                size={30}
+                strokeWidth={2}
+              />
+            </div>
+
+          </div>
+
+          <div className="mt-7">
+
+            <h2 className="text-2xl font-bold">
+              Hi, {name} 👋
+            </h2>
+
+            <p className="text-gray-500">
+              Welcome Back
+            </p>
+
+            <div className="mt-6 border-l-4 border-black pl-4">
+              <p className="text-sm italic text-gray-600">
+                Every answer you write today
+                increases your confidence tomorrow.
+              </p>
+            </div>
+
+            <div className="mt-6 inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white">
+              {page.badge}
+            </div>
+
+            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
+              {page.title}
+            </h1>
+
+            <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
+              <span>{questions.length} Questions</span>
+              <span>•</span>
+              <span>{topics.length} Topics</span>
+            </div>
+
+          </div>
+
         </div>
 
-        <WrittenFilters
-          search={search}
-          setSearch={setSearch}
-          selectedClass={selectedClass}
-          setSelectedClass={setSelectedClass}
-          selectedYear={selectedYear}
-          setSelectedYear={setSelectedYear}
-          selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
-          selectedTopic={selectedTopic}
-          setSelectedTopic={setSelectedTopic}
-          years={years}
-          topics={topics}
-        />
+        {/* SEARCH */}
 
-        <div className="mt-8 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold">
+        <div className="mt-8">
+          <input
+            type="text"
+            placeholder="🔍 Search Questions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+          />
+        </div>
+
+        {/* FILTER BUTTON */}
+
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="mt-4 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+        >
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal size={18} />
+            <span className="font-semibold">
+              Filters
+            </span>
+          </div>
+
+          {showFilters ? (
+            <ChevronUp size={18} />
+          ) : (
+            <ChevronDown size={18} />
+          )}
+        </button>
+
+        {/* FILTER PANEL */}
+
+        {showFilters && (
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <WrittenFilters
+              selectedClass={selectedClass}
+              setSelectedClass={setSelectedClass}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              selectedTopic={selectedTopic}
+              setSelectedTopic={setSelectedTopic}
+              years={years}
+              topics={topics}
+            />
+          </div>
+        )}
+
+        <div className="mt-8 mb-6 flex items-center justify-between gap-4">
+
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
             Questions
           </h2>
 
-          <div className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
-            {filteredQuestions.length} Questions
+          <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+            <span className="text-gray-500">Current:</span>{" "}
+            <span className="font-bold text-black">
+              {filteredQuestions.length > 0
+                ? `${currentIndex + 1} / ${filteredQuestions.length}`
+                : "0 / 0"}
+            </span>
+
+            <span className="mx-2 text-gray-300">|</span>
           </div>
+
         </div>
 
         {loading ? (
-          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
+          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
             Loading Questions...
           </div>
         ) : filteredQuestions.length === 0 ? (
-          <div className="mt-10 rounded-3xl bg-white p-12 text-center shadow-sm">
+          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
             No Questions Found.
           </div>
         ) : (
           <div className="mt-8 space-y-6">
-            {filteredQuestions.map((question) => (
-              <WrittenCard
-                key={question.id}
-                question={question}
-              />
-            ))}
+            {currentQuestion && (
+              <>
+                <WrittenCard
+                  question={currentQuestion}
+                />
+
+                {/* Navigation */}
+                <div className="mt-6 flex items-center justify-between">
+
+                  <button
+                    onClick={() =>
+                      setCurrentIndex((prev) => prev - 1)
+                    }
+                    disabled={currentIndex === 0}
+                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
+                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                      : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                  >
+                    ◀ Previous
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setCurrentIndex((prev) => prev + 1)
+                    }
+                    disabled={currentIndex === filteredQuestions.length - 1}
+                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
+                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                      : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                  >
+                    Next ▶
+                  </button>
+
+                </div>
+              </>
+            )}
+
+            {filteredQuestions.length === 0 && (
+              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
+                <p className="text-gray-500">
+                  No Questions Found.
+                </p>
+              </div>
+            )}
           </div>
         )}
+
       </div>
     </main>
-  );
-}
-</file>
-
-<file path="app/layout.tsx">
-import type { Metadata } from "next";
-import "./globals.css";
-import { AuthProvider } from "@/app/context/AuthContext";
-
-export const metadata: Metadata = {
-  title: "Navik",
-  description: "Sail Towards COC",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
-      </body>
-    </html>
   );
 }
 </file>
@@ -2658,16 +3525,19 @@ export default function RootLayout({
 <file path="app/page.tsx">
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Header from "@/components/Header";
 import AuthModal from "@/components/AuthModal";
 import CategoryCard from "@/components/CategoryCard";
 import SectionHeading from "@/components/SectionHeading";
+import { getOralStats } from "@/lib/orals";
+import { getWrittenStats } from "@/lib/writtens";
 
 import {
   ShieldCheck,
   Cog,
+  Folder,
   ShipWheel,
   Zap,
   BookOpen,
@@ -2681,99 +3551,230 @@ export default function HomePage() {
   const [showAuth, setShowAuth] = useState(false);
   const [redirectPath, setRedirectPath] = useState("");
 
+  const [oralStats, setOralStats] = useState<
+    Record<
+      string,
+      {
+        questions: number;
+        topics: number;
+        updatedAt: Date | null;
+      }
+    >
+  >({});
+
+  const [writtenStats, setWrittenStats] = useState<
+    Record<
+      string,
+      {
+        questions: number;
+        topics: number;
+        updatedAt: Date | null;
+      }
+    >
+  >({});
+
   const requireLogin = (path: string) => {
     setRedirectPath(path);
     setShowAuth(true);
   };
+
+  useEffect(() => {
+    async function loadStats() {
+      const categories = ["fn3", "fn4b", "fn5", "fn6"];
+
+      const results = await Promise.all(
+        categories.map(async (category) => ({
+          category,
+          stats: await getOralStats(category),
+        }))
+      );
+
+      const statsMap: Record<
+        string,
+        {
+          questions: number;
+          topics: number;
+          updatedAt: Date | null;
+        }
+      > = {};
+
+      results.forEach(({ category, stats }) => {
+        statsMap[category] = stats;
+      });
+
+      console.log("Stats Map:", statsMap);
+
+      setOralStats(statsMap);
+    }
+
+    loadStats();
+  }, []);
+
+  // 👇 PASTE THE NEW useEffect HERE
+
+  useEffect(() => {
+    async function loadWrittenStats() {
+      const categories = [
+        "general",
+        "mep",
+        "motor",
+        "met",
+        "naval",
+        "ssep",
+      ];
+
+      const results = await Promise.all(
+        categories.map(async (category) => ({
+          category,
+          stats: await getWrittenStats(category),
+        }))
+      );
+
+      const statsMap: Record<
+        string,
+        {
+          questions: number;
+          topics: number;
+          updatedAt: Date | null;
+        }
+      > = {};
+
+      results.forEach(({ category, stats }) => {
+        statsMap[category] = stats;
+      });
+
+      console.log("Written Stats:", statsMap);
+
+      setWrittenStats(statsMap);
+    }
+
+    loadWrittenStats();
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
       <div className="mx-auto max-w-7xl px-5 py-5">
         <Header setShowAuth={setShowAuth} />
 
-        {/* Browse by Orals */}
+        {/* BROWSE BY ORALS */}
         <section className="mt-10">
-          <SectionHeading title="Browse by Orals" />
+          <SectionHeading title="BROWSE BY ORALS" />
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
             <CategoryCard
               href="/orals/fn3"
-              title="FN3"
-              subtitle="Safety"
-              icon={ShieldCheck}
+              title="SAFETY"
+              icon={Folder}
+              badge="FN-3"
+              questions={oralStats.fn3?.questions}
+              topics={oralStats.fn3?.topics}
+              updatedAt={oralStats.fn3?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/orals/fn4b"
-              title="FN4B"
-              subtitle="Motor"
-              icon={Cog}
+              title="MOTOR"
+              icon={Folder}
+              badge="FN-4B"
+              questions={oralStats.fn4b?.questions}
+              topics={oralStats.fn4b?.topics}
+              updatedAt={oralStats.fn4b?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/orals/fn6"
-              title="FN6"
-              subtitle="MEP"
-              icon={ShipWheel}
+              title="MEP"
+              icon={Folder}
+              badge="FN-6"
+              questions={oralStats.fn6?.questions}
+              topics={oralStats.fn6?.topics}
+              updatedAt={oralStats.fn6?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/orals/fn5"
-              title="FN5"
-              subtitle="Electrical"
-              icon={Zap}
+              title="ELECTRICAL"
+              icon={Folder}
+              badge="FN-5"
+              questions={oralStats.fn5?.questions}
+              topics={oralStats.fn5?.topics}
+              updatedAt={oralStats.fn5?.updatedAt}
               onRequireLogin={requireLogin}
             />
           </div>
         </section>
 
-        {/* Browse by Writtens */}
+        {/* BROWSE BY WRITTENS */}
         <section className="mt-12">
-          <SectionHeading title="Browse by Writtens" />
+          <SectionHeading title="BROWSE BY WRITTENS" />
 
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             <CategoryCard
               href="/writtens/general"
-              title="General"
-              icon={BookOpen}
+              title="GENERAL"
+              icon={Folder}
+              badge="MEKG"
+              questions={writtenStats.general?.questions}
+              topics={writtenStats.general?.topics}
+              updatedAt={writtenStats.general?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/writtens/mep"
               title="MEP"
-              icon={Wrench}
+              icon={Folder}
+              badge="MEP"
+              questions={writtenStats.mep?.questions}
+              topics={writtenStats.mep?.topics}
+              updatedAt={writtenStats.mep?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/writtens/motor"
-              title="Motor"
-              icon={Cog}
+              title="MOTOR"
+              icon={Folder}
+              badge="MEKM"
+              questions={writtenStats.motor?.questions}
+              topics={writtenStats.motor?.topics}
+              updatedAt={writtenStats.motor?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/writtens/met"
-              title="MET"
-              icon={ChartColumn}
+              title="ELECTRICAL"
+              icon={Folder}
+              badge="MET"
+              questions={writtenStats.met?.questions}
+              topics={writtenStats.met?.topics}
+              updatedAt={writtenStats.met?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/writtens/naval"
-              title="Naval"
-              icon={Anchor}
+              title="NAVAL"
+              icon={Folder}
+              badge="SHIP-CO"
+              questions={writtenStats.naval?.questions}
+              topics={writtenStats.naval?.topics}
+              updatedAt={writtenStats.naval?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/writtens/ssep"
-              title="SSEP"
-              icon={FileText}
+              title="SAFETY"
+              icon={Folder}
+              badge="SSEP"
+              questions={writtenStats.ssep?.questions}
+              topics={writtenStats.ssep?.topics}
+              updatedAt={writtenStats.ssep?.updatedAt}
               onRequireLogin={requireLogin}
             />
           </div>
@@ -2790,38 +3791,94 @@ export default function HomePage() {
 }
 </file>
 
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "firebase": "^12.15.0",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
+<file path="components/Header.tsx">
+"use client";
+
+import { Sailboat, User, LogOut } from "lucide-react";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useAuth } from "@/app/context/AuthContext";
+
+interface HeaderProps {
+  setShowAuth: (show: boolean) => void;
+}
+
+export default function Header({ setShowAuth }: HeaderProps) {
+  const { user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  const shortEmail = user?.email
+    ? user.email.length > 14
+      ? user.email.slice(0, 14) + "..."
+      : user.email
+    : "";
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm">
+
+      <div className="flex items-center justify-between">
+
+        {/* LEFT SIDE (LOGO + TEXT) */}
+        <div className="flex items-center gap-.8 min-w-0">
+
+          <div className="w-12 h-12 flex items-center justify-center rotate-[-8deg] flex-shrink-0">
+            <Sailboat size={30} />
+          </div>
+
+          <div className="leading-tight min-w-0">
+            <h1 className="text-xl font-bold tracking-tight truncate">
+              NAVIK
+            </h1>
+            <p className="text-xs text-gray-500 truncate">
+              Sail towards COC
+            </p>
+          </div>
+
+        </div>
+
+        {/* RIGHT SIDE */}
+        {user ? (
+          <div className="flex items-center gap-3 flex-shrink-0">
+
+            {/* EMAIL BOX (COMPACT) */}
+            <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
+              <p className="text-[9px] text-gray-500 leading-none">
+                Signed in
+              </p>
+
+              <p className="text-[11px] font-medium truncate">
+                {shortEmail}
+              </p>
+            </div>
+
+            {/* LOGOUT */}
+            <button
+              onClick={handleLogout}
+              className="w-10 h-9 rounded-2xl bg-black text-white flex items-center justify-center"
+            >
+              <LogOut size={16} />
+            </button>
+
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAuth(true)}
+            className="bg-black text-white px-4 py-2 rounded-xl flex items-center gap-1 text-sm font-medium"
+          >
+            <User size={16} />
+            Login
+          </button>
+        )}
+
+      </div>
+    </div>
+  );
 }
 </file>
 

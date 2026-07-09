@@ -19,13 +19,13 @@ interface Props {
 }
 
 const classes = [
-  "All ",
+  "All",
   "Class 4",
   "Class 2",
 ];
 
 const months = [
-  "All Months",
+  "All",
   "January",
   "February",
   "March",
@@ -92,7 +92,9 @@ export default function WrittenFilters({
           onChange={(e) => setSelectedMonth(e.target.value)}
           className="rounded-2xl border border-gray-300 p-3"
         >
-          {months.map((month) => (
+          <option value="All">All Months</option>
+
+          {months.slice(1).map((month) => (
             <option key={month} value={month}>
               {month}
             </option>
