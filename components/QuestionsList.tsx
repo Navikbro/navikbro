@@ -52,6 +52,10 @@ export default function QuestionsList({
     [questions]
   );
 
+  const showMmd = selectedMmd !== "All";
+  const showSurveyor = selectedSurveyor !== "All";
+  const showTopic = selectedTopic !== "All";
+
   const filteredQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (!q.isActive) return false;
@@ -229,6 +233,9 @@ export default function QuestionsList({
             mmd={q.mmd}
             surveyor={q.surveyor}
             topic={q.topic}
+            showMmd={showMmd}
+            showSurveyor={showSurveyor}
+            showTopic={showTopic}
             isOpen={openQuestion === q.id}
             onToggle={() => {
 
