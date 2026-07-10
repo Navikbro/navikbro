@@ -70,3 +70,25 @@ body {
 .animate-float {
   animation: float 2s ease-in-out infinite;
 }
+
+/* ------------------------------
+   GLOBAL MOBILE COMPACT SCALE
+------------------------------ */
+
+html {
+  font-size: 16px;
+}
+
+/* Phones */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+  html {
+    font-size: 13px;
+  }
+}
