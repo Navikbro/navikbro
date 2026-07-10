@@ -8,23 +8,6 @@ interface Props {
   question: WrittenQuestion;
 }
 
-function formatQuestion(text: string) {
-  return text
-    .replace(/(\b(?:19|20)\d{2}\b) (?=\S)/g, "$1\n\n")
-    .replace(/\s*A\.\s*/g, "\n\nA. ")
-    .replace(/\s*B\.\s*/g, "\n\nB. ")
-    .replace(/\s*C\.\s*/g, "\n\nC. ")
-    .replace(/\s*D\.\s*/g, "\n\nD. ")
-    .replace(/\s*a\)\s*/gi, "\n\na) ")
-    .replace(/\s*b\)\s*/gi, "\n\nb) ")
-    .replace(/\s*c\)\s*/gi, "\n\nc) ")
-    .replace(/\s*d\)\s*/gi, "\n\nd) ")
-    .replace(/\(a\)/gi, "\n\n(a) ")
-    .replace(/\(b\)/gi, "\n\n(b) ")
-    .replace(/\(c\)/gi, "\n\n(c) ")
-    .replace(/\(d\)/gi, "\n\n(d) ");
-}
-
 export default function WrittenCard({ question }: Props) {
 
   const [showAnswer, setShowAnswer] = useState(false);
@@ -128,12 +111,12 @@ export default function WrittenCard({ question }: Props) {
 
 
       </div>
-      {/* Question */ }
+      {/* Question */}
 
-  <div>
+      <div>
 
-    <h2
-      className="
+        <h2
+          className="
                 whitespace-pre-wrap
                 break-words
                 text-base
@@ -144,19 +127,19 @@ export default function WrittenCard({ question }: Props) {
                 sm:leading-8
                 text-gray-900
                 "
-    >
-      {formatQuestion(question.question)}
-    </h2>
+        >
+          {question.question}
+        </h2>
 
-  </div>
+      </div>
 
 
 
-  {/* Answer Button */ }
+      {/* Answer Button */}
 
-  <button
-    onClick={() => setShowAnswer(!showAnswer)}
-    className="
+      <button
+        onClick={() => setShowAnswer(!showAnswer)}
+        className="
             mt-6
             flex
             w-full
@@ -176,31 +159,31 @@ export default function WrittenCard({ question }: Props) {
             transition
             hover:bg-gray-800
             "
-  >
+      >
 
-    {showAnswer ? (
-      <>
-        <ChevronUp size={18} />
-        Hide Answer
-      </>
-    ) : (
-      <>
-        <ChevronDown size={18} />
-        Show Answer
-      </>
-    )}
+        {showAnswer ? (
+          <>
+            <ChevronUp size={18} />
+            Hide Answer
+          </>
+        ) : (
+          <>
+            <ChevronDown size={18} />
+            Show Answer
+          </>
+        )}
 
-  </button>
+      </button>
 
 
 
-  {/* Answer */ }
+      {/* Answer */}
 
-  {
-    showAnswer && (
+      {
+        showAnswer && (
 
-      <div
-        className="
+          <div
+            className="
                 mt-5
                 rounded-2xl
                 border
@@ -209,23 +192,23 @@ export default function WrittenCard({ question }: Props) {
                 p-4
                 sm:p-5
                 "
-      >
+          >
 
-        <h3
-          className="
+            <h3
+              className="
                     mb-3
                     text-sm
                     sm:text-base
                     font-bold
                     text-green-700
                     "
-        >
-          Official Answer
-        </h3>
+            >
+              Official Answer
+            </h3>
 
 
-        <p
-          className="
+            <p
+              className="
                     whitespace-pre-wrap
                     break-words
                     text-sm
@@ -233,15 +216,15 @@ export default function WrittenCard({ question }: Props) {
                     leading-7
                     text-gray-700
                     "
-        >
-          {question.answer}
-        </p>
+            >
+              {question.answer}
+            </p>
 
 
-      </div>
+          </div>
 
-    )
-  }
+        )
+      }
 
     </div >
   );

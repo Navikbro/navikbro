@@ -49,6 +49,8 @@ export default function WrittenUploadPage() {
                     }
                 );
 
+            console.log(json[0].Question);
+
             setRows(json);
         };
 
@@ -323,7 +325,14 @@ export default function WrittenUploadPage() {
 
                                         </div>
 
-                                        <h3 className="font-semibold text-lg">
+                                        <h3
+                                            className="
+    whitespace-pre-wrap
+    break-words
+    font-semibold
+    text-lg
+  "
+                                        >
                                             {row.Question}
                                         </h3>
 

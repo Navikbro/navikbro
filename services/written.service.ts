@@ -43,6 +43,9 @@ export async function getWrittenQuestions(
     const result = snapshot.docs.map((doc) => {
         const data = doc.data();
 
+        console.log("Firestore Question:");
+        console.log(JSON.stringify(data.question));
+
         return {
             id: doc.id,
             class: data.class ?? "",
@@ -152,6 +155,9 @@ export async function bulkUploadWrittenQuestions(
                 "questions"
             )
         );
+
+        console.log("Saving Question:");
+        console.log(JSON.stringify(row.Question));
 
         batch.set(ref, {
             class: String(row.Class).trim(),
