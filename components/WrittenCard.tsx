@@ -21,17 +21,20 @@ export default function WrittenCard({ question }: Props) {
   return (
     <div
       className="
-        rounded-3xl
-        border
-        border-gray-200
-        bg-white
-        p-4
-        sm:p-5
-        md:p-6
-        shadow-sm
-        transition
-        hover:shadow-lg
-        "
+    flex
+    flex-col
+    h-[550px]
+    rounded-3xl
+    border
+    border-gray-200
+    bg-white
+    p-4
+    sm:p-5
+    md:p-6
+    shadow-sm
+    transition
+    hover:shadow-lg
+  "
     >
 
       {/* Header Tags */}
@@ -111,25 +114,70 @@ export default function WrittenCard({ question }: Props) {
 
 
       </div>
-      {/* Question */}
+      {/* Scroll Area */}
 
-      <div>
+      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+
+        {/* Question */}
 
         <h2
           className="
-                whitespace-pre-wrap
-                break-words
-                text-base
-                sm:text-lg
-                md:text-xl
-                font-medium
-                leading-7
-                sm:leading-8
-                text-gray-900
-                "
+      whitespace-pre-wrap
+      break-words
+      text-base
+      sm:text-lg
+      md:text-xl
+      font-medium
+      leading-7
+      sm:leading-8
+      text-gray-900
+    "
         >
           {question.question}
         </h2>
+
+        {showAnswer && (
+
+          <div
+            className="
+      mt-5
+      rounded-2xl
+      border
+      border-green-200
+      bg-green-50
+      p-4
+      sm:p-5
+    "
+          >
+
+            <h3
+              className="
+        mb-3
+        text-sm
+        sm:text-base
+        font-bold
+        text-green-700
+      "
+            >
+              Official Answer
+            </h3>
+
+            <p
+              className="
+        whitespace-pre-wrap
+        break-words
+        text-sm
+        sm:text-base
+        leading-7
+        text-gray-700
+      "
+            >
+              {question.answer}
+            </p>
+
+          </div>
+
+        )}
 
       </div>
 
@@ -140,25 +188,26 @@ export default function WrittenCard({ question }: Props) {
       <button
         onClick={() => setShowAnswer(!showAnswer)}
         className="
-            mt-6
-            flex
-            w-full
-            sm:w-auto
-            sm:ml-auto
-            items-center
-            justify-center
-            gap-2
-            rounded-xl
-            bg-black
-            px-5
-            py-3
-            text-sm
-            sm:text-base
-            font-semibold
-            text-white
-            transition
-            hover:bg-gray-800
-            "
+    mt-6
+    flex
+    shrink-0
+    w-full
+    sm:w-auto
+    sm:ml-auto
+    items-center
+    justify-center
+    gap-2
+    rounded-xl
+    bg-black
+    px-5
+    py-3
+    text-sm
+    sm:text-base
+    font-semibold
+    text-white
+    transition
+    hover:bg-gray-800
+"
       >
 
         {showAnswer ? (
@@ -175,56 +224,6 @@ export default function WrittenCard({ question }: Props) {
 
       </button>
 
-
-
-      {/* Answer */}
-
-      {
-        showAnswer && (
-
-          <div
-            className="
-                mt-5
-                rounded-2xl
-                border
-                border-green-200
-                bg-green-50
-                p-4
-                sm:p-5
-                "
-          >
-
-            <h3
-              className="
-                    mb-3
-                    text-sm
-                    sm:text-base
-                    font-bold
-                    text-green-700
-                    "
-            >
-              Official Answer
-            </h3>
-
-
-            <p
-              className="
-                    whitespace-pre-wrap
-                    break-words
-                    text-sm
-                    sm:text-base
-                    leading-7
-                    text-gray-700
-                    "
-            >
-              {question.answer}
-            </p>
-
-
-          </div>
-
-        )
-      }
 
     </div >
   );
