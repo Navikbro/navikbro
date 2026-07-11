@@ -12,10 +12,8 @@ interface Props {
 export default function WrittenCard({ question }: Props) {
 
   const [showAnswer, setShowAnswer] = useState(false);
-  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    setExpanded(false);
     setShowAnswer(false);
   }, [question.id]);
 
@@ -170,13 +168,13 @@ export default function WrittenCard({ question }: Props) {
           </div>
         )}
 
+      </div>
 
+      {/* Answer Button */}
 
-        {/* Answer Button */}
-
-        <button
-          onClick={() => setShowAnswer(!showAnswer)}
-          className="
+      <button
+        onClick={() => setShowAnswer(!showAnswer)}
+        className="
     mt-6
     flex
     shrink-0
@@ -197,23 +195,23 @@ export default function WrittenCard({ question }: Props) {
     transition
     hover:bg-gray-800
 "
-        >
+      >
 
-          {showAnswer ? (
-            <>
-              <ChevronUp size={18} />
-              Hide Answer
-            </>
-          ) : (
-            <>
-              <ChevronDown size={18} />
-              Show Answer
-            </>
-          )}
+        {showAnswer ? (
+          <>
+            <ChevronUp size={18} />
+            Hide Answer
+          </>
+        ) : (
+          <>
+            <ChevronDown size={18} />
+            Show Answer
+          </>
+        )}
 
-        </button>
+      </button>
 
-      </div>
+
 
     </div>
   );
