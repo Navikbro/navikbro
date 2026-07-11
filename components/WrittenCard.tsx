@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { WrittenQuestion } from "@/services/written.service";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 interface Props {
   question: WrittenQuestion;
@@ -137,7 +138,6 @@ export default function WrittenCard({ question }: Props) {
         </h2>
 
         {showAnswer && (
-
           <div
             className="
       mt-5
@@ -162,32 +162,21 @@ export default function WrittenCard({ question }: Props) {
               Official Answer
             </h3>
 
-            <p
-              className="
-        whitespace-pre-wrap
-        break-words
-        text-sm
-        sm:text-base
-        leading-7
-        text-gray-700
-      "
-            >
-              {question.answer}
-            </p>
+            <MarkdownRenderer
+              content={question.answer}
+            />
+
 
           </div>
-
         )}
 
-      </div>
 
 
+        {/* Answer Button */}
 
-      {/* Answer Button */}
-
-      <button
-        onClick={() => setShowAnswer(!showAnswer)}
-        className="
+        <button
+          onClick={() => setShowAnswer(!showAnswer)}
+          className="
     mt-6
     flex
     shrink-0
@@ -208,23 +197,24 @@ export default function WrittenCard({ question }: Props) {
     transition
     hover:bg-gray-800
 "
-      >
+        >
 
-        {showAnswer ? (
-          <>
-            <ChevronUp size={18} />
-            Hide Answer
-          </>
-        ) : (
-          <>
-            <ChevronDown size={18} />
-            Show Answer
-          </>
-        )}
+          {showAnswer ? (
+            <>
+              <ChevronUp size={18} />
+              Hide Answer
+            </>
+          ) : (
+            <>
+              <ChevronDown size={18} />
+              Show Answer
+            </>
+          )}
 
-      </button>
+        </button>
 
+      </div>
 
-    </div >
+    </div>
   );
 }

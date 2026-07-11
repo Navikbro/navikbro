@@ -106,7 +106,22 @@ export default function AdminPage() {
                         Upload Written Questions
                     </Link>
 
+                    <Link
+                        href="/admin/writtens/manage"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-xl font-semibold">
+                            Manage Written Questions
+                        </h2>
+
+                        <p className="mt-2 text-sm text-gray-500">
+                            View, edit and delete written questions.
+                        </p>
+                    </Link>
+
                 </div>
+
+
 
                 <div className="mt-12">
 

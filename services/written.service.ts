@@ -8,6 +8,7 @@ import {
     setDoc,
     writeBatch,
     deleteDoc,
+    updateDoc,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -42,9 +43,6 @@ export async function getWrittenQuestions(
 
     const result = snapshot.docs.map((doc) => {
         const data = doc.data();
-
-        console.log("Firestore Question:");
-        console.log(JSON.stringify(data.question));
 
         return {
             id: doc.id,
@@ -156,8 +154,7 @@ export async function bulkUploadWrittenQuestions(
             )
         );
 
-        console.log("Saving Question:");
-        console.log(JSON.stringify(row.Question));
+        const answer = String(row.Answer).trim();
 
         batch.set(ref, {
             class: String(row.Class).trim(),
@@ -172,7 +169,7 @@ export async function bulkUploadWrittenQuestions(
 
             question: String(row.Question).trim(),
 
-            answer: String(row.Answer).trim(),
+            answer,
 
             order: orderCounter[category]++,
 
@@ -209,4 +206,43 @@ export async function bulkUploadWrittenQuestions(
         );
 
     }
+}
+export async function updateWrittenQuestion(
+    category: string,
+    id: string,
+    data: Partial<WrittenQuestion>
+) {
+
+    console.log("Type:", typeof data.answer);
+    console.log("Raw:", data.answer);
+    console.log("JSON:", JSON.stringify(data.answer));
+
+    await updateDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            ...data,
+            updatedAt: serverTimestamp(),
+        }
+    );
+}
+
+export async function deleteWrittenQuestion(
+    category: string,
+    id: string
+) {
+    await deleteDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        )
+    );
 }
