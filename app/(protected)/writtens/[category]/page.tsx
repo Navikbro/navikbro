@@ -15,6 +15,8 @@ import WrittenCard from "@/components/WrittenCard";
 import WrittenFilters from "@/components/WrittenFilters";
 import { useAuth } from "@/app/context/AuthContext";
 
+import LoadingScreen from "@/components/LoadingScreen";
+
 import {
   getWrittenQuestions,
   WrittenQuestion,
@@ -170,6 +172,14 @@ export default function WrittensPage() {
     title: "Written Questions",
   };
 
+  if (loading) {
+    return (
+      <LoadingScreen
+        text="Loading Questions..."
+      />
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
       <div className="mx-auto max-w-7xl px-5 py-8">
@@ -300,63 +310,59 @@ export default function WrittensPage() {
 
         </div>
 
-        {loading ? (
-          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
-            Loading Questions...
-          </div>
-        ) : filteredQuestions.length === 0 ? (
-          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
-            No Questions Found.
-          </div>
+        {filteredQuestions.length === 0 ? (
+        <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
+          No Questions Found.
+        </div>
         ) : (
-          <div className="mt-8 space-y-6">
-            {currentQuestion && (
-              <>
-                <WrittenCard
-                  question={currentQuestion}
-                />
+        <div className="mt-8 space-y-6">
+          {currentQuestion && (
+            <>
+              <WrittenCard
+                question={currentQuestion}
+              />
 
-                {/* Navigation */}
-                <div className="mt-6 flex items-center justify-between">
+              {/* Navigation */}
+              <div className="mt-6 flex items-center justify-between">
 
-                  <button
-                    onClick={() =>
-                      setCurrentIndex((prev) => prev - 1)
-                    }
-                    disabled={currentIndex === 0}
-                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
-                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                      : "bg-black text-white hover:bg-gray-800"
-                      }`}
-                  >
-                    ◀ Previous
-                  </button>
+                <button
+                  onClick={() =>
+                    setCurrentIndex((prev) => prev - 1)
+                  }
+                  disabled={currentIndex === 0}
+                  className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
+                    ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                    : "bg-black text-white hover:bg-gray-800"
+                    }`}
+                >
+                  ◀ Previous
+                </button>
 
-                  <button
-                    onClick={() =>
-                      setCurrentIndex((prev) => prev + 1)
-                    }
-                    disabled={currentIndex === filteredQuestions.length - 1}
-                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
-                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                      : "bg-black text-white hover:bg-gray-800"
-                      }`}
-                  >
-                    Next ▶
-                  </button>
+                <button
+                  onClick={() =>
+                    setCurrentIndex((prev) => prev + 1)
+                  }
+                  disabled={currentIndex === filteredQuestions.length - 1}
+                  className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
+                    ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                    : "bg-black text-white hover:bg-gray-800"
+                    }`}
+                >
+                  Next ▶
+                </button>
 
-                </div>
-              </>
-            )}
-
-            {filteredQuestions.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
-                <p className="text-gray-500">
-                  No Questions Found.
-                </p>
               </div>
-            )}
-          </div>
+            </>
+          )}
+
+          {filteredQuestions.length === 0 && (
+            <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
+              <p className="text-gray-500">
+                No Questions Found.
+              </p>
+            </div>
+          )}
+        </div>
         )}
 
       </div>

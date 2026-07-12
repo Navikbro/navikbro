@@ -40,54 +40,70 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
+app/
+  (protected)/
+    admin/
+      orals/
+        page.tsx
+      writtens/
+        manage/
+          page.tsx
+        page.tsx
+      page.tsx
+    orals/
+      [category]/
+        page.tsx
+    writtens/
+      [category]/
+        page.tsx
+    layout.tsx
+  context/
+    AuthContext.tsx
+  favicon.ico
+  globals.css
+  layout.tsx
+  loading.tsx
+  page.tsx
+components/
+  AdminAnswerCard.tsx
+  AuthModal.tsx
+  CategoryCard.tsx
+  CommunityAnswer.tsx
+  FilterBar.tsx
+  Header.tsx
+  InitialLoader.tsx
+  LoadingScreen.tsx
+  MarkdownRenderer.tsx
+  ProtectedRoute.tsx
+  QuestionCard.tsx
+  QuestionsList.tsx
+  SectionHeading.tsx
+  UserGreeting.tsx
+  WrittenCard.tsx
+  WrittenFilters.tsx
+lib/
+  firebase.ts
+  orals.ts
+  writtens.ts
+public/
+  file.svg
+  globe.svg
+  next.svg
+  vercel.svg
+  window.svg
+services/
+  admin.ts
+  firestore.ts
+  written.service.ts
+types/
+  question.ts
 .gitignore
-app/(protected)/admin/orals/page.tsx
-app/(protected)/admin/page.tsx
-app/(protected)/admin/writtens/manage/page.tsx
-app/(protected)/admin/writtens/page.tsx
-app/(protected)/layout.tsx
-app/(protected)/orals/[category]/page.tsx
-app/(protected)/writtens/[category]/page.tsx
-app/context/AuthContext.tsx
-app/favicon.ico
-app/globals.css
-app/layout.tsx
-app/loading.tsx
-app/page.tsx
-components/AdminAnswerCard.tsx
-components/AuthModal.tsx
-components/CategoryCard.tsx
-components/CommunityAnswer.tsx
-components/FilterBar.tsx
-components/Header.tsx
-components/InitialLoader.tsx
-components/LoadingScreen.tsx
-components/MarkdownRenderer.tsx
-components/ProtectedRoute.tsx
-components/QuestionCard.tsx
-components/QuestionsList.tsx
-components/SectionHeading.tsx
-components/UserGreeting.tsx
-components/WrittenCard.tsx
-components/WrittenFilters.tsx
 eslint.config.mjs
-lib/firebase.ts
-lib/orals.ts
-lib/writtens.ts
 next.config.ts
 package.json
 postcss.config.mjs
-public/file.svg
-public/globe.svg
-public/next.svg
-public/vercel.svg
-public/window.svg
 README.md
-services/admin.ts
-services/firestore.ts
-services/written.service.ts
 tsconfig.json
-types/question.ts
 </directory_structure>
 
 <files>
@@ -126,6 +142,8 @@ export default function ManageWrittenQuestionsPage() {
 
     const [editedAnswer, setEditedAnswer] =
         useState("");
+
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
 
 
@@ -271,14 +289,19 @@ export default function ManageWrittenQuestionsPage() {
                         <div className="space-y-6">
 
                             {questions.map((question) => (
-
                                 <div
                                     key={question.id}
-                                    className="rounded-2xl border bg-white p-6 shadow-sm"
+                                    className="
+            rounded-2xl
+            border
+            bg-white
+            p-6
+            shadow-sm
+            transition
+            hover:shadow-md
+        "
                                 >
-
                                     <div className="mb-4 flex flex-wrap gap-2">
-
                                         <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
                                             {question.class}
                                         </span>
@@ -294,250 +317,134 @@ export default function ManageWrittenQuestionsPage() {
                                         <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
                                             {question.year}
                                         </span>
-
                                     </div>
 
-                                    <h2 className="text-lg font-semibold whitespace-pre-wrap">
-                                        {question.question}
-                                    </h2>
+                                    <button
+                                        onClick={() =>
+                                            setExpandedId(
+                                                expandedId === question.id
+                                                    ? null
+                                                    : question.id
+                                            )
+                                        }
+                                        className="w-full text-left"
+                                    >
+                                        <h2 className="text-lg font-semibold whitespace-pre-wrap">
+                                            {question.question}
+                                        </h2>
 
-                                    <div className="mt-4">
-                                        <MarkdownRenderer
-                                            content={question.answer}
-                                        />
-                                    </div>
+                                        <p className="mt-2 text-sm text-gray-500">
+                                            {expandedId === question.id
+                                                ? "Click to collapse"
+                                                : "Click to view answer"}
+                                        </p>
+                                    </button>
 
-                                    <div className="mt-6 flex justify-end gap-3">
+                                    {expandedId === question.id && (
+                                        <>
+                                            <div className="mt-5 border-t pt-5">
+                                                <MarkdownRenderer
+                                                    content={question.answer}
+                                                />
+                                            </div>
 
-                                        <button
-                                            onClick={() => {
+                                            <div className="mt-6 flex justify-end gap-3">
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingQuestion(question);
+                                                        setEditedQuestion(question.question);
+                                                        setEditedAnswer(question.answer);
+                                                    }}
+                                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+                                                >
+                                                    Edit
+                                                </button>
 
-                                                setEditingQuestion(question);
-
-                                                setEditedQuestion(
-                                                    question.question
-                                                );
-
-                                                setEditedAnswer(
-                                                    question.answer
-                                                );
-
-                                            }}
-                                            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-                                        >
-                                            Edit
-                                        </button>
-
-                                        <button
-                                            onClick={() =>
-                                                handleDelete(question.id)
-                                            }
-                                            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-                                        >
-                                            Delete
-                                        </button>
-
-                                    </div>
-
+                                                <button
+                                                    onClick={() =>
+                                                        handleDelete(question.id)
+                                                    }
+                                                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
-
                             ))}
 
                         </div>
-
                     )}
 
                 </div>
-            </div>
 
-            {editingQuestion && (
+                {editingQuestion && (
 
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
 
-                    <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
+                        <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
 
-                        <h2 className="text-2xl font-bold">
-                            Edit Written Question
-                        </h2>
-
-                        <textarea
-                            value={editedQuestion}
-                            onChange={(e) =>
-                                setEditedQuestion(e.target.value)
-                            }
-                            rows={6}
-                            className="mt-6 w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
-                        />
-
-                        <div className="mt-6">
-
-                            <label className="mb-2 block text-sm font-semibold">
-                                Answer
-                            </label>
+                            <h2 className="text-2xl font-bold">
+                                Edit Written Question
+                            </h2>
 
                             <textarea
-                                value={editedAnswer}
+                                value={editedQuestion}
                                 onChange={(e) =>
-                                    setEditedAnswer(e.target.value)
+                                    setEditedQuestion(e.target.value)
                                 }
-                                rows={12}
-                                className="w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
+                                rows={6}
+                                className="mt-6 w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
                             />
 
-                        </div>
+                            <div className="mt-6">
 
-                        <div className="mt-8 flex justify-end gap-3">
+                                <label className="mb-2 block text-sm font-semibold">
+                                    Answer
+                                </label>
 
-                            <button
-                                onClick={() =>
-                                    setEditingQuestion(null)
-                                }
-                                className="rounded-xl border px-5 py-2"
-                            >
-                                Cancel
-                            </button>
+                                <textarea
+                                    value={editedAnswer}
+                                    onChange={(e) =>
+                                        setEditedAnswer(e.target.value)
+                                    }
+                                    rows={12}
+                                    className="w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
+                                />
 
-                            <button
-                                onClick={handleSave}
-                                className="rounded-xl bg-blue-600 px-5 py-2 text-white transition hover:bg-blue-700"
-                            >
-                                Save
-                            </button>
+                            </div>
+
+                            <div className="mt-8 flex justify-end gap-3">
+
+                                <button
+                                    onClick={() =>
+                                        setEditingQuestion(null)
+                                    }
+                                    className="rounded-xl border px-5 py-2"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    onClick={handleSave}
+                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white transition hover:bg-blue-700"
+                                >
+                                    Save
+                                </button>
+
+                            </div>
 
                         </div>
 
                     </div>
 
-                </div>
-
-            )
-            }
+                )
+                }
+            </div>
         </main >
     );
 }
-</file>
-
-<file path="components/MarkdownRenderer.tsx">
-"use client";
-
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
-
-interface MarkdownRendererProps {
-    content: string;
-}
-
-export default function MarkdownRenderer({
-    content,
-}: MarkdownRendererProps) {
-    return (
-        <div
-            className="
-        prose
-        prose-gray
-        max-w-none
-
-        prose-headings:font-bold
-        prose-headings:text-gray-900
-
-        prose-p:text-gray-700
-        prose-p:leading-7
-
-        prose-strong:text-black
-        prose-strong:font-semibold
-
-        prose-ul:list-disc
-        prose-ol:list-decimal
-
-        prose-li:marker:text-gray-500
-
-        prose-blockquote:border-l-4
-        prose-blockquote:border-blue-500
-        prose-blockquote:bg-blue-50
-        prose-blockquote:px-4
-        prose-blockquote:py-2
-        prose-blockquote:rounded-r-lg
-
-        prose-table:w-full
-        prose-table:border-collapse
-
-        prose-th:border
-        prose-th:bg-gray-100
-        prose-th:p-3
-
-        prose-td:border
-        prose-td:p-3
-
-        prose-code:rounded
-        prose-code:bg-gray-100
-        prose-code:px-1
-        prose-code:py-0.5
-
-        prose-pre:rounded-xl
-        prose-pre:bg-gray-900
-        prose-pre:text-gray-100
-        prose-pre:p-4
-
-        prose-img:rounded-xl
-        prose-img:shadow
-
-        prose-hr:my-8
-    "
-        >
-            <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw]}
-            >
-                {content}
-            </ReactMarkdown>
-        </div>
-    );
-}
-</file>
-
-<file path=".gitignore">
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
 </file>
 
 <file path="app/(protected)/layout.tsx">
@@ -889,6 +796,85 @@ export default function LoadingScreen({
 }
 </file>
 
+<file path="components/MarkdownRenderer.tsx">
+"use client";
+
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+
+interface MarkdownRendererProps {
+    content: string;
+}
+
+export default function MarkdownRenderer({
+    content,
+}: MarkdownRendererProps) {
+    return (
+        <div
+            className="
+        prose
+        prose-gray
+        max-w-none
+
+        prose-headings:font-bold
+        prose-headings:text-gray-900
+
+        prose-p:text-gray-700
+        prose-p:leading-7
+
+        prose-strong:text-black
+        prose-strong:font-semibold
+
+        prose-ul:list-disc
+        prose-ol:list-decimal
+
+        prose-li:marker:text-gray-500
+
+        prose-blockquote:border-l-4
+        prose-blockquote:border-blue-500
+        prose-blockquote:bg-blue-50
+        prose-blockquote:px-4
+        prose-blockquote:py-2
+        prose-blockquote:rounded-r-lg
+
+        prose-table:w-full
+        prose-table:border-collapse
+
+        prose-th:border
+        prose-th:bg-gray-100
+        prose-th:p-3
+
+        prose-td:border
+        prose-td:p-3
+
+        prose-code:rounded
+        prose-code:bg-gray-100
+        prose-code:px-1
+        prose-code:py-0.5
+
+        prose-pre:rounded-xl
+        prose-pre:bg-gray-900
+        prose-pre:text-gray-100
+        prose-pre:p-4
+
+        prose-img:rounded-xl
+        prose-img:shadow
+
+        prose-hr:my-8
+    "
+        >
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
+            >
+                {content}
+            </ReactMarkdown>
+        </div>
+    );
+}
+</file>
+
 <file path="components/ProtectedRoute.tsx">
 "use client";
 
@@ -953,27 +939,6 @@ export default function UserGreeting() {
 }
 </file>
 
-<file path="eslint.config.mjs">
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
-
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ]),
-]);
-
-export default eslintConfig;
-</file>
-
 <file path="lib/firebase.ts">
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
@@ -997,6 +962,122 @@ export const db = getFirestore(app);
 export default app;
 </file>
 
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="services/admin.ts">
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export async function isUserAdmin(uid: string) {
+  const userRef = doc(db, "users", uid);
+
+  const snapshot = await getDoc(userRef);
+
+  if (!snapshot.exists()) {
+    return false;
+  }
+
+  return snapshot.data().role === "admin";
+}
+</file>
+
+<file path="types/question.ts">
+export interface Question {
+  id: string;
+  question: string;
+  answer: string;
+  mmd: string;
+  surveyor: string;
+  topic: string;
+  order: number;
+  isActive: boolean;
+  tags: string[];
+}
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+</file>
+
 <file path="next.config.ts">
 import type { NextConfig } from "next";
 
@@ -1016,26 +1097,6 @@ const config = {
 };
 
 export default config;
-</file>
-
-<file path="public/file.svg">
-<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
-</file>
-
-<file path="public/globe.svg">
-<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
-</file>
-
-<file path="public/next.svg">
-<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
-</file>
-
-<file path="public/vercel.svg">
-<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
-</file>
-
-<file path="public/window.svg">
-<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
 </file>
 
 <file path="README.md">
@@ -1077,23 +1138,6 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 </file>
 
-<file path="services/admin.ts">
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-
-export async function isUserAdmin(uid: string) {
-  const userRef = doc(db, "users", uid);
-
-  const snapshot = await getDoc(userRef);
-
-  if (!snapshot.exists()) {
-    return false;
-  }
-
-  return snapshot.data().role === "admin";
-}
-</file>
-
 <file path="tsconfig.json">
 {
   "compilerOptions": {
@@ -1128,20 +1172,6 @@ export async function isUserAdmin(uid: string) {
     "**/*.mts"
   ],
   "exclude": ["node_modules"]
-}
-</file>
-
-<file path="types/question.ts">
-export interface Question {
-  id: string;
-  question: string;
-  answer: string;
-  mmd: string;
-  surveyor: string;
-  topic: string;
-  order: number;
-  isActive: boolean;
-  tags: string[];
 }
 </file>
 
@@ -1566,169 +1596,6 @@ export default function BulkUploadPage() {
 }
 </file>
 
-<file path="app/(protected)/admin/page.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-
-import { useAuth } from "@/app/context/AuthContext";
-import { isUserAdmin } from "@/services/admin";
-import {
-    getPendingAnswers,
-    approveAnswer,
-    rejectAnswer,
-} from "@/services/firestore";
-
-import AdminAnswerCard from "@/components/AdminAnswerCard";
-
-interface PendingAnswer {
-    id: string;
-    questionId: string;
-    category: string;
-    userName: string;
-    answer: string;
-}
-
-export default function AdminPage() {
-    const { user, loading } = useAuth();
-    const router = useRouter();
-
-    const [checking, setChecking] = useState(true);
-    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
-
-    useEffect(() => {
-        async function init() {
-            if (loading) return;
-
-            if (!user) {
-                router.replace("/");
-                return;
-            }
-
-            const admin = await isUserAdmin(user.uid);
-
-            if (!admin) {
-                router.replace("/");
-                return;
-            }
-
-            const pending = await getPendingAnswers();
-
-            setAnswers(pending as PendingAnswer[]);
-            setChecking(false);
-        }
-
-        init();
-    }, [user, loading, router]);
-
-    async function handleApprove(id: string) {
-        await approveAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
-    }
-
-    async function handleReject(id: string) {
-        await rejectAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
-    }
-
-    if (checking) {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                Checking permissions...
-            </div>
-        );
-    }
-
-    return (
-        <main className="min-h-screen bg-[#f5f5f5]">
-            <div className="mx-auto max-w-6xl px-6 py-10">
-
-                <h1 className="text-4xl font-bold">
-                    Admin Dashboard
-                </h1>
-
-                <p className="mt-2 text-gray-500">
-                    Manage uploads and community answers.
-                </p>
-
-                <div className="mt-8 flex flex-wrap gap-4">
-
-                    <Link
-                        href="/admin/orals"
-                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
-                    >
-                        Upload Oral Questions
-                    </Link>
-
-                    <Link
-                        href="/admin/writtens"
-                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
-                    >
-                        Upload Written Questions
-                    </Link>
-
-                    <Link
-                        href="/admin/writtens/manage"
-                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
-                    >
-                        <h2 className="text-xl font-semibold">
-                            Manage Written Questions
-                        </h2>
-
-                        <p className="mt-2 text-sm text-gray-500">
-                            View, edit and delete written questions.
-                        </p>
-                    </Link>
-
-                </div>
-
-
-
-                <div className="mt-12">
-
-                    <h2 className="text-2xl font-bold">
-                        Pending Community Answers
-                    </h2>
-
-                    <div className="mt-6 space-y-6">
-
-                        {answers.length === 0 && (
-                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
-                                No pending answers.
-                            </div>
-                        )}
-
-                        {answers.map((answer) => (
-                            <AdminAnswerCard
-                                key={answer.id}
-                                id={answer.id}
-                                questionId={answer.questionId}
-                                category={answer.category}
-                                userName={answer.userName}
-                                answer={answer.answer}
-                                onApprove={handleApprove}
-                                onReject={handleReject}
-                            />
-                        ))}
-
-                    </div>
-
-                </div>
-
-            </div>
-        </main>
-    );
-}
-</file>
-
 <file path="components/AuthModal.tsx">
 "use client";
 
@@ -2008,45 +1875,6 @@ export async function getWrittenStats(category: string) {
     topics: data.topicCount ?? 0,
     updatedAt: data.updatedAt?.toDate?.() ?? null,
   };
-}
-</file>
-
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "firebase": "^12.15.0",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
 }
 </file>
 
@@ -2499,6 +2327,169 @@ export default function WrittenUploadPage() {
 }
 </file>
 
+<file path="app/(protected)/admin/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+import { useAuth } from "@/app/context/AuthContext";
+import { isUserAdmin } from "@/services/admin";
+import {
+    getPendingAnswers,
+    approveAnswer,
+    rejectAnswer,
+} from "@/services/firestore";
+
+import AdminAnswerCard from "@/components/AdminAnswerCard";
+
+interface PendingAnswer {
+    id: string;
+    questionId: string;
+    category: string;
+    userName: string;
+    answer: string;
+}
+
+export default function AdminPage() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+
+    const [checking, setChecking] = useState(true);
+    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
+
+    useEffect(() => {
+        async function init() {
+            if (loading) return;
+
+            if (!user) {
+                router.replace("/");
+                return;
+            }
+
+            const admin = await isUserAdmin(user.uid);
+
+            if (!admin) {
+                router.replace("/");
+                return;
+            }
+
+            const pending = await getPendingAnswers();
+
+            setAnswers(pending as PendingAnswer[]);
+            setChecking(false);
+        }
+
+        init();
+    }, [user, loading, router]);
+
+    async function handleApprove(id: string) {
+        await approveAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
+
+    async function handleReject(id: string) {
+        await rejectAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
+
+    if (checking) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                Checking permissions...
+            </div>
+        );
+    }
+
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
+
+                <h1 className="text-4xl font-bold">
+                    Admin Dashboard
+                </h1>
+
+                <p className="mt-2 text-gray-500">
+                    Manage uploads and community answers.
+                </p>
+
+                <div className="mt-8 flex flex-wrap gap-4">
+
+                    <Link
+                        href="/admin/orals"
+                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
+                    >
+                        Upload Oral Questions
+                    </Link>
+
+                    <Link
+                        href="/admin/writtens"
+                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
+                    >
+                        Upload Written Questions
+                    </Link>
+
+                    <Link
+                        href="/admin/writtens/manage"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-xl font-semibold">
+                            Manage Written Questions
+                        </h2>
+
+                        <p className="mt-2 text-sm text-gray-500">
+                            View, edit and delete written questions.
+                        </p>
+                    </Link>
+
+                </div>
+
+
+
+                <div className="mt-12">
+
+                    <h2 className="text-2xl font-bold">
+                        Pending Community Answers
+                    </h2>
+
+                    <div className="mt-6 space-y-6">
+
+                        {answers.length === 0 && (
+                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
+                                No pending answers.
+                            </div>
+                        )}
+
+                        {answers.map((answer) => (
+                            <AdminAnswerCard
+                                key={answer.id}
+                                id={answer.id}
+                                questionId={answer.questionId}
+                                category={answer.category}
+                                userName={answer.userName}
+                                answer={answer.answer}
+                                onApprove={handleApprove}
+                                onReject={handleReject}
+                            />
+                        ))}
+
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    );
+}
+</file>
+
 <file path="app/(protected)/orals/[category]/page.tsx">
 import QuestionsList from "@/components/QuestionsList";
 import { getQuestions } from "@/services/firestore";
@@ -2647,105 +2638,6 @@ export default async function OralCategoryPage({
       </div>
     </main>
   );
-}
-</file>
-
-<file path="app/globals.css">
-@import "tailwindcss";
-@plugin "@tailwindcss/typography";
-
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-@keyframes wave1 {
-  0%, 100% {
-    transform: translateX(-20px);
-  }
-
-  50% {
-    transform: translateX(20px);
-  }
-}
-
-
-@keyframes wave2 {
-  0%, 100% {
-    transform: translateX(20px);
-  }
-
-  50% {
-    transform: translateX(-20px);
-  }
-}
-
-
-@keyframes float {
-  0%,100% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-
-.animate-wave1 {
-  animation: wave1 3s ease-in-out infinite;
-}
-
-
-.animate-wave2 {
-  animation: wave2 2.5s ease-in-out infinite;
-}
-
-
-.animate-float {
-  animation: float 2s ease-in-out infinite;
-}
-
-/* ------------------------------
-   GLOBAL MOBILE COMPACT SCALE
------------------------------- */
-
-html {
-  font-size: 16px;
-}
-
-/* Phones */
-@media (max-width: 640px) {
-  html {
-    font-size: 14px;
-  }
-}
-
-/* Very small phones */
-@media (max-width: 380px) {
-  html {
-    font-size: 13px;
-  }
 }
 </file>
 
@@ -3226,6 +3118,144 @@ export async function bulkUploadQuestions(rows: any[]) {
     for (const category of Object.keys(orderCounter)) {
         clearQuestionCache(category);
     }
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "firebase": "^12.15.0",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+@keyframes wave1 {
+  0%, 100% {
+    transform: translateX(-20px);
+  }
+
+  50% {
+    transform: translateX(20px);
+  }
+}
+
+
+@keyframes wave2 {
+  0%, 100% {
+    transform: translateX(20px);
+  }
+
+  50% {
+    transform: translateX(-20px);
+  }
+}
+
+
+@keyframes float {
+  0%,100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+
+.animate-wave1 {
+  animation: wave1 3s ease-in-out infinite;
+}
+
+
+.animate-wave2 {
+  animation: wave2 2.5s ease-in-out infinite;
+}
+
+
+.animate-float {
+  animation: float 2s ease-in-out infinite;
+}
+
+/* ------------------------------
+   GLOBAL MOBILE COMPACT SCALE
+------------------------------ */
+
+html {
+  font-size: 16px;
+}
+
+/* Phones */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+  html {
+    font-size: 13px;
+  }
 }
 </file>
 
@@ -4144,257 +4174,6 @@ font-semibold
 }
 </file>
 
-<file path="services/written.service.ts">
-import {
-    collection,
-    doc,
-    getDocs,
-    orderBy,
-    query,
-    serverTimestamp,
-    setDoc,
-    writeBatch,
-    deleteDoc,
-    updateDoc,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
-
-export interface WrittenQuestion {
-    id: string;
-    class: string;
-    category: string;
-    topic: string;
-    year: number;
-    month: string;
-    question: string;
-    answer: string;
-    order: number;
-    isActive: boolean;
-}
-
-export async function getWrittenQuestions(
-    category: string
-): Promise<WrittenQuestion[]> {
-    const q = query(
-        collection(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions"
-        ),
-        orderBy("order")
-    );
-
-    const snapshot = await getDocs(q);
-
-    const result = snapshot.docs.map((doc) => {
-        const data = doc.data();
-
-        return {
-            id: doc.id,
-            class: data.class ?? "",
-            category: data.category ?? "",
-            topic: data.topic ?? "",
-            year: data.year ?? 0,
-            month: data.month ?? "",
-            question: data.question ?? "",
-            answer: data.answer ?? "",
-            order: data.order ?? 0,
-            isActive: data.isActive ?? true,
-        };
-    });
-
-    return result;
-}
-
-async function deleteExistingWrittenQuestions(
-    category: string
-) {
-    const questionsRef = collection(
-        db,
-        "writtens",
-        category,
-        "questions"
-    );
-
-    const snapshot = await getDocs(
-        questionsRef
-    );
-
-    const deleteBatch = writeBatch(db);
-
-    snapshot.docs.forEach((questionDoc) => {
-        deleteBatch.delete(questionDoc.ref);
-    });
-
-    await deleteBatch.commit();
-}
-
-export async function getWrittenQuestionCount(
-    category: string
-) {
-
-    const snapshot =
-        await getDocs(
-            collection(
-                db,
-                "writtens",
-                category,
-                "questions"
-            )
-        );
-
-
-    return snapshot.size;
-
-}
-
-export async function bulkUploadWrittenQuestions(
-    rows: any[]
-) {
-    const batch = writeBatch(db);
-
-    const orderCounter: Record<string, number> = {};
-    const topicCounter: Record<string, Set<string>> = {};
-
-    const categories = new Set<string>();
-
-    rows.forEach((rawRow, index) => {
-        const row: Record<string, any> = {};
-
-        Object.keys(rawRow).forEach((key) => {
-            row[key.trim()] = rawRow[key];
-        });
-
-        const category = String(row.Category)
-            .trim()
-            .toLowerCase();
-
-        if (!category) {
-            throw new Error(
-                `Row ${index + 1}: Category missing`
-            );
-        }
-        categories.add(category);
-
-        if (!orderCounter[category]) {
-            orderCounter[category] = 1;
-        }
-
-        if (!topicCounter[category]) {
-            topicCounter[category] = new Set();
-        }
-
-        const topic = String(row.Topic ?? "").trim();
-
-        if (topic) {
-            topicCounter[category].add(topic);
-        }
-
-        const ref = doc(
-            collection(
-                db,
-                "writtens",
-                category,
-                "questions"
-            )
-        );
-
-        const answer = String(row.Answer).trim();
-
-        batch.set(ref, {
-            class: String(row.Class).trim(),
-
-            category: String(row.Category).trim(),
-
-            topic: String(row.Topic).trim(),
-
-            year: Number(row.Year),
-
-            month: String(row.Month).trim(),
-
-            question: String(row.Question).trim(),
-
-            answer,
-
-            order: orderCounter[category]++,
-
-            isActive: true,
-
-            createdAt: serverTimestamp(),
-
-            updatedAt: serverTimestamp(),
-        });
-    });
-
-    for (const category of categories) {
-
-        await deleteExistingWrittenQuestions(
-            category
-        );
-
-    }
-
-    await batch.commit();
-
-    for (const category of Object.keys(orderCounter)) {
-
-        await setDoc(
-            doc(db, "writtens", category),
-            {
-                questionCount: orderCounter[category] - 1,
-                topicCount: topicCounter[category].size,
-                updatedAt: serverTimestamp(),
-            },
-            {
-                merge: true,
-            }
-        );
-
-    }
-}
-export async function updateWrittenQuestion(
-    category: string,
-    id: string,
-    data: Partial<WrittenQuestion>
-) {
-
-    console.log("Type:", typeof data.answer);
-    console.log("Raw:", data.answer);
-    console.log("JSON:", JSON.stringify(data.answer));
-
-    await updateDoc(
-        doc(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions",
-            id
-        ),
-        {
-            ...data,
-            updatedAt: serverTimestamp(),
-        }
-    );
-}
-
-export async function deleteWrittenQuestion(
-    category: string,
-    id: string
-) {
-    await deleteDoc(
-        doc(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions",
-            id
-        )
-    );
-}
-</file>
-
 <file path="app/page.tsx">
 "use client";
 
@@ -4661,6 +4440,257 @@ export default function HomePage() {
       />
     </main>
   );
+}
+</file>
+
+<file path="services/written.service.ts">
+import {
+    collection,
+    doc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    setDoc,
+    writeBatch,
+    deleteDoc,
+    updateDoc,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+export interface WrittenQuestion {
+    id: string;
+    class: string;
+    category: string;
+    topic: string;
+    year: number;
+    month: string;
+    question: string;
+    answer: string;
+    order: number;
+    isActive: boolean;
+}
+
+export async function getWrittenQuestions(
+    category: string
+): Promise<WrittenQuestion[]> {
+    const q = query(
+        collection(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions"
+        ),
+        orderBy("order")
+    );
+
+    const snapshot = await getDocs(q);
+
+    const result = snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+            id: doc.id,
+            class: data.class ?? "",
+            category: data.category ?? "",
+            topic: data.topic ?? "",
+            year: data.year ?? 0,
+            month: data.month ?? "",
+            question: data.question ?? "",
+            answer: data.answer ?? "",
+            order: data.order ?? 0,
+            isActive: data.isActive ?? true,
+        };
+    });
+
+    return result;
+}
+
+async function deleteExistingWrittenQuestions(
+    category: string
+) {
+    const questionsRef = collection(
+        db,
+        "writtens",
+        category,
+        "questions"
+    );
+
+    const snapshot = await getDocs(
+        questionsRef
+    );
+
+    const deleteBatch = writeBatch(db);
+
+    snapshot.docs.forEach((questionDoc) => {
+        deleteBatch.delete(questionDoc.ref);
+    });
+
+    await deleteBatch.commit();
+}
+
+export async function getWrittenQuestionCount(
+    category: string
+) {
+
+    const snapshot =
+        await getDocs(
+            collection(
+                db,
+                "writtens",
+                category,
+                "questions"
+            )
+        );
+
+
+    return snapshot.size;
+
+}
+
+export async function bulkUploadWrittenQuestions(
+    rows: any[]
+) {
+    const batch = writeBatch(db);
+
+    const orderCounter: Record<string, number> = {};
+    const topicCounter: Record<string, Set<string>> = {};
+
+    const categories = new Set<string>();
+
+    rows.forEach((rawRow, index) => {
+        const row: Record<string, any> = {};
+
+        Object.keys(rawRow).forEach((key) => {
+            row[key.trim()] = rawRow[key];
+        });
+
+        const category = String(row.Category)
+            .trim()
+            .toLowerCase();
+
+        if (!category) {
+            throw new Error(
+                `Row ${index + 1}: Category missing`
+            );
+        }
+        categories.add(category);
+
+        if (!orderCounter[category]) {
+            orderCounter[category] = 1;
+        }
+
+        if (!topicCounter[category]) {
+            topicCounter[category] = new Set();
+        }
+
+        const topic = String(row.Topic ?? "").trim();
+
+        if (topic) {
+            topicCounter[category].add(topic);
+        }
+
+        const ref = doc(
+            collection(
+                db,
+                "writtens",
+                category,
+                "questions"
+            )
+        );
+
+        const answer = String(row.Answer).trim();
+
+        batch.set(ref, {
+            class: String(row.Class).trim(),
+
+            category: String(row.Category).trim(),
+
+            topic: String(row.Topic).trim(),
+
+            year: Number(row.Year),
+
+            month: String(row.Month).trim(),
+
+            question: String(row.Question).trim(),
+
+            answer,
+
+            order: orderCounter[category]++,
+
+            isActive: true,
+
+            createdAt: serverTimestamp(),
+
+            updatedAt: serverTimestamp(),
+        });
+    });
+
+    for (const category of categories) {
+
+        await deleteExistingWrittenQuestions(
+            category
+        );
+
+    }
+
+    await batch.commit();
+
+    for (const category of Object.keys(orderCounter)) {
+
+        await setDoc(
+            doc(db, "writtens", category),
+            {
+                questionCount: orderCounter[category] - 1,
+                topicCount: topicCounter[category].size,
+                updatedAt: serverTimestamp(),
+            },
+            {
+                merge: true,
+            }
+        );
+
+    }
+}
+export async function updateWrittenQuestion(
+    category: string,
+    id: string,
+    data: Partial<WrittenQuestion>
+) {
+
+    console.log("Type:", typeof data.answer);
+    console.log("Raw:", data.answer);
+    console.log("JSON:", JSON.stringify(data.answer));
+
+    await updateDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            ...data,
+            updatedAt: serverTimestamp(),
+        }
+    );
+}
+
+export async function deleteWrittenQuestion(
+    category: string,
+    id: string
+) {
+    await deleteDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        )
+    );
 }
 </file>
 
@@ -5038,10 +5068,8 @@ interface Props {
 export default function WrittenCard({ question }: Props) {
 
   const [showAnswer, setShowAnswer] = useState(false);
-  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    setExpanded(false);
     setShowAnswer(false);
   }, [question.id]);
 
@@ -5188,19 +5216,21 @@ export default function WrittenCard({ question }: Props) {
               Official Answer
             </h3>
 
-            [&_h1]:text-3xl
+            <MarkdownRenderer
+              content={question.answer}
+            />
 
-            
+
           </div>
         )}
 
+      </div>
 
+      {/* Answer Button */}
 
-        {/* Answer Button */}
-
-        <button
-          onClick={() => setShowAnswer(!showAnswer)}
-          className="
+      <button
+        onClick={() => setShowAnswer(!showAnswer)}
+        className="
     mt-6
     flex
     shrink-0
@@ -5221,23 +5251,23 @@ export default function WrittenCard({ question }: Props) {
     transition
     hover:bg-gray-800
 "
-        >
+      >
 
-          {showAnswer ? (
-            <>
-              <ChevronUp size={18} />
-              Hide Answer
-            </>
-          ) : (
-            <>
-              <ChevronDown size={18} />
-              Show Answer
-            </>
-          )}
+        {showAnswer ? (
+          <>
+            <ChevronUp size={18} />
+            Hide Answer
+          </>
+        ) : (
+          <>
+            <ChevronDown size={18} />
+            Show Answer
+          </>
+        )}
 
-        </button>
+      </button>
 
-      </div>
+
 
     </div>
   );
