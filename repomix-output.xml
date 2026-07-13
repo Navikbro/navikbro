@@ -63,6 +63,7 @@ app/
   globals.css
   layout.tsx
   loading.tsx
+  manifest.ts
   page.tsx
 components/
   AdminAnswerCard.tsx
@@ -86,8 +87,11 @@ lib/
   orals.ts
   writtens.ts
 public/
+  apple-icon.png
   file.svg
   globe.svg
+  icon-192.png
+  icon-512.png
   next.svg
   vercel.svg
   window.svg
@@ -554,6 +558,39 @@ import LoadingScreen from "@/components/LoadingScreen";
 
 export default function Loading() {
   return <LoadingScreen />;
+}
+</file>
+
+<file path="app/manifest.ts">
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "NAVIK",
+    short_name: "NAVIK",
+    description: "Sail Towards COC",
+
+    start_url: "/",
+    scope: "/",
+
+    display: "standalone",
+
+    background_color: "#FFFFFF",
+    theme_color: "#0A2540",
+
+    icons: [
+      {
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+  };
 }
 </file>
 
@@ -2603,37 +2640,6 @@ export default async function OralCategoryPage({
 }
 </file>
 
-<file path="app/layout.tsx">
-import type { Metadata } from "next";
-import "./globals.css";
-import { AuthProvider } from "@/app/context/AuthContext";
-import InitialLoader from "@/components/InitialLoader";
-export const metadata: Metadata = {
-  title: "Navik",
-  description: "Sail Towards COC",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body>
-        <AuthProvider>
-
-          <InitialLoader>
-            {children}
-          </InitialLoader>
-
-        </AuthProvider>
-      </body>
-    </html>
-  );
-}
-</file>
-
 <file path="components/WrittenFilters.tsx">
 "use client";
 
@@ -3322,41 +3328,42 @@ export default function CategoryCard({
 }
 </file>
 
-<file path="components/InitialLoader.tsx">
-"use client";
+<file path="app/layout.tsx">
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
 
-import { useEffect, useState } from "react";
-import LoadingScreen from "./LoadingScreen";
+import { AuthProvider } from "@/app/context/AuthContext";
+import InitialLoader from "@/components/InitialLoader";
+export const metadata: Metadata = {
+  title: "NAVIK",
+  description: "Sail Towards COC",
 
-export default function InitialLoader({
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0A2540",
+};
+
+export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
-
-  const [loading,setLoading] = useState(true);
-
-  useEffect(()=>{
-
-    const timer=setTimeout(()=>{
-      setLoading(false);
-    },2000);
-
-    return ()=>clearTimeout(timer);
-
-  },[]);
-
-
-  if(loading){
-    return (
-      <LoadingScreen 
-        text="Setting your course..."
-      />
-    );
-  }
-
-
-  return children;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider>
+          <InitialLoader>
+            {children}
+          </InitialLoader>
+        </AuthProvider>
+      </body>
+    </html>
+  );
 }
 </file>
 
@@ -4788,6 +4795,44 @@ export default function Header({ setShowAuth }: HeaderProps) {
       </div>
     </div>
   );
+}
+</file>
+
+<file path="components/InitialLoader.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import LoadingScreen from "./LoadingScreen";
+
+export default function InitialLoader({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+
+  const [loading,setLoading] = useState(true);
+
+  useEffect(()=>{
+
+    const timer=setTimeout(()=>{
+      setLoading(false);
+    },2000);
+
+    return ()=>clearTimeout(timer);
+
+  },[]);
+
+
+  if(loading){
+    return (
+      <LoadingScreen 
+        text="Setting your course..."
+      />
+    );
+  }
+
+
+  return children;
 }
 </file>
 
