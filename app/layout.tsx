@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 import { AuthProvider } from "@/app/context/AuthContext";
-
+import InitialLoader from "@/components/InitialLoader";
 export const metadata: Metadata = {
   title: "NAVIK",
   description: "Sail Towards COC",
@@ -26,7 +26,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AuthProvider>
-          {children}
+          <InitialLoader>
+            {children}
+          </InitialLoader>
         </AuthProvider>
       </body>
     </html>
