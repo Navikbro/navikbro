@@ -110,7 +110,7 @@ export default function AdminPage() {
                         href="/admin/writtens/manage"
                         className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
                     >
-                        <h2 className="text-xl font-semibold">
+                        <h2 className="text-l font-semibold">
                             Manage Written Questions
                         </h2>
 
