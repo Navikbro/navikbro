@@ -34,11 +34,6 @@ export default function LoadingScreen({
         </div>
 
 
-        <h2 className="text-2xl font-bold tracking-tight mt-6">
-          NAVIK
-        </h2>
-
-
         <p className="text-gray-500 mt-2 text-sm tracking-wide text-center px-5">
           {text}
         </p>

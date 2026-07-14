@@ -25,7 +25,7 @@ export default function InitialLoader({
   if(loading){
     return (
       <LoadingScreen 
-        text="Setting your course..."
+        text="Compiling confidence... Almost there!"
       />
     );
   }
