@@ -25,7 +25,7 @@ export default function LoadingScreen({
           {/* SHIP */}
           <div className="relative animate-float">
             <Sailboat
-              size={70}
+              size={60}
               strokeWidth={2}
               className="text-black -rotate-5 animate-float"
             />

@@ -30,7 +30,7 @@ export default async function OralCategoryPage({
       title: "FN3",
       subtitle: "SAFETY",
       quote:
-        "Every question you revise today increases your confidence tomorrow.",
+        "Today's revision is tomorrow's Promotion.",
     },
     fn4b: {
       title: "FN4B",

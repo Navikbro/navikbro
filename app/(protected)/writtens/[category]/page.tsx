@@ -217,8 +217,7 @@ export default function WrittensPage() {
 
             <div className="mt-6 border-l-4 border-black pl-4">
               <p className="text-sm italic text-gray-600">
-                Every answer you write today
-                increases your confidence tomorrow.
+                Coffee. Questions. Repeat.
               </p>
             </div>
 

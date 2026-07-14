@@ -186,7 +186,7 @@ export default function HomePage() {
         <section className="mt-12">
           <SectionHeading title="BROWSE BY WRITTENS" />
 
-          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
             <CategoryCard
               href="/writtens/general"
               title="GENERAL"
