@@ -22,13 +22,13 @@ interface ExcelQuestion {
 export default function BulkUploadPage() {
     const [rows, setRows] = useState<ExcelQuestion[]>([]);
     const [uploading, setUploading] = useState(false);
+    const [checkingCount, setCheckingCount] = useState(false);
 
     const [showConfirm, setShowConfirm] = useState(false);
 
     const [existingCount, setExistingCount] = useState(0);
 
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
-    const [uploadMode, setUploadMode] = useState<"replace" | "add">("replace");
     function handleFile(file: File) {
         const reader = new FileReader();
 
@@ -141,89 +141,68 @@ export default function BulkUploadPage() {
             return;
         }
 
+        setCheckingCount(true);
 
-        const categories = [
-            ...new Set(
-                rows.map(
-                    (row) =>
-                        row.Category
-                            .trim()
-                            .toLowerCase()
-                )
-            ),
-        ];
+        try {
 
+            const categories = [
+                ...new Set(
+                    rows.map((row) =>
+                        row.Category.trim().toLowerCase()
+                    )
+                ),
+            ];
 
-        let count = 0;
+            let count = 0;
 
+            for (const category of categories) {
 
-        for (const category of categories) {
+                const existing =
+                    await getOralQuestionCount(category);
 
-            const existing =
-                await getOralQuestionCount(
-                    category
-                );
+                count += existing;
 
-            count += existing;
+            }
+
+            setExistingCount(count);
+
+            setShowConfirm(true);
+
+        }
+        finally {
+
+            setCheckingCount(false);
 
         }
 
 
-        setExistingCount(count);
-
-        setShowConfirm(true);
-
     }
 
-    async function confirmUpload(mode: "replace" | "add") {
-
-        setUploadMode(mode);
+    async function confirmUpload() {
 
         try {
 
             setUploading(true);
 
-
-            let result;
-
-            if (mode === "replace") {
-
-                await bulkUploadQuestions(rows);
-
-                result = {
-                    addedCount: rows.length,
-                };
-
-            }
-            else {
-
-                result = await addNewOralQuestions(rows);
-
-            }
-
+            await bulkUploadQuestions(rows);
 
             alert(
-                `${result.addedCount} questions uploaded successfully.`
+                `${rows.length} questions uploaded successfully.`
             );
 
-
             setRows([]);
+            setValidationErrors([]);
 
             setShowConfirm(false);
-
-            setExistingCount(0);
-
 
             const input =
                 document.getElementById(
                     "oralExcel"
                 ) as HTMLInputElement;
 
-
             if (input) {
                 input.value = "";
             }
-
 
         } catch (error) {
 
@@ -330,12 +309,14 @@ export default function BulkUploadPage() {
 
                             <button
                                 onClick={handleUpload}
-                                disabled={uploading}
+                                disabled={uploading || checkingCount}
                                 className="rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
                             >
                                 {uploading
                                     ? "Uploading..."
-                                    : `Upload ${rows.length} Questions`}
+                                    : checkingCount
+                                        ? "Checking Existing Questions..."
+                                        : `Upload ${rows.length} Questions`}
                             </button>
 
                         </div>
@@ -397,7 +378,7 @@ export default function BulkUploadPage() {
                         <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
 
                             <h2 className="text-2xl font-bold">
-                                Choose Upload Mode
+                                Confirm Upload
                             </h2>
 
 
@@ -424,15 +405,9 @@ export default function BulkUploadPage() {
                             <div className="mt-6 space-y-3">
 
                                 <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
-                                    <b>Replace All</b>
+                                    <b>Replace Existing Questions</b>
                                     <br />
-                                    Deletes all existing questions and uploads the Excel file.
-                                </div>
-
-                                <div className="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                                    <b>Add New Only</b>
-                                    <br />
-                                    Keeps existing questions and uploads only questions that do not already exist.
+                                    This will delete existing questions and upload all questions from Excel.
                                 </div>
 
                             </div>
@@ -450,17 +425,10 @@ export default function BulkUploadPage() {
                                 </button>
 
                                 <button
-                                    onClick={() => confirmUpload("replace")}
+                                    onClick={confirmUpload}
                                     className="rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700"
                                 >
-                                    🔄 Replace All
-                                </button>
-
-                                <button
-                                    onClick={() => confirmUpload("add")}
-                                    className="rounded-xl bg-green-600 py-3 font-semibold text-white hover:bg-green-700"
-                                >
-                                    ➕ Add New Only
+                                    ⬆️ Upload Questions
                                 </button>
 
                             </div>
