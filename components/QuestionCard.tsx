@@ -25,6 +25,7 @@ interface Props {
     mmd: string;
     surveyor: string;
     topic: string;
+    examDate: string;
 
     isOpen: boolean;
     onToggle: () => void;
@@ -42,6 +43,7 @@ export default function QuestionCard({
     mmd,
     surveyor,
     topic,
+    examDate,
     isOpen,
     onToggle,
     showMmd,
@@ -186,12 +188,26 @@ export default function QuestionCard({
 
                 </div>
 
-                {(showMmd || showSurveyor || showTopic) && (
-                    <div className="mt-4 flex flex-wrap gap-2">
 
-                        {showMmd && (
-                            <span
-                                className="
+                <div className="mt-4 flex flex-wrap gap-2">
+
+                    <span
+                        className="
+        rounded-full
+        bg-yellow-100
+        px-3
+        py-1
+        text-xs
+        sm:text-sm
+        font-medium
+        text-black-700
+        "
+                    >
+                        📅 {examDate}
+                    </span>
+                    {showMmd && (
+                        <span
+                            className="
         rounded-full
         bg-blue-50
         px-3
@@ -203,14 +219,14 @@ export default function QuestionCard({
         max-w-full
         truncate
         "
-                            >
-                                🏢 {mmd}
-                            </span>
-                        )}
+                        >
+                            🏢 {mmd}
+                        </span>
+                    )}
 
-                        {showSurveyor && (
-                            <span
-                                className="
+                    {showSurveyor && (
+                        <span
+                            className="
         rounded-full
         bg-purple-50
         px-3
@@ -222,14 +238,14 @@ export default function QuestionCard({
         max-w-full
         truncate
         "
-                            >
-                                ⚓ {surveyor}
-                            </span>
-                        )}
+                        >
+                            ⚓ {surveyor}
+                        </span>
+                    )}
 
-                        {showTopic && (
-                            <span
-                                className="
+                    {showTopic && (
+                        <span
+                            className="
         rounded-full
         bg-green-50
         px-3
@@ -241,13 +257,12 @@ export default function QuestionCard({
         max-w-full
         truncate
         "
-                            >
-                                📚 {topic}
-                            </span>
-                        )}
+                        >
+                            📚 {topic}
+                        </span>
+                    )}
 
-                    </div>
-                )}
+                </div>
             </div>
 
             {/* Official Answer */}

@@ -33,13 +33,17 @@ export interface Question {
     id: string;
     question: string;
     answer: string;
+    topic: string;
     mmd: string;
     surveyor: string;
-    topic: string;
+
+    class: string;
+
+    examDate: string;
+
     order: number;
     isActive: boolean;
 }
-
 export interface CommunityAnswer {
     id: string;
     category: string;
@@ -76,13 +80,18 @@ export async function getQuestions(
 
         return {
             id: doc.id,
-            question: data.question ?? "",
-            answer: data.answer ?? "",
-            mmd: data.mmd ?? "",
-            surveyor: data.surveyor ?? "",
-            topic: data.topic ?? "",
-            order: data.order ?? 0,
-            isActive: data.isActive ?? true,
+            question: data.question,
+            answer: data.answer,
+            topic: data.topic,
+            mmd: data.mmd,
+            surveyor: data.surveyor,
+
+            class: data.class ?? "",
+
+            examDate: data.examDate ?? "",
+
+            order: data.order,
+            isActive: data.isActive,
         };
     });
 
@@ -274,9 +283,16 @@ export async function bulkUploadQuestions(rows: any[]) {
         batch.set(ref, {
             question: String(row.Question ?? "").trim(),
             answer: String(row.Answer ?? "").trim(),
+
             topic: String(row.Topic ?? "").trim(),
+
             mmd: String(row.MMD ?? "").trim(),
+
             surveyor: String(row.Surveyor ?? "").trim(),
+
+            class: String(row.Class ?? "").trim(),
+
+            examDate: String(row.Date ?? "").trim(),
 
             order: orderCounter[category]++,
 

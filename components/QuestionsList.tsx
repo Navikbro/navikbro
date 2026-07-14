@@ -17,6 +17,11 @@ interface Question {
   mmd: string;
   surveyor: string;
   topic: string;
+
+  class: string;
+
+  examDate: string;
+
   order: number;
   isActive: boolean;
 }
@@ -36,6 +41,7 @@ export default function QuestionsList({
   const [selectedMmd, setSelectedMmd] = useState("All");
   const [selectedSurveyor, setSelectedSurveyor] = useState("All");
   const [selectedTopic, setSelectedTopic] = useState("All");
+  const [selectedClass, setSelectedClass] = useState("All");
 
   const mmds = useMemo(
     () => [...new Set(questions.map((q) => q.mmd).filter(Boolean))],
@@ -49,6 +55,11 @@ export default function QuestionsList({
 
   const topics = useMemo(
     () => [...new Set(questions.map((q) => q.topic).filter(Boolean))],
+    [questions]
+  );
+
+  const classes = useMemo(
+    () => [...new Set(questions.map((q) => q.class).filter(Boolean))],
     [questions]
   );
 
@@ -75,6 +86,12 @@ export default function QuestionsList({
       if (
         selectedTopic !== "All" &&
         q.topic !== selectedTopic
+      )
+        return false;
+
+      if (
+        selectedClass !== "All" &&
+        q.class !== selectedClass
       )
         return false;
 
@@ -109,6 +126,7 @@ export default function QuestionsList({
     selectedMmd,
     selectedSurveyor,
     selectedTopic,
+    selectedClass,
   ]);
 
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
@@ -150,7 +168,21 @@ export default function QuestionsList({
       {showFilters && (
         <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
+
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="rounded-xl border border-gray-300 p-3"
+            >
+              <option value="All">Class</option>
+
+              {classes.map((questionClass) => (
+                <option key={questionClass} value={questionClass}>
+                  {questionClass}
+                </option>
+              ))}
+            </select>
 
             <select
               value={selectedMmd}
@@ -222,42 +254,43 @@ export default function QuestionsList({
       {/* QUESTIONS */}
       <div className="space-y-4">
 
-        {filteredQuestions.map((q) => (
+        {filteredQuestions.map((q) => {
 
-          <QuestionCard
-            key={q.id}
-            questionId={q.id}
-            category={category}
-            question={q.question}
-            answer={q.answer}
-            mmd={q.mmd}
-            surveyor={q.surveyor}
-            topic={q.topic}
-            showMmd={showMmd}
-            showSurveyor={showSurveyor}
-            showTopic={showTopic}
-            isOpen={openQuestion === q.id}
-            onToggle={() => {
 
-              const currentScroll = window.scrollY;
+          return (
+            <QuestionCard
+              key={q.id}
+              questionId={q.id}
+              category={category}
+              question={q.question}
+              answer={q.answer}
+              mmd={q.mmd}
+              surveyor={q.surveyor}
+              topic={q.topic}
+              examDate={q.examDate}
+              showMmd={showMmd}
+              showSurveyor={showSurveyor}
+              showTopic={showTopic}
+              isOpen={openQuestion === q.id}
+              onToggle={() => {
+                const currentScroll = window.scrollY;
 
-              setOpenQuestion(
-                openQuestion === q.id ? null : q.id
-              );
+                setOpenQuestion(
+                  openQuestion === q.id ? null : q.id
+                );
 
-              requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                  window.scrollTo({
-                    top: currentScroll,
-                    behavior: "instant",
+                  requestAnimationFrame(() => {
+                    window.scrollTo({
+                      top: currentScroll,
+                      behavior: "instant",
+                    });
                   });
                 });
-              });
-
-            }}
-          />
-
-        ))}
+              }}
+            />
+          );
+        })}
       </div>
 
     </>

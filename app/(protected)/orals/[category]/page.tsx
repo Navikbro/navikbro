@@ -17,7 +17,7 @@ export default async function OralCategoryPage({
   const { category } = await params;
 
   const questions = await getQuestions(category);
-
+  
   const titles: Record<
     string,
     {

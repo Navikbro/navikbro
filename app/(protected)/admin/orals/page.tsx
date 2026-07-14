@@ -10,6 +10,8 @@ import {
 
 interface ExcelQuestion {
     Category: string;
+    Class: string;
+    Date: string;
     MMD: string;
     Surveyor: string;
     Topic: string;
@@ -39,9 +41,11 @@ export default function BulkUploadPage() {
 
             const json = XLSX.utils.sheet_to_json<ExcelQuestion>(sheet, {
                 defval: "",
+                raw: false,
             });
 
             console.table(json);
+            console.log("First Row:", json[0]);
 
             setRows(json);
             setValidationErrors([]);
@@ -71,6 +75,23 @@ export default function BulkUploadPage() {
 
             if (!row.Category.trim()) {
                 errors.push(`Row ${rowNo}: Category is required.`);
+            }
+
+            if (!row.Class.trim()) {
+                errors.push(`Row ${rowNo}: Class is required.`);
+            }
+
+            if (
+                row.Class &&
+                !["Class 2", "Class 4"].includes(row.Class.trim())
+            ) {
+                errors.push(
+                    `Row ${rowNo}: Invalid Class "${row.Class}".`
+                );
+            }
+
+            if (!row.Date.trim()) {
+                errors.push(`Row ${rowNo}: Date is required.`);
             }
 
             if (
@@ -248,6 +269,8 @@ export default function BulkUploadPage() {
                                     <tr className="bg-gray-100">
 
                                         <th className="border p-2">Category</th>
+                                        <th className="border p-2">Class</th>
+                                        <th className="border p-2">Date</th>
                                         <th className="border p-2">MMD</th>
                                         <th className="border p-2">Surveyor</th>
                                         <th className="border p-2">Topic</th>
@@ -278,7 +301,7 @@ export default function BulkUploadPage() {
                             ))}
                         </ul>
                     </div>
-                )}d
+                )}
 
                 {rows.length > 0 && (
 
@@ -320,6 +343,14 @@ export default function BulkUploadPage() {
                                     <div className="mt-4 flex flex-wrap gap-2">
                                         <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
                                             {row.Category}
+                                        </span>
+
+                                        <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                            {row.Class}
+                                        </span>
+
+                                        <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                            {row.Date}
                                         </span>
 
                                         <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
