@@ -27,7 +27,7 @@ export default function LoadingScreen({
             <Sailboat
               size={70}
               strokeWidth={2}
-              className="text-black"
+              className="text-black -rotate-5 animate-float"
             />
           </div>
 
