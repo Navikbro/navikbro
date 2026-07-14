@@ -28,7 +28,7 @@ export default function BulkUploadPage() {
     const [existingCount, setExistingCount] = useState(0);
 
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
-
+    const [uploadMode, setUploadMode] = useState<"replace" | "add">("replace");
     function handleFile(file: File) {
         const reader = new FileReader();
 
@@ -175,20 +175,35 @@ export default function BulkUploadPage() {
 
     }
 
-    async function confirmUpload() {
+    async function confirmUpload(mode: "replace" | "add") {
+
+        setUploadMode(mode);
 
         try {
 
             setUploading(true);
 
 
-            await bulkUploadQuestions(
-                rows
-            );
+            let result;
+
+            if (mode === "replace") {
+
+                await bulkUploadQuestions(rows);
+
+                result = {
+                    addedCount: rows.length,
+                };
+
+            }
+            else {
+
+                result = await addNewOralQuestions(rows);
+
+            }
 
 
             alert(
-                `${rows.length} questions uploaded successfully.`
+                `${result.addedCount} questions uploaded successfully.`
             );
 
 
@@ -382,7 +397,7 @@ export default function BulkUploadPage() {
                         <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
 
                             <h2 className="text-2xl font-bold">
-                                Replace Question Bank?
+                                Choose Upload Mode
                             </h2>
 
 
@@ -406,35 +421,47 @@ export default function BulkUploadPage() {
                             </p>
 
 
-                            <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-600">
+                            <div className="mt-6 space-y-3">
 
-                                Warning:
-                                Existing questions for this category
-                                will be permanently replaced.
+                                <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+                                    <b>Replace All</b>
+                                    <br />
+                                    Deletes all existing questions and uploads the Excel file.
+                                </div>
 
-                            </p>
+                                <div className="rounded-xl bg-green-50 p-4 text-sm text-green-700">
+                                    <b>Add New Only</b>
+                                    <br />
+                                    Keeps existing questions and uploads only questions that do not already exist.
+                                </div>
+
+                            </div>
 
 
-                            <div className="mt-6 flex justify-end gap-3">
-
-
-                                <button
-                                    onClick={() =>
-                                        setShowConfirm(false)
-                                    }
-                                    className="rounded-xl border px-5 py-2"
-                                >
-                                    Cancel
-                                </button>
-
+                            <div className="mt-8 flex flex-col gap-3">
 
                                 <button
-                                    onClick={confirmUpload}
-                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white"
+                                    onClick={() => {
+                                        setShowConfirm(false);
+                                    }}
+                                    className="rounded-xl border border-gray-300 py-3 font-medium hover:bg-gray-50"
                                 >
-                                    Replace
+                                    ❌ Cancel
                                 </button>
 
+                                <button
+                                    onClick={() => confirmUpload("replace")}
+                                    className="rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700"
+                                >
+                                    🔄 Replace All
+                                </button>
+
+                                <button
+                                    onClick={() => confirmUpload("add")}
+                                    className="rounded-xl bg-green-600 py-3 font-semibold text-white hover:bg-green-700"
+                                >
+                                    ➕ Add New Only
+                                </button>
 
                             </div>
 
