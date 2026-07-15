@@ -68,8 +68,6 @@ export default function BulkUploadPage() {
             "mep",
         ];
 
-        const seenQuestions = new Set<string>();
-
         rows.forEach((row, index) => {
             const rowNo = index + 2; // Excel row number
 
@@ -111,16 +109,6 @@ export default function BulkUploadPage() {
 
             if (!row.Answer.trim()) {
                 errors.push(`Row ${rowNo}: Answer is required.`);
-            }
-
-            const key = row.Question.trim().toLowerCase();
-
-            if (seenQuestions.has(key)) {
-                errors.push(
-                    `Row ${rowNo}: Duplicate question found.`
-                );
-            } else {
-                seenQuestions.add(key);
             }
         });
 
