@@ -183,7 +183,7 @@ export default function ManageWrittenQuestionsPage() {
                     View, edit and delete written questions.
                 </p>
 
-                <div className="mt-8 flex gap-6">
+                <div className="mt-8 flex flex-col gap-6 md:flex-row">
 
                     <div>
                         <label className="mb-2 block text-sm font-medium">
@@ -202,7 +202,7 @@ export default function ManageWrittenQuestionsPage() {
                                     setCategory("FN3");
                                 }
                             }}
-                            className="w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
+                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
                         >
                             <option value="written">Written</option>
                             <option value="oral">Oral</option>
@@ -217,7 +217,7 @@ export default function ManageWrittenQuestionsPage() {
                         <select
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
-                            className="w-64 rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black"
+                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black"
                         >
                             {type === "written" ? (
                                 <>

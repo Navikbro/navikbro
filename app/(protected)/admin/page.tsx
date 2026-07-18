@@ -120,7 +120,7 @@ export default function AdminPage() {
                     </Link>
 
                     <Link
-                        href="/admin/writtens/manage"
+                        href="/admin/manage"
                         className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
                     >
                         <h2 className="text-l font-semibold">
