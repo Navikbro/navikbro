@@ -13,8 +13,6 @@ import {
 
 import { db } from "@/lib/firebase";
 
-import { ManageQuestion } from "@/types/manage-question";
-
 export interface WrittenQuestion {
     id: string;
     class: string;
@@ -30,7 +28,7 @@ export interface WrittenQuestion {
 
 export async function getWrittenQuestions(
     category: string
-): Promise<ManageQuestion[]> {
+): Promise<WrittenQuestion[]> {
     const q = query(
         collection(
             db,
@@ -304,25 +302,5 @@ export async function deleteWrittenQuestion(
             "questions",
             id
         )
-    );
-}
-
-export async function updateWrittenQuestionTopic(
-    category: string,
-    id: string,
-    topic: string
-) {
-    await updateDoc(
-        doc(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions",
-            id
-        ),
-        {
-            topic,
-            updatedAt: serverTimestamp(),
-        }
     );
 }
