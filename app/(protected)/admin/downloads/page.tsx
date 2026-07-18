@@ -221,7 +221,7 @@ export default function DownloadsPage() {
                     title="Written Questions"
                     categories={WRITTEN_CATEGORIES}
                     counts={writtenCounts}
-                    buttonColor="bg-blue-600"
+                    buttonColor="bg-yellow-600"
                     onDownload={downloadWrittenExcel}
                 />
 
