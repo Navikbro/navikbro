@@ -124,7 +124,7 @@ export default function AdminPage() {
                         className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
                     >
                         <h2 className="text-l font-semibold">
-                            Manage Written Questions
+                            MANAGE QUESTIONS ALL
                         </h2>
 
                         <p className="mt-2 text-sm text-gray-500">

@@ -43,6 +43,8 @@ The content is organized as follows:
 app/
   (protected)/
     admin/
+      downloads/
+        page.tsx
       orals/
         page.tsx
       writtens/
@@ -50,6 +52,7 @@ app/
           page.tsx
         page.tsx
       page.tsx
+      TopicManager.tsx
     orals/
       [category]/
         page.tsx
@@ -78,6 +81,7 @@ components/
   ProtectedRoute.tsx
   QuestionCard.tsx
   QuestionsList.tsx
+  QuestionTable.tsx
   SectionHeading.tsx
   UserGreeting.tsx
   WrittenCard.tsx
@@ -87,6 +91,9 @@ lib/
   orals.ts
   writtens.ts
 public/
+  templates/
+    oral-template.xlsx
+    written-template.xlsx
   apple-icon.png
   file.svg
   globe.svg
@@ -100,6 +107,7 @@ services/
   firestore.ts
   written.service.ts
 types/
+  manage-question.ts
   question.ts
 .gitignore
 eslint.config.mjs
@@ -113,6 +121,265 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
+<file path="app/(protected)/admin/TopicManager.tsx">
+
+</file>
+
+<file path="types/manage-question.ts">
+export interface ManageQuestion {
+    id: string;
+
+    question: string;
+    answer: string;
+
+    topic: string;
+    class: string;
+
+    // Written only
+    month?: string;
+    year?: number;
+
+    // Oral only
+    examDate?: string;
+    mmd?: string;
+    surveyor?: string;
+}
+</file>
+
+<file path="app/(protected)/admin/downloads/page.tsx">
+"use client";
+import { useEffect, useState } from "react";
+import {
+    getAllOralQuestionCounts,
+    getOralQuestionsForExport,
+} from "@/services/firestore";
+
+import {
+    getAllWrittenQuestionCounts,
+    getWrittenQuestionsForExport,
+} from "@/services/written.service";
+
+import ExcelJS from "exceljs";
+
+import QuestionTable from "@/components/QuestionTable";
+
+const ORAL_CATEGORIES = [
+    "FN3",
+    "FN4B",
+    "FN5",
+    "FN6",
+];
+
+const WRITTEN_CATEGORIES = [
+    "GENERAL",
+    "MOTOR",
+    "MEP",
+    "SSEP",
+    "NAVAL",
+    "MET",
+];
+
+export default function DownloadsPage() {
+
+    const [oralCounts, setOralCounts] = useState<Record<string, number>>({});
+    const [writtenCounts, setWrittenCounts] = useState<Record<string, number>>({});
+
+    useEffect(() => {
+
+        async function loadCounts() {
+
+            const oral =
+                await getAllOralQuestionCounts();
+
+            const written =
+                await getAllWrittenQuestionCounts();
+
+            setOralCounts(oral);
+            setWrittenCounts(written);
+
+        }
+
+        loadCounts();
+
+    }, []);
+
+
+    async function downloadExcel(
+        template: string,
+        fileName: string,
+        rows: any[],
+        rowMapper: (row: any) => any[]
+    ) {
+
+        const response = await fetch(template);
+
+        const buffer =
+            await response.arrayBuffer();
+
+        const workbook =
+            new ExcelJS.Workbook();
+
+        await workbook.xlsx.load(buffer);
+
+        const worksheet =
+            workbook.worksheets[0];
+
+        // Keep only header + template row
+        if (worksheet.rowCount > 2) {
+            worksheet.spliceRows(3, worksheet.rowCount - 2);
+        }
+
+        // Duplicate the template row for the remaining records
+        if (rows.length > 1) {
+            worksheet.duplicateRow(2, rows.length - 1, true);
+        }
+
+        // Fill the rows
+        rows.forEach((row, index) => {
+            const excelRow = worksheet.getRow(index + 2);
+            excelRow.values = rowMapper(row);
+            excelRow.eachCell((cell) => {
+
+                cell.alignment = {
+                    ...cell.alignment,
+                    wrapText: true,
+                    vertical: "top",
+                };
+
+            });
+
+            const values = rowMapper(row);
+
+            const longestText = Math.max(
+                ...values.map((value) =>
+                    String(value ?? "").split(/\r?\n/).length
+                )
+            );
+
+            // Minimum height = 20
+            // Add ~15 points for each line
+            excelRow.height = Math.max(
+                20,
+                longestText * 15
+            );
+
+        });
+
+        // If there are no rows, remove the template row
+        if (rows.length === 0) {
+            worksheet.spliceRows(2, 1);
+        }
+
+        const output =
+            await workbook.xlsx.writeBuffer();
+
+        const blob = new Blob(
+            [output],
+            {
+                type:
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }
+        );
+
+        const url =
+            URL.createObjectURL(blob);
+
+        const link =
+            document.createElement("a");
+
+        link.href = url;
+
+        link.download = fileName;
+
+        link.click();
+
+        URL.revokeObjectURL(url);
+
+    }
+
+    async function downloadOralExcel(
+        category: string
+    ) {
+
+        const rows =
+            await getOralQuestionsForExport(category);
+
+        await downloadExcel(
+            "/templates/oral-template.xlsx",
+            `${category}.xlsx`,
+            rows,
+            (row) => [
+                row.Category,
+                row.Class,
+                row.Date,
+                row.MMD,
+                row.Surveyor,
+                row.Topic,
+                row.Question,
+                row.Answer,
+            ]
+        );
+
+    }
+
+    async function downloadWrittenExcel(
+        category: string
+    ) {
+
+        const rows =
+            await getWrittenQuestionsForExport(category);
+
+        await downloadExcel(
+            "/templates/written-template.xlsx",
+            `${category}.xlsx`,
+            rows,
+            (row) => [
+                row.Class,
+                row.Category,
+                row.Topic,
+                row.Year,
+                row.Month,
+                row.Question,
+                row.Answer,
+            ]
+        );
+
+    }
+
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
+
+                <h1 className="text-4xl font-bold">
+                    Download Questions
+                </h1>
+
+                <p className="mt-2 text-gray-500">
+                    Download the latest question banks.
+                </p>
+
+                <QuestionTable
+                    title="Oral Questions"
+                    categories={ORAL_CATEGORIES}
+                    counts={oralCounts}
+                    buttonColor="bg-black"
+                    onDownload={downloadOralExcel}
+                />
+
+                <QuestionTable
+                    title="Written Questions"
+                    categories={WRITTEN_CATEGORIES}
+                    counts={writtenCounts}
+                    buttonColor="bg-blue-600"
+                    onDownload={downloadWrittenExcel}
+                />
+
+            </div>
+        </main>
+    );
+}
+</file>
+
 <file path="app/(protected)/admin/writtens/manage/page.tsx">
 "use client";
 
@@ -122,24 +389,54 @@ import {
     getWrittenQuestions,
     deleteWrittenQuestion,
     updateWrittenQuestion,
-    WrittenQuestion,
 } from "@/services/written.service";
+
+import {
+    updateWrittenQuestionTopic,
+} from "@/services/written.service";
+
+import {
+    updateQuestionTopic,
+} from "@/services/firestore";
+
+import {
+    getQuestions,
+    updateQuestion,
+    deleteQuestion,
+} from "@/services/firestore";
 
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
+import { ManageQuestion } from "@/types/manage-question";
+
 export default function ManageWrittenQuestionsPage() {
+
+    const [showManageTopics, setShowManageTopics] = useState(false);
+
+    const [editingTopic, setEditingTopic] = useState<string | null>(null);
+
+    const [editedTopicName, setEditedTopicName] = useState("");
+
+    const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
+
+    const [showNewTopicModal, setShowNewTopicModal] = useState(false);
+
+    const [newTopic, setNewTopic] = useState("");
+
+    const [type, setType] = useState<"written" | "oral">("written");
+
+    const [topics, setTopics] = useState<string[]>([]);
 
     const [category, setCategory] =
         useState("general");
 
-    const [questions, setQuestions] =
-        useState<WrittenQuestion[]>([]);
+    const [questions, setQuestions] = useState<ManageQuestion[]>([]);
 
     const [loading, setLoading] =
         useState(true);
 
     const [editingQuestion, setEditingQuestion] =
-        useState<WrittenQuestion | null>(null);
+        useState<ManageQuestion | null>(null);
 
     const [editedQuestion, setEditedQuestion] =
         useState("");
@@ -149,6 +446,7 @@ export default function ManageWrittenQuestionsPage() {
 
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
+    const [selectedTopics, setSelectedTopics] = useState<Record<string, string>>({});
 
 
     async function loadQuestions() {
@@ -157,11 +455,33 @@ export default function ManageWrittenQuestionsPage() {
 
             setLoading(true);
 
-            const data =
-                await getWrittenQuestions(category);
+            let data;
+
+            if (type === "written") {
+                data = await getWrittenQuestions(category);
+            } else {
+                data = await getQuestions(category);
+            }
 
             setQuestions(data);
 
+            const topicMap: Record<string, string> = {};
+
+            data.forEach((q) => {
+                topicMap[q.id] = q.topic;
+            });
+
+            setSelectedTopics(topicMap);
+
+            const uniqueTopics = [
+                ...new Set(
+                    data
+                        .map((q) => q.topic)
+                        .filter((topic) => topic.trim() !== "")
+                ),
+            ].sort();
+
+            setTopics(uniqueTopics);
         }
 
         finally {
@@ -173,10 +493,8 @@ export default function ManageWrittenQuestionsPage() {
     }
 
     useEffect(() => {
-
         loadQuestions();
-
-    }, [category]);
+    }, [category, type]);
 
     async function handleDelete(id: string) {
 
@@ -188,10 +506,11 @@ export default function ManageWrittenQuestionsPage() {
 
         try {
 
-            await deleteWrittenQuestion(
-                category,
-                id
-            );
+            if (type === "written") {
+                await deleteWrittenQuestion(category, id);
+            } else {
+                await deleteQuestion(category, id);
+            }
 
             setQuestions((prev) =>
                 prev.filter(
@@ -217,14 +536,25 @@ export default function ManageWrittenQuestionsPage() {
 
         try {
 
-            await updateWrittenQuestion(
-                category,
-                editingQuestion.id,
-                {
-                    question: editedQuestion,
-                    answer: editedAnswer,
-                }
-            );
+            if (type === "written") {
+                await updateWrittenQuestion(
+                    category,
+                    editingQuestion.id,
+                    {
+                        question: editedQuestion,
+                        answer: editedAnswer,
+                    }
+                );
+            } else {
+                await updateQuestion(
+                    category,
+                    editingQuestion.id,
+                    {
+                        question: editedQuestion,
+                        answer: editedAnswer,
+                    }
+                );
+            }
 
             await loadQuestions();
 
@@ -242,36 +572,133 @@ export default function ManageWrittenQuestionsPage() {
 
     }
 
+    async function handleSaveTopic(questionId: string) {
+        const topic = selectedTopics[questionId];
+
+        if (!topic) return;
+
+        try {
+            if (type === "written") {
+                await updateWrittenQuestionTopic(
+                    category,
+                    questionId,
+                    topic
+                );
+            } else {
+                await updateQuestionTopic(
+                    category,
+                    questionId,
+                    topic
+                );
+            }
+
+            await loadQuestions();
+
+            alert("Topic updated successfully.");
+        } catch (error) {
+            console.error(error);
+            alert("Failed to update topic.");
+        }
+    }
+
+    function handleCreateTopic() {
+
+        const topic = newTopic.trim();
+
+        if (!topic) {
+            alert("Please enter a topic name.");
+            return;
+        }
+
+        if (topics.includes(topic)) {
+            alert("Topic already exists.");
+            return;
+        }
+
+        const updatedTopics = [...topics, topic].sort();
+
+        setTopics(updatedTopics);
+
+        // Automatically select the new topic
+        if (activeQuestionId) {
+            setSelectedTopics((prev) => ({
+                ...prev,
+                [activeQuestionId]: topic,
+            }));
+        }
+
+        setNewTopic("");
+        setActiveQuestionId(null);
+        setShowNewTopicModal(false);
+    }
+
     return (
         <main className="min-h-screen bg-[#f5f5f5]">
             <div className="mx-auto max-w-7xl px-6 py-10">
                 <h1 className="text-4xl font-bold">
-                    Manage Written Questions
+                    MANAGE QUESTIONS ALL
                 </h1>
 
                 <p className="mt-2 text-gray-500">
                     View, edit and delete written questions.
                 </p>
 
-                <div className="mt-8">
-                    <label className="mb-2 block text-sm font-medium">
-                        Category
-                    </label>
+                <div className="mt-8 flex gap-6">
 
-                    <select
-                        value={category}
-                        onChange={(e) =>
-                            setCategory(e.target.value)
-                        }
-                        className="w-64 rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black"
-                    >
-                        <option value="general">General</option>
-                        <option value="mep">MEP</option>
-                        <option value="motor">Motor</option>
-                        <option value="met">MET</option>
-                        <option value="naval">Naval</option>
-                        <option value="ssep">SSEP</option>
-                    </select>
+                    <div>
+                        <label className="mb-2 block text-sm font-medium">
+                            Question Type
+                        </label>
+
+                        <select
+                            value={type}
+                            onChange={(e) => {
+                                const value = e.target.value as "written" | "oral";
+                                setType(value);
+
+                                if (value === "written") {
+                                    setCategory("general");
+                                } else {
+                                    setCategory("FN3");
+                                }
+                            }}
+                            className="w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
+                        >
+                            <option value="written">Written</option>
+                            <option value="oral">Oral</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-medium">
+                            Category
+                        </label>
+
+                        <select
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            className="w-64 rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black"
+                        >
+                            {type === "written" ? (
+                                <>
+                                    <option value="general">General</option>
+                                    <option value="mep">MEP</option>
+                                    <option value="motor">Motor</option>
+                                    <option value="met">MET</option>
+                                    <option value="naval">Naval</option>
+                                    <option value="ssep">SSEP</option>
+                                </>
+                            ) : (
+                                <>
+                                    <option value="FN3">FN3</option>
+                                    <option value="FN4B">FN4B</option>
+                                    <option value="FN5">FN5</option>
+                                    <option value="FN6">FN6</option>
+                                </>
+                            )}
+                        </select>
+                    </div>
+
                 </div>
 
                 <div className="mt-8">
@@ -314,13 +741,31 @@ export default function ManageWrittenQuestionsPage() {
                                             {question.topic}
                                         </span>
 
-                                        <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
-                                            {question.month}
-                                        </span>
+                                        {type === "written" ? (
+                                            <>
+                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                                    {question.month}
+                                                </span>
 
-                                        <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
-                                            {question.year}
-                                        </span>
+                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                                    {question.year}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                                    {question.examDate}
+                                                </span>
+
+                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                                    {question.mmd}
+                                                </span>
+
+                                                <span className="rounded-full bg-purple-100 px-3 py-1 text-sm">
+                                                    {question.surveyor}
+                                                </span>
+                                            </>
+                                        )}
                                     </div>
 
                                     <button
@@ -352,6 +797,64 @@ export default function ManageWrittenQuestionsPage() {
                                                 />
                                             </div>
 
+                                            {/* Topic */}
+                                            <div className="mt-6">
+                                                <label className="mb-2 block text-sm font-medium">
+                                                    Topic
+                                                </label>
+
+                                                <select
+                                                    value={selectedTopics[question.id] ?? question.topic}
+                                                    onChange={(e) =>
+                                                        setSelectedTopics((prev) => ({
+                                                            ...prev,
+                                                            [question.id]: e.target.value,
+                                                        }))
+                                                    }
+                                                    className="w-64 rounded-xl border border-gray-300 px-3 py-2"
+                                                >
+                                                    {topics.map((topic) => (
+                                                        <option key={topic} value={topic}>
+                                                            {topic}
+                                                        </option>
+                                                    ))}
+                                                </select>
+
+                                                <div className="mt-3 flex flex-wrap gap-3">
+
+                                                    <button
+                                                        onClick={() => handleSaveTopic(question.id)}
+                                                        className="rounded-xl bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                                                    >
+                                                        💾 Save Topic
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => {
+                                                            setActiveQuestionId(question.id);
+                                                            setNewTopic("");
+                                                            setShowNewTopicModal(true);
+                                                        }}
+                                                        className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                                                    >
+                                                        ➕ New Topic
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingTopic(null);
+                                                            setEditedTopicName("");
+                                                            setShowManageTopics(true);
+                                                        }}
+                                                        className="rounded-xl bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                                                    >
+                                                        ⚙ Manage Topics
+                                                    </button>
+
+                                                </div>
+                                            </div>
+
+                                            {/* Existing Buttons */}
                                             <div className="mt-6 flex justify-end gap-3">
                                                 <button
                                                     onClick={() => {
@@ -359,16 +862,14 @@ export default function ManageWrittenQuestionsPage() {
                                                         setEditedQuestion(question.question);
                                                         setEditedAnswer(question.answer);
                                                     }}
-                                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+                                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white"
                                                 >
                                                     Edit
                                                 </button>
 
                                                 <button
-                                                    onClick={() =>
-                                                        handleDelete(question.id)
-                                                    }
-                                                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                                                    onClick={() => handleDelete(question.id)}
+                                                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white"
                                                 >
                                                     Delete
                                                 </button>
@@ -382,6 +883,126 @@ export default function ManageWrittenQuestionsPage() {
                     )}
 
                 </div>
+
+                {showNewTopicModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+
+                        <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+
+                            <h2 className="text-2xl font-bold">
+                                Create New Topic
+                            </h2>
+
+                            <input
+                                value={newTopic}
+                                onChange={(e) => setNewTopic(e.target.value)}
+                                placeholder="Topic name"
+                                className="mt-6 w-full rounded-xl border border-gray-300 p-3 outline-none focus:border-black"
+                            />
+
+                            <div className="mt-8 flex justify-end gap-3">
+
+                                <button
+                                    onClick={() => setShowNewTopicModal(false)}
+                                    className="rounded-xl border px-5 py-2"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    onClick={handleCreateTopic}
+                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white hover:bg-blue-700"
+                                >
+                                    Create
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                )}
+
+                {showManageTopics && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+
+                        <div className="w-full max-w-2xl rounded-3xl bg-white p-8 shadow-xl">
+
+                            <h2 className="text-2xl font-bold">
+                                Manage Topics
+                            </h2>
+
+                            <div className="mt-6 space-y-3">
+
+                                {topics.map((topic) => (
+
+                                    <div
+                                        key={topic}
+                                        className="flex items-center justify-between rounded-xl border p-4"
+                                    >
+
+                                        {editingTopic === topic ? (
+
+                                            <input
+                                                value={editedTopicName}
+                                                onChange={(e) =>
+                                                    setEditedTopicName(e.target.value)
+                                                }
+                                                className="w-full rounded-lg border p-2"
+                                            />
+
+                                        ) : (
+
+                                            <span className="font-medium">
+                                                {topic}
+                                            </span>
+
+                                        )}
+
+                                        <div className="ml-4 flex gap-2">
+
+                                            <button
+                                                onClick={() => {
+                                                    setEditingTopic(topic);
+                                                    setEditedTopicName(topic);
+                                                }}
+                                                className="rounded-lg bg-blue-600 px-3 py-2 text-white"
+                                            >
+                                                Rename
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    alert("Delete comes next.");
+                                                }}
+                                                className="rounded-lg bg-red-600 px-3 py-2 text-white"
+                                            >
+                                                Delete
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+
+                                ))}
+
+                            </div>
+
+                            <div className="mt-8 flex justify-end">
+
+                                <button
+                                    onClick={() => setShowManageTopics(false)}
+                                    className="rounded-xl border px-5 py-2"
+                                >
+                                    Close
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                )}
 
                 {editingQuestion && (
 
@@ -892,6 +1513,90 @@ export default function ProtectedRoute({
   if (!user) return null;
 
   return <>{children}</>;
+}
+</file>
+
+<file path="components/QuestionTable.tsx">
+interface QuestionTableProps {
+    title: string;
+    categories: string[];
+    counts: Record<string, number>;
+    buttonColor: string;
+    onDownload: (category: string) => void;
+}
+
+export default function QuestionTable({
+    title,
+    categories,
+    counts,
+    buttonColor,
+    onDownload,
+}: QuestionTableProps) {
+    return (
+        <div className="mt-8 rounded-3xl border bg-white p-8 shadow-sm">
+
+            <h2 className="mb-6 text-2xl font-bold">
+                {title}
+            </h2>
+
+            <table className="w-full">
+
+                <thead>
+                    <tr className="border-b">
+                        <th className="py-3 text-left">
+                            Category
+                        </th>
+
+                        <th className="py-3 text-center">
+                            Questions
+                        </th>
+
+                        <th className="py-3 text-right">
+                            Action
+                        </th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {categories.map((category) => (
+
+                        <tr
+                            key={category}
+                            className="border-b"
+                        >
+
+                            <td className="py-4">
+                                {category}
+                            </td>
+
+                            <td className="text-center">
+                                {counts[category] ?? "..."}
+                            </td>
+
+                            <td className="text-right">
+
+                                <button
+                                    onClick={() =>
+                                        onDownload(category)
+                                    }
+                                    className={`rounded-xl px-5 py-2 text-white ${buttonColor}`}
+                                >
+                                    Download
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                    ))}
+
+                </tbody>
+
+            </table>
+
+        </div>
+    );
 }
 </file>
 
@@ -1975,208 +2680,6 @@ export default function WrittenFilters({
 }
 </file>
 
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "firebase": "^12.15.0",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
-</file>
-
-<file path="app/(protected)/admin/page.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-
-import { useAuth } from "@/app/context/AuthContext";
-import { isUserAdmin } from "@/services/admin";
-import {
-    getPendingAnswers,
-    approveAnswer,
-    rejectAnswer,
-} from "@/services/firestore";
-
-import AdminAnswerCard from "@/components/AdminAnswerCard";
-
-interface PendingAnswer {
-    id: string;
-    questionId: string;
-    category: string;
-    userName: string;
-    answer: string;
-}
-
-export default function AdminPage() {
-    const { user, loading } = useAuth();
-    const router = useRouter();
-
-    const [checking, setChecking] = useState(true);
-    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
-
-    useEffect(() => {
-        async function init() {
-            if (loading) return;
-
-            if (!user) {
-                router.replace("/");
-                return;
-            }
-
-            const admin = await isUserAdmin(user.uid);
-
-            if (!admin) {
-                router.replace("/");
-                return;
-            }
-
-            const pending = await getPendingAnswers();
-
-            setAnswers(pending as PendingAnswer[]);
-            setChecking(false);
-        }
-
-        init();
-    }, [user, loading, router]);
-
-    async function handleApprove(id: string) {
-        await approveAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
-    }
-
-    async function handleReject(id: string) {
-        await rejectAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
-    }
-
-    if (checking) {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                Checking permissions...
-            </div>
-        );
-    }
-
-    return (
-        <main className="min-h-screen bg-[#f5f5f5]">
-            <div className="mx-auto max-w-6xl px-6 py-10">
-
-                <h1 className="text-4xl font-bold">
-                    Admin Dashboard
-                </h1>
-
-                <p className="mt-2 text-gray-500">
-                    Manage uploads and community answers.
-                </p>
-
-                <div className="mt-8 flex flex-wrap gap-4">
-
-                    <Link
-                        href="/admin/orals"
-                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
-                    >
-                        Upload Oral Questions
-                    </Link>
-
-                    <Link
-                        href="/admin/writtens"
-                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
-                    >
-                        Upload Written Questions
-                    </Link>
-
-                    <Link
-                        href="/admin/writtens/manage"
-                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
-                    >
-                        <h2 className="text-l font-semibold">
-                            Manage Written Questions
-                        </h2>
-
-                        <p className="mt-2 text-sm text-gray-500">
-                            View, edit and delete written questions.
-                        </p>
-                    </Link>
-
-                </div>
-
-
-
-                <div className="mt-12">
-
-                    <h2 className="text-2xl font-bold">
-                        Pending Community Answers
-                    </h2>
-
-                    <div className="mt-6 space-y-6">
-
-                        {answers.length === 0 && (
-                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
-                                No pending answers.
-                            </div>
-                        )}
-
-                        {answers.map((answer) => (
-                            <AdminAnswerCard
-                                key={answer.id}
-                                id={answer.id}
-                                questionId={answer.questionId}
-                                category={answer.category}
-                                userName={answer.userName}
-                                answer={answer.answer}
-                                onApprove={handleApprove}
-                                onReject={handleReject}
-                            />
-                        ))}
-
-                    </div>
-
-                </div>
-
-            </div>
-        </main>
-    );
-}
-</file>
-
 <file path="components/CategoryCard.tsx">
 "use client";
 
@@ -2327,344 +2830,219 @@ export default function LoadingScreen({
 }
 </file>
 
-<file path="services/firestore.ts">
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="app/(protected)/admin/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+import { useAuth } from "@/app/context/AuthContext";
+import { isUserAdmin } from "@/services/admin";
 import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    getDocs,
-    orderBy,
-    query,
-    serverTimestamp,
-    setDoc,
-    updateDoc,
-    where,
-    writeBatch,
-} from "firebase/firestore";
+    getPendingAnswers,
+    approveAnswer,
+    rejectAnswer,
+} from "@/services/firestore";
 
-import { db } from "@/lib/firebase";
+import AdminAnswerCard from "@/components/AdminAnswerCard";
 
-const questionCache = new Map<string, Question[]>();
-
-export function clearQuestionCache(
-    category?: string
-) {
-    if (category) {
-        questionCache.delete(
-            category.toLowerCase()
-        );
-    } else {
-        questionCache.clear();
-    }
-}
-
-export interface Question {
+interface PendingAnswer {
     id: string;
-    question: string;
-    answer: string;
-    topic: string;
-    mmd: string;
-    surveyor: string;
-
-    class: string;
-
-    examDate: string;
-
-    order: number;
-    isActive: boolean;
-}
-export interface CommunityAnswer {
-    id: string;
-    category: string;
     questionId: string;
-    userId: string;
+    category: string;
     userName: string;
     answer: string;
-    status: string;
-    likes: number;
 }
 
-export async function getQuestions(
-    category: string
-): Promise<Question[]> {
-    const key = category.toLowerCase();
-
-    if (questionCache.has(key)) {
-        return questionCache.get(key)!;
-    }
-    const q = query(
-        collection(
-            db,
-            "orals",
-            category.toLowerCase(),
-            "questions"
-        ),
-        orderBy("order")
-    );
-
-    const snapshot = await getDocs(q);
-
-    const result = snapshot.docs.map((doc) => {
-        const data = doc.data();
-
-        return {
-            id: doc.id,
-            question: data.question,
-            answer: data.answer,
-            topic: data.topic,
-            mmd: data.mmd,
-            surveyor: data.surveyor,
-
-            class: data.class ?? "",
-
-            examDate: data.examDate ?? "",
-
-            order: data.order,
-            isActive: data.isActive,
-        };
-    });
-
-    questionCache.set(key, result);
-
-    return result;
-}
-
-export async function submitCommunityAnswer(data: {
-    category: string;
-    questionId: string;
-    userId: string;
-    userName: string;
-    answer: string;
-}) {
-    await addDoc(collection(db, "communityAnswers"), {
-        ...data,
-        status: "pending",
-        likes: 0,
-        createdAt: serverTimestamp(),
-    });
-}
-
-export async function getApprovedAnswers(
-    category: string,
-    questionId: string
-): Promise<CommunityAnswer[]> {
-    const q = query(
-        collection(db, "communityAnswers"),
-        where("category", "==", category),
-        where("questionId", "==", questionId),
-        where("status", "==", "approved")
-    );
-
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<CommunityAnswer, "id">),
-    }));
-}
-
-export async function getPendingAnswers(): Promise<
-    CommunityAnswer[]
-> {
-    const q = query(
-        collection(db, "communityAnswers"),
-        where("status", "==", "pending")
-    );
-
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<CommunityAnswer, "id">),
-    }));
-}
-
-export async function approveAnswer(id: string) {
-    await updateDoc(doc(db, "communityAnswers", id), {
-        status: "approved",
-    });
-}
-
-export async function rejectAnswer(id: string) {
-    await deleteDoc(doc(db, "communityAnswers", id));
-}
-
-async function deleteExistingOralQuestions(
-    category: string
-) {
-
-    const questionsRef = collection(
-        db,
-        "orals",
-        category,
-        "questions"
-    );
-
-
-    const snapshot = await getDocs(
-        questionsRef
-    );
-
-
-    const deleteBatch = writeBatch(db);
-
-
-    snapshot.docs.forEach((questionDoc) => {
-
-        deleteBatch.delete(
-            questionDoc.ref
-        );
-
-    });
-
-
-    await deleteBatch.commit();
-}
-
-export async function getOralQuestionCount(
-    category: string
-) {
-    const snapshot = await getDocs(
-        collection(
-            db,
-            "orals",
-            category.toLowerCase(),
-            "questions"
-        )
-    );
-
-    return snapshot.size;
-}
-
-
-/* ===========================
-   BULK EXCEL UPLOAD
-=========================== */
-
-export async function bulkUploadQuestions(rows: any[]) {
-
-    const batch = writeBatch(db);
-
-    const orderCounter: Record<string, number> = {};
-
-    const topicCounter: Record<string, Set<string>> = {};
-
-    const categories = new Set<string>();
-
-    rows.forEach((rawRow, index) => {
-        // Remove hidden spaces from Excel column names
-        const row: Record<string, any> = {};
-
-        Object.keys(rawRow).forEach((key) => {
-            row[key.trim()] = rawRow[key];
-        });
-
-        console.log("Uploading Row", index + 1, row);
-
-        let category = String(row.Category ?? "")
-            .trim()
-            .toLowerCase();
-
-
-        const categoryMap: Record<string, string> = {
-            safety: "fn3",
-            fn3: "fn3",
-
-            motor: "fn4b",
-            fn4b: "fn4b",
-
-            electrical: "fn5",
-            fn5: "fn5",
-
-            mep: "fn6",
-            fn6: "fn6",
-        };
-
-
-        category = categoryMap[category] ?? category;
-
-        if (!category) {
-            throw new Error(
-                `Row ${index + 1}: Category is missing.`
-            );
-        }
-
-        categories.add(category);
-
-        if (!orderCounter[category]) {
-            orderCounter[category] = 1;
-        }
-
-        if (!topicCounter[category]) {
-            topicCounter[category] = new Set();
-        }
-
-        const topic = String(row.Topic ?? "").trim();
-
-        if (topic) {
-            topicCounter[category].add(topic);
-        }
-
-        const ref = doc(
-            collection(db, "orals", category, "questions")
-        );
-
-        batch.set(ref, {
-            question: String(row.Question ?? "").trim(),
-            answer: String(row.Answer ?? "").trim(),
-
-            topic: String(row.Topic ?? "").trim(),
-
-            mmd: String(row.MMD ?? "").trim(),
-
-            surveyor: String(row.Surveyor ?? "").trim(),
-
-            class: String(row.Class ?? "").trim(),
-
-            examDate: String(row.Date ?? "").trim(),
-
-            order: orderCounter[category]++,
-
-            isActive: true,
-
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        });
-    });
-
-    for (const category of categories) {
-
-        await deleteExistingOralQuestions(
-            category
-        );
-
-    }
-
-    await batch.commit();
-
-    // Update category metadata
-    for (const category of Object.keys(orderCounter)) {
-        await setDoc(
-            doc(db, "orals", category),
-            {
-                questionCount:
-                    orderCounter[category] - 1,
-
-                topicCount:
-                    topicCounter[category].size,
-
-                updatedAt:
-                    serverTimestamp(),
-            },
-            {
-                merge: true,
+export default function AdminPage() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+
+    const [checking, setChecking] = useState(true);
+    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
+
+    useEffect(() => {
+        async function init() {
+            if (loading) return;
+
+            if (!user) {
+                router.replace("/");
+                return;
             }
+
+            const admin = await isUserAdmin(user.uid);
+
+            if (!admin) {
+                router.replace("/");
+                return;
+            }
+
+            const pending = await getPendingAnswers();
+
+            setAnswers(pending as PendingAnswer[]);
+            setChecking(false);
+        }
+
+        init();
+    }, [user, loading, router]);
+
+    async function handleApprove(id: string) {
+        await approveAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
         );
     }
-    for (const category of Object.keys(orderCounter)) {
-        clearQuestionCache(category);
+
+    async function handleReject(id: string) {
+        await rejectAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
     }
+
+    if (checking) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                Checking permissions...
+            </div>
+        );
+    }
+
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
+
+                <h1 className="text-4xl font-bold">
+                    Admin Dashboard
+                </h1>
+
+                <p className="mt-2 text-gray-500">
+                    Manage uploads and community answers.
+                </p>
+
+                <div className="mt-8 flex flex-wrap gap-4">
+
+                    <Link
+                        href="/admin/orals"
+                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
+                    >
+                        Upload Oral Questions
+                    </Link>
+
+                    <Link
+                        href="/admin/writtens"
+                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
+                    >
+                        Upload Written Questions
+                    </Link>
+
+                    <Link
+                        href="/admin/downloads"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-lg font-semibold">
+                            Download Questions
+                        </h2>
+
+                        <p className="mt-2 text-sm text-gray-500">
+                            Download the latest Oral and Written question banks.
+                        </p>
+                    </Link>
+
+                    <Link
+                        href="/admin/writtens/manage"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-l font-semibold">
+                            MANAGE QUESTIONS ALL
+                        </h2>
+
+                        <p className="mt-2 text-sm text-gray-500">
+                            View, edit and delete written questions.
+                        </p>
+                    </Link>
+
+                </div>
+
+
+
+                <div className="mt-12">
+
+                    <h2 className="text-2xl font-bold">
+                        Pending Community Answers
+                    </h2>
+
+                    <div className="mt-6 space-y-6">
+
+                        {answers.length === 0 && (
+                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
+                                No pending answers.
+                            </div>
+                        )}
+
+                        {answers.map((answer) => (
+                            <AdminAnswerCard
+                                key={answer.id}
+                                id={answer.id}
+                                questionId={answer.questionId}
+                                category={answer.category}
+                                userName={answer.userName}
+                                answer={answer.answer}
+                                onApprove={handleApprove}
+                                onReject={handleReject}
+                            />
+                        ))}
+
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    );
 }
 </file>
 
@@ -2954,6 +3332,468 @@ export default function RootLayout({
       </body>
     </html>
   );
+}
+</file>
+
+<file path="services/firestore.ts">
+import {
+    addDoc,
+    collection,
+    deleteDoc,
+    doc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    setDoc,
+    updateDoc,
+    where,
+    writeBatch,
+} from "firebase/firestore";
+
+
+import { db } from "@/lib/firebase";
+
+const questionCache = new Map<string, Question[]>();
+
+export function clearQuestionCache(
+    category?: string
+) {
+    if (category) {
+        questionCache.delete(
+            category.toLowerCase()
+        );
+    } else {
+        questionCache.clear();
+    }
+}
+
+export interface Question {
+    id: string;
+    question: string;
+    answer: string;
+    topic: string;
+    mmd: string;
+    surveyor: string;
+
+    class: string;
+
+    examDate: string;
+
+    order: number;
+    isActive: boolean;
+}
+export interface CommunityAnswer {
+    id: string;
+    category: string;
+    questionId: string;
+    userId: string;
+    userName: string;
+    answer: string;
+    status: string;
+    likes: number;
+}
+
+export async function getQuestions(
+    category: string
+): Promise<Question[]> {
+    const key = category.toLowerCase();
+
+    if (questionCache.has(key)) {
+        return questionCache.get(key)!;
+    }
+    const q = query(
+        collection(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions"
+        ),
+        orderBy("order")
+    );
+
+    const snapshot = await getDocs(q);
+
+    const result = snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+            id: doc.id,
+            question: data.question,
+            answer: data.answer,
+            topic: data.topic,
+            mmd: data.mmd,
+            surveyor: data.surveyor,
+
+            class: data.class ?? "",
+
+            examDate: data.examDate ?? "",
+
+            order: data.order,
+            isActive: data.isActive,
+        };
+    });
+
+    questionCache.set(key, result);
+
+    return result;
+}
+
+export async function submitCommunityAnswer(data: {
+    category: string;
+    questionId: string;
+    userId: string;
+    userName: string;
+    answer: string;
+}) {
+    await addDoc(collection(db, "communityAnswers"), {
+        ...data,
+        status: "pending",
+        likes: 0,
+        createdAt: serverTimestamp(),
+    });
+}
+
+export async function getApprovedAnswers(
+    category: string,
+    questionId: string
+): Promise<CommunityAnswer[]> {
+    const q = query(
+        collection(db, "communityAnswers"),
+        where("category", "==", category),
+        where("questionId", "==", questionId),
+        where("status", "==", "approved")
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<CommunityAnswer, "id">),
+    }));
+}
+
+export async function getPendingAnswers(): Promise<
+    CommunityAnswer[]
+> {
+    const q = query(
+        collection(db, "communityAnswers"),
+        where("status", "==", "pending")
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<CommunityAnswer, "id">),
+    }));
+}
+
+export async function approveAnswer(id: string) {
+    await updateDoc(doc(db, "communityAnswers", id), {
+        status: "approved",
+    });
+}
+
+export async function rejectAnswer(id: string) {
+    await deleteDoc(doc(db, "communityAnswers", id));
+}
+
+async function deleteExistingOralQuestions(
+    category: string
+) {
+
+    const questionsRef = collection(
+        db,
+        "orals",
+        category,
+        "questions"
+    );
+
+
+    const snapshot = await getDocs(
+        questionsRef
+    );
+
+
+    const deleteBatch = writeBatch(db);
+
+
+    snapshot.docs.forEach((questionDoc) => {
+
+        deleteBatch.delete(
+            questionDoc.ref
+        );
+
+    });
+
+
+    await deleteBatch.commit();
+}
+
+export async function getOralQuestionCount(
+    category: string
+) {
+    const snapshot = await getDocs(
+        collection(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions"
+        )
+    );
+
+    return snapshot.size;
+}
+
+export async function getAllOralQuestionCounts() {
+
+    const categories = [
+        "FN3",
+        "FN4B",
+        "FN5",
+        "FN6",
+    ];
+
+    const counts: Record<string, number> = {};
+
+    for (const category of categories) {
+
+        counts[category] =
+            await getOralQuestionCount(category);
+
+    }
+
+    return counts;
+}
+
+export async function getOralQuestionsForExport(
+    category: string
+) {
+
+    const snapshot = await getDocs(
+        query(
+            collection(
+                db,
+                "orals",
+                category.toLowerCase(),
+                "questions"
+            ),
+            orderBy("order")
+        )
+    );
+
+    return snapshot.docs.map((doc) => {
+
+        const data = doc.data();
+
+        return {
+            Category: category.toUpperCase(),
+            Class: data.class ?? "",
+            Date: data.examDate ?? "",
+            MMD: data.mmd ?? "",
+            Surveyor: data.surveyor ?? "",
+            Topic: data.topic ?? "",
+            Question: data.question ?? "",
+            Answer: data.answer ?? "",
+        };
+
+    });
+
+}
+
+/* ===========================
+   BULK EXCEL UPLOAD
+=========================== */
+
+export async function bulkUploadQuestions(rows: any[]) {
+
+    const batch = writeBatch(db);
+
+    const orderCounter: Record<string, number> = {};
+
+    const topicCounter: Record<string, Set<string>> = {};
+
+    const categories = new Set<string>();
+
+    rows.forEach((rawRow, index) => {
+        // Remove hidden spaces from Excel column names
+        const row: Record<string, any> = {};
+
+        Object.keys(rawRow).forEach((key) => {
+            row[key.trim()] = rawRow[key];
+        });
+
+        console.log("Uploading Row", index + 1, row);
+
+        let category = String(row.Category ?? "")
+            .trim()
+            .toLowerCase();
+
+
+        const categoryMap: Record<string, string> = {
+            safety: "fn3",
+            fn3: "fn3",
+
+            motor: "fn4b",
+            fn4b: "fn4b",
+
+            electrical: "fn5",
+            fn5: "fn5",
+
+            mep: "fn6",
+            fn6: "fn6",
+        };
+
+
+        category = categoryMap[category] ?? category;
+
+        if (!category) {
+            throw new Error(
+                `Row ${index + 1}: Category is missing.`
+            );
+        }
+
+        categories.add(category);
+
+        if (!orderCounter[category]) {
+            orderCounter[category] = 1;
+        }
+
+        if (!topicCounter[category]) {
+            topicCounter[category] = new Set();
+        }
+
+        const topic = String(row.Topic ?? "").trim();
+
+        if (topic) {
+            topicCounter[category].add(topic);
+        }
+
+        const ref = doc(
+            collection(db, "orals", category, "questions")
+        );
+
+        batch.set(ref, {
+            question: String(row.Question ?? "").trim(),
+            answer: String(row.Answer ?? "").trim(),
+
+            topic: String(row.Topic ?? "").trim(),
+
+            mmd: String(row.MMD ?? "").trim(),
+
+            surveyor: String(row.Surveyor ?? "").trim(),
+
+            class: String(row.Class ?? "").trim(),
+
+            examDate: String(row.Date ?? "").trim(),
+
+            order: orderCounter[category]++,
+
+            isActive: true,
+
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+    });
+
+    for (const category of categories) {
+
+        await deleteExistingOralQuestions(
+            category
+        );
+
+    }
+
+    await batch.commit();
+
+    // Update category metadata
+    for (const category of Object.keys(orderCounter)) {
+        await setDoc(
+            doc(db, "orals", category),
+            {
+                questionCount:
+                    orderCounter[category] - 1,
+
+                topicCount:
+                    topicCounter[category].size,
+
+                updatedAt:
+                    serverTimestamp(),
+            },
+            {
+                merge: true,
+            }
+        );
+    }
+    for (const category of Object.keys(orderCounter)) {
+        clearQuestionCache(category);
+    }
+}
+
+export async function updateQuestion(
+    category: string,
+    id: string,
+    data: {
+        question: string;
+        answer: string;
+    }
+) {
+    await updateDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            question: data.question,
+            answer: data.answer,
+            updatedAt: serverTimestamp(),
+        }
+    );
+
+    clearQuestionCache(category);
+}
+
+export async function deleteQuestion(
+    category: string,
+    id: string
+) {
+    await deleteDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions",
+            id
+        )
+    );
+
+    clearQuestionCache(category);
+}
+
+export async function updateQuestionTopic(
+    category: string,
+    id: string,
+    topic: string
+) {
+    await updateDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            topic,
+            updatedAt: serverTimestamp(),
+        }
+    );
+
+    clearQuestionCache(category);
 }
 </file>
 
@@ -3853,257 +4693,6 @@ font-semibold
 }
 </file>
 
-<file path="services/written.service.ts">
-import {
-    collection,
-    doc,
-    getDocs,
-    orderBy,
-    query,
-    serverTimestamp,
-    setDoc,
-    writeBatch,
-    deleteDoc,
-    updateDoc,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
-
-export interface WrittenQuestion {
-    id: string;
-    class: string;
-    category: string;
-    topic: string;
-    year: number;
-    month: string;
-    question: string;
-    answer: string;
-    order: number;
-    isActive: boolean;
-}
-
-export async function getWrittenQuestions(
-    category: string
-): Promise<WrittenQuestion[]> {
-    const q = query(
-        collection(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions"
-        ),
-        orderBy("order")
-    );
-
-    const snapshot = await getDocs(q);
-
-    const result = snapshot.docs.map((doc) => {
-        const data = doc.data();
-
-        return {
-            id: doc.id,
-            class: data.class ?? "",
-            category: data.category ?? "",
-            topic: data.topic ?? "",
-            year: data.year ?? 0,
-            month: data.month ?? "",
-            question: data.question ?? "",
-            answer: data.answer ?? "",
-            order: data.order ?? 0,
-            isActive: data.isActive ?? true,
-        };
-    });
-
-    return result;
-}
-
-async function deleteExistingWrittenQuestions(
-    category: string
-) {
-    const questionsRef = collection(
-        db,
-        "writtens",
-        category,
-        "questions"
-    );
-
-    const snapshot = await getDocs(
-        questionsRef
-    );
-
-    const deleteBatch = writeBatch(db);
-
-    snapshot.docs.forEach((questionDoc) => {
-        deleteBatch.delete(questionDoc.ref);
-    });
-
-    await deleteBatch.commit();
-}
-
-export async function getWrittenQuestionCount(
-    category: string
-) {
-
-    const snapshot =
-        await getDocs(
-            collection(
-                db,
-                "writtens",
-                category,
-                "questions"
-            )
-        );
-
-
-    return snapshot.size;
-
-}
-
-export async function bulkUploadWrittenQuestions(
-    rows: any[]
-) {
-    const batch = writeBatch(db);
-
-    const orderCounter: Record<string, number> = {};
-    const topicCounter: Record<string, Set<string>> = {};
-
-    const categories = new Set<string>();
-
-    rows.forEach((rawRow, index) => {
-        const row: Record<string, any> = {};
-
-        Object.keys(rawRow).forEach((key) => {
-            row[key.trim()] = rawRow[key];
-        });
-
-        const category = String(row.Category)
-            .trim()
-            .toLowerCase();
-
-        if (!category) {
-            throw new Error(
-                `Row ${index + 1}: Category missing`
-            );
-        }
-        categories.add(category);
-
-        if (!orderCounter[category]) {
-            orderCounter[category] = 1;
-        }
-
-        if (!topicCounter[category]) {
-            topicCounter[category] = new Set();
-        }
-
-        const topic = String(row.Topic ?? "").trim();
-
-        if (topic) {
-            topicCounter[category].add(topic);
-        }
-
-        const ref = doc(
-            collection(
-                db,
-                "writtens",
-                category,
-                "questions"
-            )
-        );
-
-        const answer = String(row.Answer).trim();
-
-        batch.set(ref, {
-            class: String(row.Class).trim(),
-
-            category: String(row.Category).trim(),
-
-            topic: String(row.Topic).trim(),
-
-            year: Number(row.Year),
-
-            month: String(row.Month).trim(),
-
-            question: String(row.Question).trim(),
-
-            answer,
-
-            order: orderCounter[category]++,
-
-            isActive: true,
-
-            createdAt: serverTimestamp(),
-
-            updatedAt: serverTimestamp(),
-        });
-    });
-
-    for (const category of categories) {
-
-        await deleteExistingWrittenQuestions(
-            category
-        );
-
-    }
-
-    await batch.commit();
-
-    for (const category of Object.keys(orderCounter)) {
-
-        await setDoc(
-            doc(db, "writtens", category),
-            {
-                questionCount: orderCounter[category] - 1,
-                topicCount: topicCounter[category].size,
-                updatedAt: serverTimestamp(),
-            },
-            {
-                merge: true,
-            }
-        );
-
-    }
-}
-export async function updateWrittenQuestion(
-    category: string,
-    id: string,
-    data: Partial<WrittenQuestion>
-) {
-
-    console.log("Type:", typeof data.answer);
-    console.log("Raw:", data.answer);
-    console.log("JSON:", JSON.stringify(data.answer));
-
-    await updateDoc(
-        doc(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions",
-            id
-        ),
-        {
-            ...data,
-            updatedAt: serverTimestamp(),
-        }
-    );
-}
-
-export async function deleteWrittenQuestion(
-    category: string,
-    id: string
-) {
-    await deleteDoc(
-        doc(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions",
-            id
-        )
-    );
-}
-</file>
-
 <file path="app/(protected)/writtens/[category]/page.tsx">
 "use client";
 
@@ -4834,6 +5423,337 @@ export default function Header({ setShowAuth }: HeaderProps) {
       </div>
     </div>
   );
+}
+</file>
+
+<file path="services/written.service.ts">
+import {
+    collection,
+    doc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    setDoc,
+    writeBatch,
+    deleteDoc,
+    updateDoc,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+import { ManageQuestion } from "@/types/manage-question";
+
+export interface WrittenQuestion {
+    id: string;
+    class: string;
+    category: string;
+    topic: string;
+    year: number;
+    month: string;
+    question: string;
+    answer: string;
+    order: number;
+    isActive: boolean;
+}
+
+export async function getWrittenQuestions(
+    category: string
+): Promise<ManageQuestion[]> {
+    const q = query(
+        collection(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions"
+        ),
+        orderBy("order")
+    );
+
+    const snapshot = await getDocs(q);
+
+    const result = snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+            id: doc.id,
+            class: data.class ?? "",
+            category: data.category ?? "",
+            topic: data.topic ?? "",
+            year: data.year ?? 0,
+            month: data.month ?? "",
+            question: data.question ?? "",
+            answer: data.answer ?? "",
+            order: data.order ?? 0,
+            isActive: data.isActive ?? true,
+        };
+    });
+
+    return result;
+}
+
+async function deleteExistingWrittenQuestions(
+    category: string
+) {
+    const questionsRef = collection(
+        db,
+        "writtens",
+        category,
+        "questions"
+    );
+
+    const snapshot = await getDocs(
+        questionsRef
+    );
+
+    const deleteBatch = writeBatch(db);
+
+    snapshot.docs.forEach((questionDoc) => {
+        deleteBatch.delete(questionDoc.ref);
+    });
+
+    await deleteBatch.commit();
+}
+
+export async function getWrittenQuestionCount(
+    category: string
+) {
+
+    const snapshot =
+        await getDocs(
+            collection(
+                db,
+                "writtens",
+                category,
+                "questions"
+            )
+        );
+
+
+    return snapshot.size;
+
+}
+
+export async function getAllWrittenQuestionCounts() {
+
+    const categories = [
+        "general",
+        "motor",
+        "mep",
+        "ssep",
+        "naval",
+        "met",
+    ];
+
+    const counts: Record<string, number> = {};
+
+    for (const category of categories) {
+
+        counts[category.toUpperCase()] =
+            await getWrittenQuestionCount(category);
+
+    }
+
+    return counts;
+
+}
+
+export async function getWrittenQuestionsForExport(
+    category: string
+) {
+    const snapshot = await getDocs(
+        query(
+            collection(
+                db,
+                "writtens",
+                category.toLowerCase(),
+                "questions"
+            ),
+            orderBy("order")
+        )
+    );
+
+    return snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+
+        return {
+            id: doc.id,
+
+            question: data.question ?? "",
+            answer: data.answer ?? "",
+
+            topic: data.topic ?? "",
+            class: data.class ?? "",
+
+            month: data.month ?? "",
+            year: data.year ?? undefined,
+        };
+    });
+}
+
+export async function bulkUploadWrittenQuestions(
+    rows: any[]
+) {
+    const batch = writeBatch(db);
+
+    const orderCounter: Record<string, number> = {};
+    const topicCounter: Record<string, Set<string>> = {};
+
+    const categories = new Set<string>();
+
+    rows.forEach((rawRow, index) => {
+        const row: Record<string, any> = {};
+
+        Object.keys(rawRow).forEach((key) => {
+            row[key.trim()] = rawRow[key];
+        });
+
+        const category = String(row.Category)
+            .trim()
+            .toLowerCase();
+
+        if (!category) {
+            throw new Error(
+                `Row ${index + 1}: Category missing`
+            );
+        }
+        categories.add(category);
+
+        if (!orderCounter[category]) {
+            orderCounter[category] = 1;
+        }
+
+        if (!topicCounter[category]) {
+            topicCounter[category] = new Set();
+        }
+
+        const topic = String(row.Topic ?? "").trim();
+
+        if (topic) {
+            topicCounter[category].add(topic);
+        }
+
+        const ref = doc(
+            collection(
+                db,
+                "writtens",
+                category,
+                "questions"
+            )
+        );
+
+        const answer = String(row.Answer).trim();
+
+        batch.set(ref, {
+            class: String(row.Class).trim(),
+
+            category: String(row.Category).trim(),
+
+            topic: String(row.Topic).trim(),
+
+            year: Number(row.Year),
+
+            month: String(row.Month).trim(),
+
+            question: String(row.Question).trim(),
+
+            answer,
+
+            order: orderCounter[category]++,
+
+            isActive: true,
+
+            createdAt: serverTimestamp(),
+
+            updatedAt: serverTimestamp(),
+        });
+    });
+
+    for (const category of categories) {
+
+        await deleteExistingWrittenQuestions(
+            category
+        );
+
+    }
+
+    await batch.commit();
+
+    for (const category of Object.keys(orderCounter)) {
+
+        await setDoc(
+            doc(db, "writtens", category),
+            {
+                questionCount: orderCounter[category] - 1,
+                topicCount: topicCounter[category].size,
+                updatedAt: serverTimestamp(),
+            },
+            {
+                merge: true,
+            }
+        );
+
+    }
+}
+export async function updateWrittenQuestion(
+    category: string,
+    id: string,
+    data: Partial<WrittenQuestion>
+) {
+
+    console.log("Type:", typeof data.answer);
+    console.log("Raw:", data.answer);
+    console.log("JSON:", JSON.stringify(data.answer));
+
+    await updateDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            ...data,
+            updatedAt: serverTimestamp(),
+        }
+    );
+}
+
+export async function deleteWrittenQuestion(
+    category: string,
+    id: string
+) {
+    await deleteDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        )
+    );
+}
+
+export async function updateWrittenQuestionTopic(
+    category: string,
+    id: string,
+    topic: string
+) {
+    await updateDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            topic,
+            updatedAt: serverTimestamp(),
+        }
+    );
 }
 </file>
 

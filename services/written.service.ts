@@ -13,6 +13,8 @@ import {
 
 import { db } from "@/lib/firebase";
 
+import { ManageQuestion } from "@/types/manage-question";
+
 export interface WrittenQuestion {
     id: string;
     class: string;
@@ -28,7 +30,7 @@ export interface WrittenQuestion {
 
 export async function getWrittenQuestions(
     category: string
-): Promise<WrittenQuestion[]> {
+): Promise<ManageQuestion[]> {
     const q = query(
         collection(
             db,
@@ -145,14 +147,18 @@ export async function getWrittenQuestionsForExport(
     return snapshot.docs.map((doc) => {
         const data = doc.data();
 
+
         return {
-            Class: data.class ?? "",
-            Category: data.category ?? "",
-            Topic: data.topic ?? "",
-            Year: data.year ?? "",
-            Month: data.month ?? "",
-            Question: data.question ?? "",
-            Answer: data.answer ?? "",
+            id: doc.id,
+
+            question: data.question ?? "",
+            answer: data.answer ?? "",
+
+            topic: data.topic ?? "",
+            class: data.class ?? "",
+
+            month: data.month ?? "",
+            year: data.year ?? undefined,
         };
     });
 }
@@ -298,5 +304,25 @@ export async function deleteWrittenQuestion(
             "questions",
             id
         )
+    );
+}
+
+export async function updateWrittenQuestionTopic(
+    category: string,
+    id: string,
+    topic: string
+) {
+    await updateDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            topic,
+            updatedAt: serverTimestamp(),
+        }
     );
 }

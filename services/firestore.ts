@@ -13,6 +13,7 @@ import {
     writeBatch,
 } from "firebase/firestore";
 
+
 import { db } from "@/lib/firebase";
 
 const questionCache = new Map<string, Question[]>();
@@ -390,4 +391,69 @@ export async function bulkUploadQuestions(rows: any[]) {
     for (const category of Object.keys(orderCounter)) {
         clearQuestionCache(category);
     }
+}
+
+export async function updateQuestion(
+    category: string,
+    id: string,
+    data: {
+        question: string;
+        answer: string;
+    }
+) {
+    await updateDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            question: data.question,
+            answer: data.answer,
+            updatedAt: serverTimestamp(),
+        }
+    );
+
+    clearQuestionCache(category);
+}
+
+export async function deleteQuestion(
+    category: string,
+    id: string
+) {
+    await deleteDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions",
+            id
+        )
+    );
+
+    clearQuestionCache(category);
+}
+
+export async function updateQuestionTopic(
+    category: string,
+    id: string,
+    topic: string
+) {
+    await updateDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            topic,
+            updatedAt: serverTimestamp(),
+        }
+    );
+
+    clearQuestionCache(category);
 }
