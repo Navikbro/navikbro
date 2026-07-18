@@ -107,6 +107,19 @@ export default function AdminPage() {
                     </Link>
 
                     <Link
+                        href="/admin/downloads"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-lg font-semibold">
+                            Download Questions
+                        </h2>
+
+                        <p className="mt-2 text-sm text-gray-500">
+                            Download the latest Oral and Written question banks.
+                        </p>
+                    </Link>
+
+                    <Link
                         href="/admin/writtens/manage"
                         className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
                     >

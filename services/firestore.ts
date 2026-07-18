@@ -207,6 +207,61 @@ export async function getOralQuestionCount(
     return snapshot.size;
 }
 
+export async function getAllOralQuestionCounts() {
+
+    const categories = [
+        "FN3",
+        "FN4B",
+        "FN5",
+        "FN6",
+    ];
+
+    const counts: Record<string, number> = {};
+
+    for (const category of categories) {
+
+        counts[category] =
+            await getOralQuestionCount(category);
+
+    }
+
+    return counts;
+}
+
+export async function getOralQuestionsForExport(
+    category: string
+) {
+
+    const snapshot = await getDocs(
+        query(
+            collection(
+                db,
+                "orals",
+                category.toLowerCase(),
+                "questions"
+            ),
+            orderBy("order")
+        )
+    );
+
+    return snapshot.docs.map((doc) => {
+
+        const data = doc.data();
+
+        return {
+            Category: category.toUpperCase(),
+            Class: data.class ?? "",
+            Date: data.examDate ?? "",
+            MMD: data.mmd ?? "",
+            Surveyor: data.surveyor ?? "",
+            Topic: data.topic ?? "",
+            Question: data.question ?? "",
+            Answer: data.answer ?? "",
+        };
+
+    });
+
+}
 
 /* ===========================
    BULK EXCEL UPLOAD

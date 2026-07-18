@@ -103,6 +103,60 @@ export async function getWrittenQuestionCount(
 
 }
 
+export async function getAllWrittenQuestionCounts() {
+
+    const categories = [
+        "general",
+        "motor",
+        "mep",
+        "ssep",
+        "naval",
+        "met",
+    ];
+
+    const counts: Record<string, number> = {};
+
+    for (const category of categories) {
+
+        counts[category.toUpperCase()] =
+            await getWrittenQuestionCount(category);
+
+    }
+
+    return counts;
+
+}
+
+export async function getWrittenQuestionsForExport(
+    category: string
+) {
+    const snapshot = await getDocs(
+        query(
+            collection(
+                db,
+                "writtens",
+                category.toLowerCase(),
+                "questions"
+            ),
+            orderBy("order")
+        )
+    );
+
+    return snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+            Class: data.class ?? "",
+            Category: data.category ?? "",
+            Topic: data.topic ?? "",
+            Year: data.year ?? "",
+            Month: data.month ?? "",
+            Question: data.question ?? "",
+            Answer: data.answer ?? "",
+        };
+    });
+}
+
 export async function bulkUploadWrittenQuestions(
     rows: any[]
 ) {
