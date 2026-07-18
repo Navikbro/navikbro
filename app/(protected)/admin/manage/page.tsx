@@ -16,7 +16,9 @@ import {
 
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
-import { ManageQuestion } from "@/types/manage-question";
+import {
+    WrittenQuestion,
+} from "@/services/written.service";
 
 export default function ManageWrittenQuestionsPage() {
 
@@ -26,13 +28,14 @@ export default function ManageWrittenQuestionsPage() {
     const [type, setType] =
         useState<"written" | "oral">("written");
 
-    const [questions, setQuestions] = useState<ManageQuestion[]>([]);
+    const [questions, setQuestions] =
+        useState<any[]>([]);
 
     const [loading, setLoading] =
         useState(true);
 
     const [editingQuestion, setEditingQuestion] =
-        useState<ManageQuestion | null>(null);
+        useState<any>(null);
 
     const [editedQuestion, setEditedQuestion] =
         useState("");
@@ -49,7 +52,7 @@ export default function ManageWrittenQuestionsPage() {
 
             setLoading(true);
 
-            let data: ManageQuestion[];
+            let data: any[];
 
             if (type === "written") {
                 const written = await getWrittenQuestions(category);
