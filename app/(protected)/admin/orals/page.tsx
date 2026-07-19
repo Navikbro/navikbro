@@ -88,10 +88,6 @@ export default function BulkUploadPage() {
                 );
             }
 
-            if (!row.Date.trim()) {
-                errors.push(`Row ${rowNo}: Date is required.`);
-            }
-
             if (
                 row.Category &&
                 !validCategories.includes(

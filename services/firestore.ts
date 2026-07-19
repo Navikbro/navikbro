@@ -457,3 +457,67 @@ export async function updateQuestionTopic(
 
     clearQuestionCache(category);
 }
+export async function moveQuestionsBatch(
+    questions: any[],
+    fromCategory: string,
+    toCategory: string
+) {
+    const batch = writeBatch(db);
+
+    questions.forEach((question) => {
+
+        const newRef = doc(
+            collection(
+                db,
+                "orals",
+                toCategory.toLowerCase(),
+                "questions"
+            )
+        );
+
+        const { id, ...data } = question;
+
+        batch.set(newRef, {
+            ...data,
+            updatedAt: serverTimestamp(),
+        });
+
+        batch.delete(
+            doc(
+                db,
+                "orals",
+                fromCategory.toLowerCase(),
+                "questions",
+                question.id
+            )
+        );
+    });
+
+    await batch.commit();
+
+    clearQuestionCache(fromCategory);
+    clearQuestionCache(toCategory);
+}
+
+export async function deleteQuestionsBatch(
+    category: string,
+    ids: string[]
+) {
+    const batch = writeBatch(db);
+
+    ids.forEach((id) => {
+        batch.delete(
+            doc(
+                db,
+                "orals",
+                category.toLowerCase(),
+                "questions",
+                id
+            )
+        );
+    });
+
+    await batch.commit();
+
+    clearQuestionCache(category);
+}
