@@ -1,3 +1,5 @@
+
+
 import {
     addDoc,
     collection,
@@ -15,6 +17,8 @@ import {
 
 
 import { db } from "@/lib/firebase";
+
+let uploadRunning = false;
 
 const questionCache = new Map<string, Question[]>();
 
@@ -161,14 +165,12 @@ export async function rejectAnswer(id: string) {
     await deleteDoc(doc(db, "communityAnswers", id));
 }
 
-async function deleteExistingOralQuestions(
-    category: string
-) {
+async function deleteExistingOralQuestions(category: string) {
 
     const questionsRef = collection(
         db,
         "orals",
-        category,
+        category.toLowerCase(),
         "questions"
     );
 
@@ -178,19 +180,53 @@ async function deleteExistingOralQuestions(
     );
 
 
-    const deleteBatch = writeBatch(db);
+    if (snapshot.empty) {
+        console.log(
+            `No existing questions in ${category}`
+        );
+        return;
+    }
 
 
-    snapshot.docs.forEach((questionDoc) => {
+    const docs = snapshot.docs;
 
-        deleteBatch.delete(
-            questionDoc.ref
+
+    const CHUNK_SIZE = 500;
+
+
+    for (
+        let i = 0;
+        i < docs.length;
+        i += CHUNK_SIZE
+    ) {
+
+
+        const batch = writeBatch(db);
+
+
+        docs
+            .slice(i, i + CHUNK_SIZE)
+            .forEach((docSnap) => {
+
+                batch.delete(
+                    docSnap.ref
+                );
+
+            });
+
+
+        await batch.commit();
+
+
+        console.log(
+            `Deleted ${Math.min(
+                i + CHUNK_SIZE,
+                docs.length
+            )} / ${docs.length} from ${category}`
         );
 
-    });
+    }
 
-
-    await deleteBatch.commit();
 }
 
 export async function getOralQuestionCount(
@@ -267,131 +303,264 @@ export async function getOralQuestionsForExport(
 /* ===========================
    BULK EXCEL UPLOAD
 =========================== */
+export async function bulkUploadQuestions(
+    rows: any[],
+    onProgress?: (uploaded: number, total: number) => void
+) {
 
-export async function bulkUploadQuestions(rows: any[]) {
-
-    const batch = writeBatch(db);
-
-    const orderCounter: Record<string, number> = {};
-
-    const topicCounter: Record<string, Set<string>> = {};
-
-    const categories = new Set<string>();
-
-    rows.forEach((rawRow, index) => {
-        // Remove hidden spaces from Excel column names
-        const row: Record<string, any> = {};
-
-        Object.keys(rawRow).forEach((key) => {
-            row[key.trim()] = rawRow[key];
-        });
-
-        console.log("Uploading Row", index + 1, row);
-
-        let category = String(row.Category ?? "")
-            .trim()
-            .toLowerCase();
-
-
-        const categoryMap: Record<string, string> = {
-            safety: "fn3",
-            fn3: "fn3",
-
-            motor: "fn4b",
-            fn4b: "fn4b",
-
-            electrical: "fn5",
-            fn5: "fn5",
-
-            mep: "fn6",
-            fn6: "fn6",
-        };
-
-
-        category = categoryMap[category] ?? category;
-
-        if (!category) {
-            throw new Error(
-                `Row ${index + 1}: Category is missing.`
-            );
-        }
-
-        categories.add(category);
-
-        if (!orderCounter[category]) {
-            orderCounter[category] = 1;
-        }
-
-        if (!topicCounter[category]) {
-            topicCounter[category] = new Set();
-        }
-
-        const topic = String(row.Topic ?? "").trim();
-
-        if (topic) {
-            topicCounter[category].add(topic);
-        }
-
-        const ref = doc(
-            collection(db, "orals", category, "questions")
-        );
-
-        batch.set(ref, {
-            question: String(row.Question ?? "").trim(),
-            answer: String(row.Answer ?? "").trim(),
-
-            topic: String(row.Topic ?? "").trim(),
-
-            mmd: String(row.MMD ?? "").trim(),
-
-            surveyor: String(row.Surveyor ?? "").trim(),
-
-            class: String(row.Class ?? "").trim(),
-
-            examDate: String(row.Date ?? "").trim(),
-
-            order: orderCounter[category]++,
-
-            isActive: true,
-
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        });
-    });
-
-    for (const category of categories) {
-
-        await deleteExistingOralQuestions(
-            category
-        );
-
+    if (uploadRunning) {
+        throw new Error("Upload already running");
     }
 
-    await batch.commit();
+    uploadRunning = true;
 
-    // Update category metadata
-    for (const category of Object.keys(orderCounter)) {
-        await setDoc(
-            doc(db, "orals", category),
-            {
-                questionCount:
-                    orderCounter[category] - 1,
+    try {
 
-                topicCount:
-                    topicCounter[category].size,
+        const orderCounter: Record<string, number> = {};
+        const topicCounter: Record<string, Set<string>> = {};
 
-                updatedAt:
-                    serverTimestamp(),
-            },
-            {
-                merge: true,
+        const categories = new Set<string>();
+
+        const uploadData: {
+            category: string;
+            data: any;
+        }[] = [];
+
+
+        for (const [index, rawRow] of rows.entries()) {
+
+            const row: Record<string, any> = {};
+
+            Object.keys(rawRow).forEach((key) => {
+                row[key.trim()] = rawRow[key];
+            });
+
+
+            let category = String(row.Category ?? "")
+                .trim()
+                .toLowerCase();
+
+
+            const categoryMap: Record<string, string> = {
+                safety: "fn3",
+                fn3: "fn3",
+
+                motor: "fn4b",
+                fn4b: "fn4b",
+
+                electrical: "fn5",
+                fn5: "fn5",
+
+                mep: "fn6",
+                fn6: "fn6",
+            };
+
+
+            category = categoryMap[category] ?? category;
+
+
+            if (!category) {
+                throw new Error(
+                    `Row ${index + 1}: Category missing`
+                );
             }
-        );
+
+
+            categories.add(category);
+
+
+            if (!orderCounter[category]) {
+                orderCounter[category] = 1;
+            }
+
+
+            if (!topicCounter[category]) {
+                topicCounter[category] = new Set();
+            }
+
+
+            topicCounter[category].add(
+                String(row.Topic ?? "").trim()
+            );
+
+
+            uploadData.push({
+
+                category,
+
+                data: {
+
+                    question:
+                        String(row.Question ?? "").trim(),
+
+                    answer:
+                        String(row.Answer ?? "").trim(),
+
+                    topic:
+                        String(row.Topic ?? "").trim(),
+
+                    mmd:
+                        String(row.MMD ?? "").trim(),
+
+                    surveyor:
+                        String(row.Surveyor ?? "").trim(),
+
+                    class:
+                        String(row.Class ?? "").trim(),
+
+                    examDate:
+                        String(row.Date ?? "").trim(),
+
+
+                    order:
+                        orderCounter[category]++,
+
+
+                    isActive: true,
+
+
+                    createdAt:
+                        serverTimestamp(),
+
+
+                    updatedAt:
+                        serverTimestamp(),
+
+                },
+
+            });
+
+        }
+
+
+        console.log("Deleting existing questions...");
+
+
+        for (const category of categories) {
+
+            await deleteExistingOralQuestions(category);
+
+        }
+
+
+        console.log("Uploading new questions...");
+
+
+        const CHUNK_SIZE = 500;
+
+
+        for (
+            let i = 0;
+            i < uploadData.length;
+            i += CHUNK_SIZE
+        ) {
+
+
+            const batch = writeBatch(db);
+
+
+            uploadData
+                .slice(i, i + CHUNK_SIZE)
+                .forEach((item) => {
+
+
+                    const ref = doc(
+                        collection(
+                            db,
+                            "orals",
+                            item.category,
+                            "questions"
+                        )
+                    );
+
+
+                    batch.set(
+                        ref,
+                        item.data
+                    );
+
+
+                });
+
+
+            await batch.commit();
+
+
+
+            const uploaded = Math.min(
+                i + CHUNK_SIZE,
+                uploadData.length
+            );
+
+
+            onProgress?.(
+                uploaded,
+                uploadData.length
+            );
+
+
+            console.log(
+                `Uploaded ${uploaded} / ${uploadData.length}`
+            );
+
+        }
+
+
+
+        console.log("Updating metadata...");
+
+
+        for (
+            const category of Object.keys(orderCounter)
+        ) {
+
+
+            await setDoc(
+
+                doc(
+                    db,
+                    "orals",
+                    category
+                ),
+
+                {
+
+                    questionCount:
+                        orderCounter[category] - 1,
+
+
+                    topicCount:
+                        topicCounter[category].size,
+
+
+                    updatedAt:
+                        serverTimestamp(),
+
+                },
+
+                {
+                    merge: true,
+                }
+
+            );
+
+
+            clearQuestionCache(category);
+
+        }
+
+
+        console.log("Upload complete.");
+
+
+    } finally {
+
+        uploadRunning = false;
+
     }
-    for (const category of Object.keys(orderCounter)) {
-        clearQuestionCache(category);
-    }
+
 }
+
 
 export async function updateQuestion(
     category: string,
@@ -401,6 +570,7 @@ export async function updateQuestion(
         answer: string;
     }
 ) {
+
     await updateDoc(
         doc(
             db,

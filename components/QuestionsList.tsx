@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   ChevronDown,
@@ -38,7 +38,12 @@ export default function QuestionsList({
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  const [selectedMmd, setSelectedMmd] = useState("All");
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+
+  const DEFAULT_MMD = "Chennai";
+
+  const [selectedMmd, setSelectedMmd] = useState(DEFAULT_MMD);
   const [selectedSurveyor, setSelectedSurveyor] = useState("All");
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [selectedClass, setSelectedClass] = useState("All");
@@ -70,6 +75,8 @@ export default function QuestionsList({
   const filteredQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (!q.isActive) return false;
+      if (showBookmarksOnly && !bookmarks.includes(q.id))
+        return false;
 
       if (
         selectedMmd !== "All" &&
@@ -127,9 +134,42 @@ export default function QuestionsList({
     selectedSurveyor,
     selectedTopic,
     selectedClass,
+    bookmarks,
+    showBookmarksOnly,
   ]);
 
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedMmd(DEFAULT_MMD);
+    setSelectedSurveyor("All");
+    setSelectedTopic("All");
+    setSelectedClass("All");
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem("bookmarkedQuestions");
+
+    if (saved) {
+      setBookmarks(JSON.parse(saved));
+    }
+  }, []);
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        "bookmarkedQuestions",
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
+  };
 
   return (
     <>
@@ -145,90 +185,116 @@ export default function QuestionsList({
       </div>
 
       {/* FILTER BUTTON */}
-      <button
-        onClick={() => setShowFilters(!showFilters)}
-        className="mt-4 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
-      >
-        <div className="flex items-center gap-3">
-          <SlidersHorizontal size={18} />
+      <div className="mt-4 grid grid-cols-2 gap-3">
 
-          <span className="font-semibold">
-            Filters
-          </span>
-        </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+        >
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal size={18} />
+            <span className="font-semibold">Filters</span>
+          </div>
 
-        {showFilters ? (
-          <ChevronUp size={18} />
-        ) : (
-          <ChevronDown size={18} />
-        )}
-      </button>
+          {showFilters ? (
+            <ChevronUp size={18} />
+          ) : (
+            <ChevronDown size={18} />
+          )}
+        </button>
+
+        <button
+          onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+          className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
+            ? "border-black bg-black text-white"
+            : "border-gray-200 bg-white hover:border-black"
+            }`}
+        >
+          🔖 Bookmarks ({bookmarks.length})
+        </button>
+
+      </div>
 
       {/* FILTERS */}
-      {showFilters && (
-        <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      {
+        showFilters && (
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
 
-          <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-4">
 
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="rounded-xl border border-gray-300 p-3"
-            >
-              <option value="All">Class</option>
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">Class</option>
 
-              {classes.map((questionClass) => (
-                <option key={questionClass} value={questionClass}>
-                  {questionClass}
-                </option>
-              ))}
-            </select>
+                {classes.map((questionClass) => (
+                  <option key={questionClass} value={questionClass}>
+                    {questionClass}
+                  </option>
+                ))}
+              </select>
 
-            <select
-              value={selectedMmd}
-              onChange={(e) => setSelectedMmd(e.target.value)}
-              className="rounded-xl border border-gray-300 p-3"
-            >
-              <option value="All">All MMDs</option>
+              <select
+                value={selectedMmd}
+                onChange={(e) => setSelectedMmd(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All MMDs</option>
 
-              {mmds.map((mmd) => (
-                <option key={mmd} value={mmd}>
-                  {mmd}
-                </option>
-              ))}
-            </select>
+                {mmds.map((mmd) => (
+                  <option key={mmd} value={mmd}>
+                    {mmd}
+                  </option>
+                ))}
+              </select>
 
-            <select
-              value={selectedSurveyor}
-              onChange={(e) => setSelectedSurveyor(e.target.value)}
-              className="rounded-xl border border-gray-300 p-3"
-            >
-              <option value="All">All Surveyors</option>
+              <select
+                value={selectedSurveyor}
+                onChange={(e) => setSelectedSurveyor(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Surveyors</option>
 
-              {surveyors.map((surveyor) => (
-                <option key={surveyor} value={surveyor}>
-                  {surveyor}
-                </option>
-              ))}
-            </select>
+                {surveyors.map((surveyor) => (
+                  <option key={surveyor} value={surveyor}>
+                    {surveyor}
+                  </option>
+                ))}
+              </select>
 
-            <select
-              value={selectedTopic}
-              onChange={(e) => setSelectedTopic(e.target.value)}
-              className="rounded-xl border border-gray-300 p-3"
-            >
-              <option value="All">All Topics</option>
+              <select
+                value={selectedTopic}
+                onChange={(e) => setSelectedTopic(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Topics</option>
 
-              {topics.map((topic) => (
-                <option key={topic} value={topic}>
-                  {topic}
-                </option>
-              ))}
-            </select>
+                {topics.map((topic) => (
+                  <option key={topic} value={topic}>
+                    {topic}
+                  </option>
+                ))}
+              </select>
+
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={clearFilters}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
 
           </div>
-        </div>
-      )}
+        )
+      }
+
+
+
 
       {/* HEADING */}
       <div className="mt-8 mb-6 flex items-center justify-between gap-4">
@@ -271,6 +337,8 @@ export default function QuestionsList({
               showMmd={showMmd}
               showSurveyor={showSurveyor}
               showTopic={showTopic}
+              isBookmarked={bookmarks.includes(q.id)}
+              onBookmark={() => toggleBookmark(q.id)}
               isOpen={openQuestion === q.id}
               onToggle={() => {
                 const currentScroll = window.scrollY;

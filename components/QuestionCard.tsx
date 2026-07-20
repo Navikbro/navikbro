@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 import { submitCommunityAnswer } from "@/services/firestore";
-import { ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
+import {
+    Bookmark,
+    ChevronDown,
+    ChevronUp,
+    ClipboardList,
+} from "lucide-react";
 
 import { getApprovedAnswers } from "@/services/firestore";
 import CommunityAnswer from "./CommunityAnswer";
@@ -33,6 +38,9 @@ interface Props {
     showMmd: boolean;
     showSurveyor: boolean;
     showTopic: boolean;
+
+    isBookmarked: boolean;
+    onBookmark: () => void;
 }
 
 export default function QuestionCard({
@@ -49,6 +57,9 @@ export default function QuestionCard({
     showMmd,
     showSurveyor,
     showTopic,
+
+    isBookmarked,
+    onBookmark,
 }: Props) {
 
     const [communityAnswers, setCommunityAnswers] = useState<
@@ -180,11 +191,32 @@ export default function QuestionCard({
                         </h2>
                     </div>
 
-                    {isOpen ? (
-                        <ChevronUp size={20} />
-                    ) : (
-                        <ChevronDown size={20} />
-                    )}
+                    <div className="flex items-center gap-2">
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onBookmark();
+                            }}
+                            className="rounded-md p-1 hover:bg-gray-100"
+                        >
+                            <Bookmark
+                                size={20}
+                                className={
+                                    isBookmarked
+                                        ? "fill-yellow-400 text-yellow-500"
+                                        : "text-gray-400"
+                                }
+                            />
+                        </button>
+
+                        {isOpen ? (
+                            <ChevronUp size={20} />
+                        ) : (
+                            <ChevronDown size={20} />
+                        )}
+
+                    </div>
 
                 </div>
 

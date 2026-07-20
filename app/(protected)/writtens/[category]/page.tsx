@@ -36,9 +36,12 @@ export default function WrittensPage() {
       ? params.category.toLowerCase()
       : "general";
 
+  const STORAGE_KEY = `bookmarkedWrittenQuestions-${category}`;
+
   const [questions, setQuestions] = useState<WrittenQuestion[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -47,7 +50,7 @@ export default function WrittensPage() {
   const [selectedYear, setSelectedYear] = useState("All");
   const [selectedMonth, setSelectedMonth] = useState("All");
   const [selectedTopic, setSelectedTopic] = useState("All");
-
+  const bookmarkStorageKey = `bookmarkedWrittenQuestions_${category}`;
   useEffect(() => {
     async function loadQuestions() {
       try {
@@ -76,8 +79,20 @@ export default function WrittensPage() {
       .sort();
   }, [questions]);
 
+  const bookmarkCount = useMemo(() => {
+    return questions.filter((q) =>
+      bookmarks.includes(q.id)
+    ).length;
+  }, [questions, bookmarks]);
+
   const filteredQuestions = useMemo(() => {
     return questions.filter((question) => {
+      if (
+        showBookmarksOnly &&
+        !bookmarks.includes(question.id)
+      )
+        return false;
+
       const classMatch =
         selectedClass === "All" ||
         question.class === selectedClass;
@@ -121,9 +136,20 @@ export default function WrittensPage() {
     selectedYear,
     selectedMonth,
     selectedTopic,
+    bookmarks,
+    showBookmarksOnly,
   ]);
 
   const currentQuestion = filteredQuestions[currentIndex];
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedClass("All");
+    setSelectedYear("All");
+    setSelectedMonth("All");
+    setSelectedTopic("All");
+    setShowBookmarksOnly(false);
+  };
 
   useEffect(() => {
     setCurrentIndex(0);
@@ -133,7 +159,19 @@ export default function WrittensPage() {
     selectedYear,
     selectedMonth,
     selectedTopic,
+    showBookmarksOnly,
+    bookmarks,
   ]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(bookmarkStorageKey);
+
+    if (saved) {
+      setBookmarks(JSON.parse(saved));
+    } else {
+      setBookmarks([]);
+    }
+  }, [bookmarkStorageKey]);
 
   const titles: Record<
     string,
@@ -170,6 +208,21 @@ export default function WrittensPage() {
   const page = titles[category] ?? {
     badge: category.toUpperCase(),
     title: "Written Questions",
+  };
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        bookmarkStorageKey,
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
   };
 
   if (loading) {
@@ -253,28 +306,43 @@ export default function WrittensPage() {
 
         {/* FILTER BUTTON */}
 
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="mt-4 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
-        >
-          <div className="flex items-center gap-3">
-            <SlidersHorizontal size={18} />
-            <span className="font-semibold">
-              Filters
-            </span>
-          </div>
+        {/* FILTER BUTTONS */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
 
-          {showFilters ? (
-            <ChevronUp size={18} />
-          ) : (
-            <ChevronDown size={18} />
-          )}
-        </button>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+          >
+            <div className="flex items-center gap-3">
+              <SlidersHorizontal size={18} />
+              <span className="font-semibold">
+                Filters
+              </span>
+            </div>
+
+            {showFilters ? (
+              <ChevronUp size={18} />
+            ) : (
+              <ChevronDown size={18} />
+            )}
+          </button>
+
+          <button
+            onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+            className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
+              ? "border-black bg-black text-white"
+              : "border-gray-200 bg-white hover:border-black"
+              }`}
+          >
+            🔖 Bookmarks ({bookmarkCount})
+          </button>
+
+        </div>
 
         {/* FILTER PANEL */}
 
         {showFilters && (
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mt-4">
             <WrittenFilters
               selectedClass={selectedClass}
               setSelectedClass={setSelectedClass}
@@ -286,6 +354,7 @@ export default function WrittensPage() {
               setSelectedTopic={setSelectedTopic}
               years={years}
               topics={topics}
+              onClearFilters={clearFilters}
             />
           </div>
         )}
@@ -310,58 +379,60 @@ export default function WrittensPage() {
         </div>
 
         {filteredQuestions.length === 0 ? (
-        <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
-          No Questions Found.
-        </div>
+          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
+            No Questions Found.
+          </div>
         ) : (
-        <div className="mt-8 space-y-6">
-          {currentQuestion && (
-            <>
-              <WrittenCard
-                question={currentQuestion}
-              />
+          <div className="mt-8 space-y-6">
+            {currentQuestion && (
+              <>
+                <WrittenCard
+                  question={currentQuestion}
+                  isBookmarked={bookmarks.includes(currentQuestion.id)}
+                  onBookmark={() => toggleBookmark(currentQuestion.id)}
+                />
 
-              {/* Navigation */}
-              <div className="mt-6 flex items-center justify-between">
+                {/* Navigation */}
+                <div className="mt-6 flex items-center justify-between">
 
-                <button
-                  onClick={() =>
-                    setCurrentIndex((prev) => prev - 1)
-                  }
-                  disabled={currentIndex === 0}
-                  className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
-                    ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                    : "bg-black text-white hover:bg-gray-800"
-                    }`}
-                >
-                  ◀ Previous
-                </button>
+                  <button
+                    onClick={() =>
+                      setCurrentIndex((prev) => prev - 1)
+                    }
+                    disabled={currentIndex === 0}
+                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
+                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                      : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                  >
+                    ◀ Previous
+                  </button>
 
-                <button
-                  onClick={() =>
-                    setCurrentIndex((prev) => prev + 1)
-                  }
-                  disabled={currentIndex === filteredQuestions.length - 1}
-                  className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
-                    ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                    : "bg-black text-white hover:bg-gray-800"
-                    }`}
-                >
-                  Next ▶
-                </button>
+                  <button
+                    onClick={() =>
+                      setCurrentIndex((prev) => prev + 1)
+                    }
+                    disabled={currentIndex === filteredQuestions.length - 1}
+                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
+                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                      : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                  >
+                    Next ▶
+                  </button>
 
+                </div>
+              </>
+            )}
+
+            {filteredQuestions.length === 0 && (
+              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
+                <p className="text-gray-500">
+                  No Questions Found.
+                </p>
               </div>
-            </>
-          )}
-
-          {filteredQuestions.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
-              <p className="text-gray-500">
-                No Questions Found.
-              </p>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         )}
 
       </div>

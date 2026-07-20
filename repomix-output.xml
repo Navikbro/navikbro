@@ -1144,444 +1144,6 @@ export default function DownloadsPage() {
 }
 </file>
 
-<file path="app/(protected)/admin/manage/page.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-
-import {
-    getWrittenQuestions,
-    deleteWrittenQuestion,
-    updateWrittenQuestion,
-} from "@/services/written.service";
-
-import {
-    getQuestions,
-    updateQuestion,
-    deleteQuestion,
-} from "@/services/firestore";
-
-import MarkdownRenderer from "@/components/MarkdownRenderer";
-
-import {
-    WrittenQuestion,
-} from "@/services/written.service";
-
-export default function ManageWrittenQuestionsPage() {
-
-    const [category, setCategory] =
-        useState("general");
-
-    const [type, setType] =
-        useState<"written" | "oral">("written");
-
-    const [questions, setQuestions] =
-        useState<any[]>([]);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [editingQuestion, setEditingQuestion] =
-        useState<any>(null);
-
-    const [editedQuestion, setEditedQuestion] =
-        useState("");
-
-    const [editedAnswer, setEditedAnswer] =
-        useState("");
-
-    const [expandedId, setExpandedId] = useState<string | null>(null);
-
-
-    async function loadQuestions() {
-
-        try {
-
-            setLoading(true);
-
-            let data: any[];
-
-            if (type === "written") {
-                const written = await getWrittenQuestions(category);
-
-                data = written.map(q => ({
-                    id: q.id,
-                    question: q.question,
-                    answer: q.answer,
-                    topic: q.topic,
-                    class: q.class,
-                    month: q.month,
-                    year: q.year,
-                }));
-            } else {
-                const oral = await getQuestions(category);
-
-                data = oral.map(q => ({
-                    id: q.id,
-                    question: q.question,
-                    answer: q.answer,
-                    topic: q.topic,
-                    class: q.class,
-                    examDate: q.examDate,
-                    mmd: q.mmd,
-                    surveyor: q.surveyor,
-                }));
-            }
-
-            setQuestions(data);
-        }
-
-        finally {
-
-            setLoading(false);
-
-        }
-
-    }
-
-    useEffect(() => {
-        loadQuestions();
-    }, [category, type]);
-
-    async function handleDelete(id: string) {
-
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this question?"
-        );
-
-        if (!confirmed) return;
-
-        try {
-
-            if (type === "written") {
-                await deleteWrittenQuestion(category, id);
-            } else {
-                await deleteQuestion(category, id);
-            }
-
-            setQuestions((prev) =>
-                prev.filter(
-                    (question) => question.id !== id
-                )
-            );
-
-            alert("Question deleted successfully.");
-
-        } catch (error) {
-
-            console.error(error);
-
-            alert("Failed to delete question.");
-
-        }
-
-    }
-
-    async function handleSave() {
-
-        if (!editingQuestion) return;
-
-        try {
-
-            if (type === "written") {
-                await updateWrittenQuestion(
-                    category,
-                    editingQuestion.id,
-                    {
-                        question: editedQuestion,
-                        answer: editedAnswer,
-                    }
-                );
-            } else {
-                await updateQuestion(
-                    category,
-                    editingQuestion.id,
-                    {
-                        question: editedQuestion,
-                        answer: editedAnswer,
-                    }
-                );
-            }
-
-            await loadQuestions();
-
-            setEditingQuestion(null);
-
-            alert("Question updated successfully.");
-
-        } catch (error) {
-
-            console.error(error);
-
-            alert("Failed to update question.");
-
-        }
-
-    }
-
-    return (
-        <main className="min-h-screen bg-[#f5f5f5]">
-            <div className="mx-auto max-w-7xl px-6 py-10">
-                <h1 className="text-4xl font-bold">
-                    MANAGE QUESTIONS ALL
-                </h1>
-
-                <p className="mt-2 text-gray-500">
-                    View, edit and delete written questions.
-                </p>
-
-                <div className="mt-8 flex flex-col gap-6 md:flex-row">
-
-                    <div>
-                        <label className="mb-2 block text-sm font-medium">
-                            Question Type
-                        </label>
-
-                        <select
-                            value={type}
-                            onChange={(e) => {
-                                const value = e.target.value as "written" | "oral";
-                                setType(value);
-
-                                if (value === "written") {
-                                    setCategory("general");
-                                } else {
-                                    setCategory("FN3");
-                                }
-                            }}
-                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
-                        >
-                            <option value="written">Written</option>
-                            <option value="oral">Oral</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="mb-2 block text-sm font-medium">
-                            Category
-                        </label>
-
-                        <select
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black"
-                        >
-                            {type === "written" ? (
-                                <>
-                                    <option value="general">General</option>
-                                    <option value="mep">MEP</option>
-                                    <option value="motor">Motor</option>
-                                    <option value="met">MET</option>
-                                    <option value="naval">Naval</option>
-                                    <option value="ssep">SSEP</option>
-                                </>
-                            ) : (
-                                <>
-                                    <option value="FN3">FN3</option>
-                                    <option value="FN4B">FN4B</option>
-                                    <option value="FN5">FN5</option>
-                                    <option value="FN6">FN6</option>
-                                </>
-                            )}
-                        </select>
-                    </div>
-
-                </div>
-
-                <div className="mt-8">
-
-                    {loading ? (
-
-                        <div className="rounded-2xl bg-white p-6 shadow-sm">
-                            Loading...
-                        </div>
-
-                    ) : questions.length === 0 ? (
-
-                        <div className="rounded-2xl bg-white p-6 shadow-sm">
-                            No questions found.
-                        </div>
-
-                    ) : (
-
-                        <div className="space-y-6">
-
-                            {questions.map((question) => (
-                                <div
-                                    key={question.id}
-                                    className="
-            rounded-2xl
-            border
-            bg-white
-            p-6
-            shadow-sm
-            transition
-            hover:shadow-md
-        "
-                                >
-                                    <div className="mb-4 flex flex-wrap gap-2">
-                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
-                                            {question.class}
-                                        </span>
-
-                                        <span className="rounded-full bg-gray-200 px-3 py-1 text-sm">
-                                            {question.topic}
-                                        </span>
-
-                                        {type === "written" ? (
-                                            <>
-                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
-                                                    {question.month}
-                                                </span>
-
-                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
-                                                    {question.year}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
-                                                    {question.examDate}
-                                                </span>
-
-                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
-                                                    {question.mmd}
-                                                </span>
-
-                                                <span className="rounded-full bg-purple-100 px-3 py-1 text-sm">
-                                                    {question.surveyor}
-                                                </span>
-                                            </>
-                                        )}
-                                    </div>
-
-                                    <button
-                                        onClick={() =>
-                                            setExpandedId(
-                                                expandedId === question.id
-                                                    ? null
-                                                    : question.id
-                                            )
-                                        }
-                                        className="w-full text-left"
-                                    >
-                                        <h2 className="text-lg font-semibold whitespace-pre-wrap">
-                                            {question.question}
-                                        </h2>
-
-                                        <p className="mt-2 text-sm text-gray-500">
-                                            {expandedId === question.id
-                                                ? "Click to collapse"
-                                                : "Click to view answer"}
-                                        </p>
-                                    </button>
-
-                                    {expandedId === question.id && (
-                                        <>
-                                            <div className="mt-5 border-t pt-5">
-                                                <MarkdownRenderer
-                                                    content={question.answer}
-                                                />
-                                            </div>
-
-                                            {/* Existing Buttons */}
-                                            <div className="mt-6 flex justify-end gap-3">
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingQuestion(question);
-                                                        setEditedQuestion(question.question);
-                                                        setEditedAnswer(question.answer);
-                                                    }}
-                                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-                                                >
-                                                    Edit
-                                                </button>
-
-                                                <button
-                                                    onClick={() => handleDelete(question.id)}
-                                                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white"
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            ))}
-
-                        </div>
-                    )}
-
-                </div>
-
-                {editingQuestion && (
-
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-
-                        <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
-
-                            <h2 className="text-2xl font-bold">
-                                Edit Written Question
-                            </h2>
-
-                            <textarea
-                                value={editedQuestion}
-                                onChange={(e) =>
-                                    setEditedQuestion(e.target.value)
-                                }
-                                rows={6}
-                                className="mt-6 w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
-                            />
-
-                            <div className="mt-6">
-
-                                <label className="mb-2 block text-sm font-semibold">
-                                    Answer
-                                </label>
-
-                                <textarea
-                                    value={editedAnswer}
-                                    onChange={(e) =>
-                                        setEditedAnswer(e.target.value)
-                                    }
-                                    rows={12}
-                                    className="w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
-                                />
-
-                            </div>
-
-                            <div className="mt-8 flex justify-end gap-3">
-
-                                <button
-                                    onClick={() =>
-                                        setEditingQuestion(null)
-                                    }
-                                    className="rounded-xl border px-5 py-2"
-                                >
-                                    Cancel
-                                </button>
-
-                                <button
-                                    onClick={handleSave}
-                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white transition hover:bg-blue-700"
-                                >
-                                    Save
-                                </button>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                )
-                }
-            </div>
-        </main >
-    );
-}
-</file>
-
 <file path="components/AuthModal.tsx">
 "use client";
 
@@ -1823,6 +1385,786 @@ export async function getWrittenStats(category: string) {
     topics: data.topicCount ?? 0,
     updatedAt: data.updatedAt?.toDate?.() ?? null,
   };
+}
+</file>
+
+<file path="app/(protected)/admin/manage/page.tsx">
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+import {
+    getWrittenQuestions,
+    deleteWrittenQuestion,
+    updateWrittenQuestion,
+} from "@/services/written.service";
+
+import {
+    getQuestions,
+    updateQuestion,
+    deleteQuestion,
+    deleteQuestionsBatch,
+    moveQuestionsBatch,
+} from "@/services/firestore";
+
+import MarkdownRenderer from "@/components/MarkdownRenderer";
+
+import {
+    WrittenQuestion,
+} from "@/services/written.service";
+
+export default function ManageWrittenQuestionsPage() {
+
+    const [category, setCategory] =
+        useState("general");
+
+    const [type, setType] =
+        useState<"written" | "oral">("written");
+
+    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+    const [questions, setQuestions] =
+        useState<any[]>([]);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [editingQuestion, setEditingQuestion] =
+        useState<any>(null);
+
+    const [editedQuestion, setEditedQuestion] =
+        useState("");
+
+    const [editedAnswer, setEditedAnswer] =
+        useState("");
+
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+
+    const [selectionMode, setSelectionMode] = useState(false);
+
+    const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
+
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+    const [showMoveDialog, setShowMoveDialog] = useState(false);
+
+    const [moveCategory, setMoveCategory] = useState("FN3");
+
+    async function loadQuestions() {
+
+        try {
+
+            setLoading(true);
+
+            let data: any[];
+
+            if (type === "written") {
+                const written = await getWrittenQuestions(category);
+
+                data = written.map(q => ({
+                    id: q.id,
+                    question: q.question,
+                    answer: q.answer,
+                    topic: q.topic,
+                    class: q.class,
+                    month: q.month,
+                    year: q.year,
+                }));
+            } else {
+                const oral = await getQuestions(category);
+
+                data = oral.map(q => ({
+                    id: q.id,
+                    question: q.question,
+                    answer: q.answer,
+                    topic: q.topic,
+                    class: q.class,
+                    examDate: q.examDate,
+                    mmd: q.mmd,
+                    surveyor: q.surveyor,
+                }));
+            }
+
+            setQuestions(data);
+        }
+
+        finally {
+
+            setLoading(false);
+
+        }
+
+    }
+
+    useEffect(() => {
+        loadQuestions();
+    }, [category, type]);
+
+    async function handleDelete(id: string) {
+
+        const confirmed = window.confirm(
+            "Are you sure you want to delete this question?"
+        );
+
+        if (!confirmed) return;
+
+        try {
+
+            if (type === "written") {
+                await deleteWrittenQuestion(category, id);
+            } else {
+                await deleteQuestion(category, id);
+            }
+
+            setQuestions((prev) =>
+                prev.filter(
+                    (question) => question.id !== id
+                )
+            );
+
+            alert("Question deleted successfully.");
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert("Failed to delete question.");
+
+        }
+
+    }
+
+    async function handleBulkDelete() {
+        try {
+            await deleteQuestionsBatch(
+                category,
+                selectedQuestions
+            );
+
+            await loadQuestions();
+
+            setSelectedQuestions([]);
+            setSelectionMode(false);
+            setShowDeleteDialog(false);
+
+            alert("Questions deleted successfully.");
+        } catch (error) {
+            console.error(error);
+            alert("Failed to delete questions.");
+        }
+    }
+
+    async function handleBulkMove() {
+        try {
+
+            const questionsToMove = questions.filter((q) =>
+                selectedQuestions.includes(q.id)
+            );
+
+            await moveQuestionsBatch(
+                questionsToMove,
+                category,
+                moveCategory
+            );
+
+            await loadQuestions();
+
+            setSelectedQuestions([]);
+            setSelectionMode(false);
+            setShowMoveDialog(false);
+
+            alert("Questions moved successfully.");
+
+        } catch (error) {
+
+            console.error(error);
+            alert("Failed to move questions.");
+
+        }
+    }
+
+
+    function toggleSelection(id: string) {
+        setSelectedQuestions((prev) =>
+            prev.includes(id)
+                ? prev.filter((q) => q !== id)
+                : [...prev, id]
+        );
+    }
+
+    function startLongPress(id: string) {
+        if (type !== "oral") return;
+
+        longPressTimer.current = setTimeout(() => {
+            setSelectionMode(true);
+            setSelectedQuestions([id]);
+        }, 500);
+    }
+
+    function cancelLongPress() {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    }
+
+    function handleQuestionClick(id: string) {
+        if (selectionMode) {
+            toggleSelection(id);
+            return;
+        }
+
+        setExpandedId((prev) => (prev === id ? null : id));
+    }
+
+    async function handleSave() {
+
+        if (!editingQuestion) return;
+
+        try {
+
+            if (type === "written") {
+                await updateWrittenQuestion(
+                    category,
+                    editingQuestion.id,
+                    {
+                        question: editedQuestion,
+                        answer: editedAnswer,
+                    }
+                );
+            } else {
+                await updateQuestion(
+                    category,
+                    editingQuestion.id,
+                    {
+                        question: editedQuestion,
+                        answer: editedAnswer,
+                    }
+                );
+            }
+
+            await loadQuestions();
+
+            setEditingQuestion(null);
+
+            alert("Question updated successfully.");
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert("Failed to update question.");
+
+        }
+
+    }
+
+
+
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-7xl px-6 py-10">
+                <h1 className="text-4xl font-bold">
+                    MANAGE QUESTIONS ALL
+                </h1>
+
+                <p className="mt-2 text-gray-500">
+                    View, edit and delete written questions.
+                </p>
+
+                <div className="mt-8 flex flex-col gap-6 md:flex-row">
+
+                    <div>
+                        <label className="mb-2 block text-sm font-medium">
+                            Question Type
+                        </label>
+
+                        <select
+                            value={type}
+                            onChange={(e) => {
+                                const value = e.target.value as "written" | "oral";
+                                setType(value);
+
+                                if (value === "written") {
+                                    setCategory("general");
+                                } else {
+                                    setCategory("FN3");
+                                }
+                            }}
+                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
+                        >
+                            <option value="written">Written</option>
+                            <option value="oral">Oral</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-medium">
+                            Category
+                        </label>
+
+                        <select
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black"
+                        >
+                            {type === "written" ? (
+                                <>
+                                    <option value="general">General</option>
+                                    <option value="mep">MEP</option>
+                                    <option value="motor">Motor</option>
+                                    <option value="met">MET</option>
+                                    <option value="naval">Naval</option>
+                                    <option value="ssep">SSEP</option>
+                                </>
+                            ) : (
+                                <>
+                                    <option value="FN3">FN3</option>
+                                    <option value="FN4B">FN4B</option>
+                                    <option value="FN5">FN5</option>
+                                    <option value="FN6">FN6</option>
+                                </>
+                            )}
+                        </select>
+                    </div>
+
+                </div>
+
+                {selectionMode && (
+                    <div className="sticky top-4 z-40 mb-6 rounded-2xl border bg-white p-4 shadow-lg">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+
+                            <span className="font-semibold text-lg">
+                                {selectedQuestions.length} Selected
+                            </span>
+
+                            <div className="flex gap-3">
+
+                                <button
+                                    onClick={() => {
+                                        const categories = ["FN3", "FN4B", "FN5", "FN6"];
+                                        setMoveCategory(
+                                            categories.find(
+                                                (c) => c !== category.toUpperCase()
+                                            ) || "FN3"
+                                        );
+                                        setShowMoveDialog(true);
+                                    }}
+                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white"
+                                >
+                                    Move
+                                </button>
+
+                                <button
+                                    onClick={() => setShowDeleteDialog(true)}
+                                    className="rounded-xl bg-red-600 px-5 py-2 text-white"
+                                >
+                                    Delete
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        setSelectionMode(false);
+                                        setSelectedQuestions([]);
+                                    }}
+                                    className="rounded-xl border px-5 py-2"
+                                >
+                                    Cancel
+                                </button>
+
+                            </div>
+
+                        </div>
+                    </div>
+                )}
+
+                <div className="mt-8">
+
+                    {loading ? (
+
+                        <div className="rounded-2xl bg-white p-6 shadow-sm">
+                            Loading...
+                        </div>
+
+                    ) : questions.length === 0 ? (
+
+                        <div className="rounded-2xl bg-white p-6 shadow-sm">
+                            No questions found.
+                        </div>
+
+                    ) : (
+
+                        <div className="space-y-6">
+
+                            {questions.map((question) => (
+                                <div
+                                    key={question.id}
+                                    className="
+            rounded-2xl
+            border
+            bg-white
+            p-6
+            shadow-sm
+            transition
+            hover:shadow-md
+        "
+                                >
+                                    <div className="mb-4 flex flex-wrap gap-2">
+                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
+                                            {question.class}
+                                        </span>
+
+                                        <span className="rounded-full bg-gray-200 px-3 py-1 text-sm">
+                                            {question.topic}
+                                        </span>
+
+                                        {type === "written" ? (
+                                            <>
+                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                                    {question.month}
+                                                </span>
+
+                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                                    {question.year}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                                    {question.examDate}
+                                                </span>
+
+                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                                    {question.mmd}
+                                                </span>
+
+                                                <span className="rounded-full bg-purple-100 px-3 py-1 text-sm">
+                                                    {question.surveyor}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={() => handleQuestionClick(question.id)}
+                                        onMouseDown={() => startLongPress(question.id)}
+                                        onMouseUp={cancelLongPress}
+                                        onMouseLeave={cancelLongPress}
+                                        onTouchStart={() => startLongPress(question.id)}
+                                        onTouchEnd={cancelLongPress}
+                                        className={`w-full text-left transition ${selectionMode &&
+                                            selectedQuestions.includes(question.id)
+                                            ? "rounded-xl bg-blue-50"
+                                            : ""
+                                            }`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            {selectionMode && (
+                                                <span className="mt-1 text-lg">
+                                                    {selectedQuestions.includes(question.id)
+                                                        ? "✅"
+                                                        : "⭕"}
+                                                </span>
+                                            )}
+
+                                            <h2 className="text-lg font-semibold whitespace-pre-wrap">
+                                                {question.question}
+                                            </h2>
+                                        </div>
+
+                                        <p className="mt-2 text-sm text-gray-500">
+                                            {expandedId === question.id
+                                                ? "Click to collapse"
+                                                : "Click to view answer"}
+                                        </p>
+                                    </button>
+
+                                    {expandedId === question.id && (
+                                        <>
+                                            <div className="mt-5 border-t pt-5">
+                                                <MarkdownRenderer
+                                                    content={question.answer}
+                                                />
+                                            </div>
+
+                                            {/* Existing Buttons */}
+                                            <div className="mt-6 flex justify-end gap-3">
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingQuestion(question);
+                                                        setEditedQuestion(question.question);
+                                                        setEditedAnswer(question.answer);
+                                                    }}
+                                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+                                                >
+                                                    Edit
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleDelete(question.id)}
+                                                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            ))}
+
+                        </div>
+                    )}
+
+                </div>
+
+                {editingQuestion && (
+
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+
+                        <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
+
+                            <h2 className="text-2xl font-bold">
+                                Edit Written Question
+                            </h2>
+
+                            <textarea
+                                value={editedQuestion}
+                                onChange={(e) =>
+                                    setEditedQuestion(e.target.value)
+                                }
+                                rows={6}
+                                className="mt-6 w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
+                            />
+
+                            <div className="mt-6">
+
+                                <label className="mb-2 block text-sm font-semibold">
+                                    Answer
+                                </label>
+
+                                <textarea
+                                    value={editedAnswer}
+                                    onChange={(e) =>
+                                        setEditedAnswer(e.target.value)
+                                    }
+                                    rows={12}
+                                    className="w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
+                                />
+
+                            </div>
+
+                            <div className="mt-8 flex justify-end gap-3">
+
+                                <button
+                                    onClick={() =>
+                                        setEditingQuestion(null)
+                                    }
+                                    className="rounded-xl border px-5 py-2"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    onClick={handleSave}
+                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white transition hover:bg-blue-700"
+                                >
+                                    Save
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                )
+                }
+            </div>
+
+            {showMoveDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+
+                        <h2 className="text-2xl font-bold text-blue-600">
+                            Move Questions
+                        </h2>
+
+                        <p className="mt-4 text-gray-600">
+                            Move <b>{selectedQuestions.length}</b> selected question(s) to:
+                        </p>
+
+                        <select
+                            value={moveCategory}
+                            onChange={(e) => setMoveCategory(e.target.value)}
+                            className="mt-5 w-full rounded-xl border border-gray-300 p-3"
+                        >
+                            <option value="FN3">FN3</option>
+                            <option value="FN4B">FN4B</option>
+                            <option value="FN5">FN5</option>
+                            <option value="FN6">FN6</option>
+                        </select>
+
+                        <div className="mt-8 flex justify-end gap-3">
+
+                            <button
+                                onClick={() => setShowMoveDialog(false)}
+                                className="rounded-xl border px-5 py-2"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={handleBulkMove}
+                                className="rounded-xl bg-blue-600 px-5 py-2 text-white"
+                            >
+                                Move
+                            </button>
+
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
+            {showDeleteDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+
+                        <h2 className="text-2xl font-bold text-red-600">
+                            Delete Questions
+                        </h2>
+
+                        <p className="mt-4 text-gray-600">
+                            Are you sure you want to delete{" "}
+                            <b>{selectedQuestions.length}</b> selected question(s)?
+                        </p>
+
+                        <p className="mt-2 text-sm text-red-500">
+                            This action cannot be undone.
+                        </p>
+
+                        <div className="mt-8 flex justify-end gap-3">
+
+                            <button
+                                onClick={() => setShowDeleteDialog(false)}
+                                className="rounded-xl border px-5 py-2"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={handleBulkDelete}
+                                className="rounded-xl bg-red-600 px-5 py-2 text-white"
+                            >
+                                Delete
+                            </button>
+
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
+            {showMoveDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+
+                        <h2 className="text-2xl font-bold">
+                            Move Questions
+                        </h2>
+
+                        <p className="mt-3 text-gray-600">
+                            Move <b>{selectedQuestions.length}</b> selected question(s) to:
+                        </p>
+
+                        <div className="mt-6 grid grid-cols-2 gap-3">
+
+                            {["FN3", "FN4B", "FN5", "FN6"].map((cat) => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setMoveCategory(cat)}
+                                    className={`rounded-xl border px-4 py-3 font-semibold transition ${moveCategory === cat
+                                        ? "border-blue-600 bg-blue-600 text-white"
+                                        : "border-gray-300 hover:bg-gray-100"
+                                        }`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+
+                        </div>
+
+                        <div className="mt-8 flex justify-end gap-3">
+
+                            <button
+                                onClick={() => setShowMoveDialog(false)}
+                                className="rounded-xl border px-5 py-2"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={handleBulkMove}
+                                className="rounded-xl bg-blue-600 px-5 py-2 text-white"
+                            >
+                                Move
+                            </button>
+
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
+            {showMoveDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+
+                        <h2 className="text-2xl font-bold">
+                            Move Questions
+                        </h2>
+
+                        <p className="mt-4 text-gray-600">
+                            Move <b>{selectedQuestions.length}</b> selected question(s) to:
+                        </p>
+
+                        <select
+                            value={moveCategory}
+                            onChange={(e) => setMoveCategory(e.target.value)}
+                            className="mt-5 w-full rounded-xl border border-gray-300 p-3"
+                        >
+                            {["FN3", "FN4B", "FN5", "FN6"]
+                                .filter((c) => c !== category.toUpperCase())
+                                .map((c) => (
+                                    <option key={c} value={c}>
+                                        {c}
+                                    </option>
+                                ))}
+                        </select>
+
+                        <div className="mt-8 flex justify-end gap-3">
+
+                            <button
+                                onClick={() => setShowMoveDialog(false)}
+                                className="rounded-xl border px-5 py-2"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={handleBulkMove}
+                                className="rounded-xl bg-blue-600 px-5 py-2 text-white"
+                            >
+                                Move
+                            </button>
+
+                        </div>
+
+                    </div>
+                </div>
+            )}
+        </main >
+    );
 }
 </file>
 
@@ -2294,6 +2636,8 @@ interface Props {
 
   years: number[];
   topics: string[];
+
+  onClearFilters: () => void;
 }
 
 const classes = [
@@ -2334,10 +2678,11 @@ export default function WrittenFilters({
 
   years,
   topics,
+  onClearFilters,
 }: Props) {
   return (
     <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 
         <select
           value={selectedClass}
@@ -2393,6 +2738,15 @@ export default function WrittenFilters({
           ))}
         </select>
 
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={onClearFilters}
+          className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium transition hover:bg-gray-100"
+        >
+          Clear Filters
+        </button>
       </div>
     </div>
   );
@@ -2878,6 +3232,499 @@ export default function RootLayout({
 }
 </file>
 
+<file path="components/QuestionCard.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "@/app/context/AuthContext";
+import { submitCommunityAnswer } from "@/services/firestore";
+import {
+    Bookmark,
+    ChevronDown,
+    ChevronUp,
+    ClipboardList,
+} from "lucide-react";
+
+import { getApprovedAnswers } from "@/services/firestore";
+import CommunityAnswer from "./CommunityAnswer";
+
+interface ApprovedAnswer {
+    id: string;
+    userName: string;
+    answer: string;
+    likes: number;
+}
+
+interface Props {
+    questionId: string;
+    category: string;
+
+    question: string;
+    answer: string;
+
+    mmd: string;
+    surveyor: string;
+    topic: string;
+    examDate: string;
+
+    isOpen: boolean;
+    onToggle: () => void;
+
+    showMmd: boolean;
+    showSurveyor: boolean;
+    showTopic: boolean;
+
+    isBookmarked: boolean;
+    onBookmark: () => void;
+}
+
+export default function QuestionCard({
+    questionId,
+    category,
+    question,
+    answer,
+    mmd,
+    surveyor,
+    topic,
+    examDate,
+    isOpen,
+    onToggle,
+    showMmd,
+    showSurveyor,
+    showTopic,
+
+    isBookmarked,
+    onBookmark,
+}: Props) {
+
+    const [communityAnswers, setCommunityAnswers] = useState<
+        ApprovedAnswer[]
+    >([]);
+
+    const { user } = useAuth();
+
+    const [myAnswer, setMyAnswer] = useState("");
+
+    const [submitting, setSubmitting] = useState(false);
+
+    const [showCommunity, setShowCommunity] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setShowCommunity(false);
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        async function loadAnswers() {
+            try {
+                const data = await getApprovedAnswers(
+                    category,
+                    questionId
+                );
+
+                setCommunityAnswers(data as ApprovedAnswer[]);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        loadAnswers();
+    }, [category, questionId]);
+
+    async function handleSubmit() {
+        if (!user) {
+            alert("Please login first.");
+            return;
+        }
+
+        if (!myAnswer.trim()) {
+            alert("Please write your answer.");
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+
+            await submitCommunityAnswer({
+                category,
+                questionId,
+                userId: user.uid,
+                userName: user.displayName || "Anonymous",
+                answer: myAnswer,
+            });
+
+            alert("Answer submitted for admin approval.");
+            setShowCommunity(false);
+
+
+            setMyAnswer("");
+        } catch (error) {
+            console.error(error);
+            alert("Submission failed.");
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    return (
+        <div
+            className="
+    rounded-2xl
+    border
+    border-gray-200
+    bg-white
+    p-4
+    sm:p-5
+    md:p-6
+    shadow-sm
+    transition
+    hover:shadow-md
+    "
+        >
+            <div
+                onClick={onToggle}
+                className="
+    cursor-pointer
+    select-none
+    "
+            >
+                <div
+                    className="
+    flex
+    items-start
+    justify-between
+    gap-3
+    "
+                >
+
+                    <div
+                        className="
+    flex
+    min-w-0
+    items-start
+    gap-3
+    "
+                    >
+                        <ClipboardList
+                            className="mt-1 h-5 w-5 shrink-0 flex-none text-green-600"
+                        />
+
+                        <h2
+                            className="
+    text-base
+    sm:text-lg
+    md:text-xl
+    font-semibold
+    leading-6
+    sm:leading-7
+    break-words
+    text-gray-900
+    "
+                        >
+                            {question}
+                        </h2>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onBookmark();
+                            }}
+                            className="rounded-md p-1 hover:bg-gray-100"
+                        >
+                            <Bookmark
+                                size={20}
+                                className={
+                                    isBookmarked
+                                        ? "fill-yellow-400 text-yellow-500"
+                                        : "text-gray-400"
+                                }
+                            />
+                        </button>
+
+                        {isOpen ? (
+                            <ChevronUp size={20} />
+                        ) : (
+                            <ChevronDown size={20} />
+                        )}
+
+                    </div>
+
+                </div>
+
+
+                <div className="mt-4 flex flex-wrap gap-2">
+
+                    <span
+                        className="
+        rounded-full
+        bg-yellow-100
+        px-3
+        py-1
+        text-xs
+        sm:text-sm
+        font-medium
+        text-black-700
+        "
+                    >
+                        📅 {examDate}
+                    </span>
+                    {showMmd && (
+                        <span
+                            className="
+        rounded-full
+        bg-blue-50
+        px-3
+        py-1
+        text-xs
+        sm:text-sm
+        font-medium
+        text-blue-700
+        max-w-full
+        truncate
+        "
+                        >
+                            🏢 {mmd}
+                        </span>
+                    )}
+
+                    {showSurveyor && (
+                        <span
+                            className="
+        rounded-full
+        bg-purple-50
+        px-3
+        py-1
+        text-xs
+        sm:text-sm
+        font-medium
+        text-purple-500
+        max-w-full
+        truncate
+        "
+                        >
+                            ⚓ {surveyor}
+                        </span>
+                    )}
+
+                    {showTopic && (
+                        <span
+                            className="
+        rounded-full
+        bg-green-50
+        px-3
+        py-1
+        text-xs
+        sm:text-sm
+        font-medium
+        text-green-700
+        max-w-full
+        truncate
+        "
+                        >
+                            📚 {topic}
+                        </span>
+                    )}
+
+                </div>
+            </div>
+
+            {/* Official Answer */}
+
+
+            <div
+                className={`
+    overflow-hidden
+    transition-all
+    duration-300
+    ease-in-out
+   ${isOpen ? "max-h-[10000px] opacity-100 mt-4" : "max-h-0 opacity-0"}
+    `}
+            >
+                {/* Official Answer */}
+                <div
+                    className="
+    mt-4
+    rounded-2xl
+    bg-green-50
+    border
+    border-green-100
+    p-4
+    sm:p-5
+    "
+                >
+                    <p
+                        className="
+    whitespace-pre-wrap
+    text-sm
+    sm:text-base
+    leading-6
+    text-gray-700
+    "
+                    >
+                        {answer}
+                    </p>
+                </div>
+
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCommunity(!showCommunity);
+                    }}
+                    className="
+    mt-6
+    flex
+    w-full
+    items-center
+    justify-between
+    rounded-xl
+    border
+    border-gray-200
+    bg-gray-50
+    px-4
+    py-3
+    text-sm
+    sm:text-base
+    font-semibold
+    text-gray-700
+    hover:bg-gray-100
+    "
+                >
+                    <span>
+                        💬 Community Discussion
+                    </span>
+
+                    {showCommunity ? (
+                        <ChevronUp size={18} />
+                    ) : (
+                        <ChevronDown size={18} />
+                    )}
+
+                </button>
+
+                <div
+                    className={`
+    overflow-hidden
+    transition-all
+    duration-300
+    ease-in-out
+    ${showCommunity
+                            ? "max-h-[10000px] opacity-100 mt-4"
+                            : "max-h-0 opacity-0 pointer-events-none"
+                        }
+    `}
+                >
+
+                    <h3
+                        className="
+mb-4
+text-lg
+font-semibold
+"
+                    >
+                        Community Answers
+                    </h3>
+
+
+                    {communityAnswers.length === 0 ? (
+
+                        <p className="text-sm text-gray-500">
+                            No community answers yet.
+                        </p>
+
+                    ) : (
+
+                        <div className="space-y-4">
+
+                            {communityAnswers.map((item) => (
+                                <CommunityAnswer
+                                    key={item.id}
+                                    userName={item.userName}
+                                    answer={item.answer}
+                                    likes={item.likes}
+                                />
+                            ))}
+
+                        </div>
+
+                    )}
+
+
+
+                    {/* Submit Your Answer */}
+
+                    <div
+                        className="
+        mt-8
+        border-t
+        pt-6
+        "
+                    >
+
+                        <h3
+                            className="
+            mb-4
+            text-lg
+            font-semibold
+            "
+                        >
+                            Submit Your Answer
+                        </h3>
+
+
+                        <textarea
+                            value={myAnswer}
+                            onChange={(e) => setMyAnswer(e.target.value)}
+                            placeholder="Write your answer here..."
+                            className="
+            min-h-36
+            w-full
+            rounded-2xl
+            border
+            border-gray-300
+            p-4
+            outline-none
+            focus:border-black
+            "
+                        />
+
+
+                        <button
+                            onClick={handleSubmit}
+                            disabled={submitting}
+                            className="
+            mt-4
+            w-full
+            sm:w-auto
+            rounded-2xl
+            bg-black
+            px-6
+            py-3
+            text-white
+            disabled:opacity-50
+            "
+                        >
+                            {submitting ? "Submitting..." : "Submit Answer"}
+                        </button>
+
+
+                    </div>
+
+
+                </div>
+
+
+
+            </div>
+
+        </div >
+    );
+}
+</file>
+
 <file path="app/(protected)/admin/orals/page.tsx">
 "use client";
 
@@ -3309,464 +4156,983 @@ export default function BulkUploadPage() {
 }
 </file>
 
-<file path="components/QuestionCard.tsx">
+<file path="app/(protected)/admin/page.tsx">
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
 import { useAuth } from "@/app/context/AuthContext";
-import { submitCommunityAnswer } from "@/services/firestore";
-import { ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
+import { isUserAdmin } from "@/services/admin";
+import {
+    getPendingAnswers,
+    approveAnswer,
+    rejectAnswer,
+} from "@/services/firestore";
 
-import { getApprovedAnswers } from "@/services/firestore";
-import CommunityAnswer from "./CommunityAnswer";
+import AdminAnswerCard from "@/components/AdminAnswerCard";
 
-interface ApprovedAnswer {
+interface PendingAnswer {
     id: string;
-    userName: string;
-    answer: string;
-    likes: number;
-}
-
-interface Props {
     questionId: string;
     category: string;
-
-    question: string;
+    userName: string;
     answer: string;
-
-    mmd: string;
-    surveyor: string;
-    topic: string;
-    examDate: string;
-
-    isOpen: boolean;
-    onToggle: () => void;
-
-    showMmd: boolean;
-    showSurveyor: boolean;
-    showTopic: boolean;
 }
 
-export default function QuestionCard({
-    questionId,
-    category,
-    question,
-    answer,
-    mmd,
-    surveyor,
-    topic,
-    examDate,
-    isOpen,
-    onToggle,
-    showMmd,
-    showSurveyor,
-    showTopic,
-}: Props) {
+export default function AdminPage() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
 
-    const [communityAnswers, setCommunityAnswers] = useState<
-        ApprovedAnswer[]
-    >([]);
-
-    const { user } = useAuth();
-
-    const [myAnswer, setMyAnswer] = useState("");
-
-    const [submitting, setSubmitting] = useState(false);
-
-    const [showCommunity, setShowCommunity] = useState(false);
+    const [checking, setChecking] = useState(true);
+    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
 
     useEffect(() => {
-        if (!isOpen) {
-            setShowCommunity(false);
-        }
-    }, [isOpen]);
+        async function init() {
+            if (loading) return;
 
-    useEffect(() => {
-        async function loadAnswers() {
-            try {
-                const data = await getApprovedAnswers(
-                    category,
-                    questionId
-                );
-
-                setCommunityAnswers(data as ApprovedAnswer[]);
-            } catch (error) {
-                console.error(error);
+            if (!user) {
+                router.replace("/");
+                return;
             }
+
+            const admin = await isUserAdmin(user.uid);
+
+            if (!admin) {
+                router.replace("/");
+                return;
+            }
+
+            const pending = await getPendingAnswers();
+
+            setAnswers(pending as PendingAnswer[]);
+            setChecking(false);
         }
 
-        loadAnswers();
-    }, [category, questionId]);
+        init();
+    }, [user, loading, router]);
 
-    async function handleSubmit() {
-        if (!user) {
-            alert("Please login first.");
-            return;
-        }
+    async function handleApprove(id: string) {
+        await approveAnswer(id);
 
-        if (!myAnswer.trim()) {
-            alert("Please write your answer.");
-            return;
-        }
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
 
-        try {
-            setSubmitting(true);
+    async function handleReject(id: string) {
+        await rejectAnswer(id);
 
-            await submitCommunityAnswer({
-                category,
-                questionId,
-                userId: user.uid,
-                userName: user.displayName || "Anonymous",
-                answer: myAnswer,
-            });
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
 
-            alert("Answer submitted for admin approval.");
-            setShowCommunity(false);
-
-
-            setMyAnswer("");
-        } catch (error) {
-            console.error(error);
-            alert("Submission failed.");
-        } finally {
-            setSubmitting(false);
-        }
+    if (checking) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                Checking permissions...
+            </div>
+        );
     }
 
     return (
-        <div
-            className="
-    rounded-2xl
-    border
-    border-gray-200
-    bg-white
-    p-4
-    sm:p-5
-    md:p-6
-    shadow-sm
-    transition
-    hover:shadow-md
-    "
-        >
-            <div
-                onClick={onToggle}
-                className="
-    cursor-pointer
-    select-none
-    "
-            >
-                <div
-                    className="
-    flex
-    items-start
-    justify-between
-    gap-3
-    "
-                >
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
 
-                    <div
-                        className="
-    flex
-    min-w-0
-    items-start
-    gap-3
-    "
+                <h1 className="text-4xl font-bold">
+                    Admin Dashboard
+                </h1>
+
+                <p className="mt-2 text-gray-500">
+                    Manage uploads and community answers.
+                </p>
+
+                <div className="mt-8 flex flex-wrap gap-4">
+
+                    <Link
+                        href="/admin/orals"
+                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
                     >
-                        <ClipboardList
-                            className="mt-1 h-5 w-5 shrink-0 flex-none text-green-600"
-                        />
+                        Upload Oral Questions
+                    </Link>
 
-                        <h2
-                            className="
-    text-base
-    sm:text-lg
-    md:text-xl
-    font-semibold
-    leading-6
-    sm:leading-7
-    break-words
-    text-gray-900
-    "
-                        >
-                            {question}
+                    <Link
+                        href="/admin/writtens"
+                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
+                    >
+                        Upload Written Questions
+                    </Link>
+
+                    <Link
+                        href="/admin/downloads"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-lg font-semibold">
+                            Download Questions
                         </h2>
-                    </div>
 
-                    {isOpen ? (
-                        <ChevronUp size={20} />
-                    ) : (
-                        <ChevronDown size={20} />
-                    )}
-
-                </div>
-
-
-                <div className="mt-4 flex flex-wrap gap-2">
-
-                    <span
-                        className="
-        rounded-full
-        bg-yellow-100
-        px-3
-        py-1
-        text-xs
-        sm:text-sm
-        font-medium
-        text-black-700
-        "
-                    >
-                        📅 {examDate}
-                    </span>
-                    {showMmd && (
-                        <span
-                            className="
-        rounded-full
-        bg-blue-50
-        px-3
-        py-1
-        text-xs
-        sm:text-sm
-        font-medium
-        text-blue-700
-        max-w-full
-        truncate
-        "
-                        >
-                            🏢 {mmd}
-                        </span>
-                    )}
-
-                    {showSurveyor && (
-                        <span
-                            className="
-        rounded-full
-        bg-purple-50
-        px-3
-        py-1
-        text-xs
-        sm:text-sm
-        font-medium
-        text-purple-500
-        max-w-full
-        truncate
-        "
-                        >
-                            ⚓ {surveyor}
-                        </span>
-                    )}
-
-                    {showTopic && (
-                        <span
-                            className="
-        rounded-full
-        bg-green-50
-        px-3
-        py-1
-        text-xs
-        sm:text-sm
-        font-medium
-        text-green-700
-        max-w-full
-        truncate
-        "
-                        >
-                            📚 {topic}
-                        </span>
-                    )}
-
-                </div>
-            </div>
-
-            {/* Official Answer */}
-
-
-            <div
-                className={`
-    overflow-hidden
-    transition-all
-    duration-300
-    ease-in-out
-   ${isOpen ? "max-h-[10000px] opacity-100 mt-4" : "max-h-0 opacity-0"}
-    `}
-            >
-                {/* Official Answer */}
-                <div
-                    className="
-    mt-4
-    rounded-2xl
-    bg-green-50
-    border
-    border-green-100
-    p-4
-    sm:p-5
-    "
-                >
-                    <p
-                        className="
-    whitespace-pre-wrap
-    text-sm
-    sm:text-base
-    leading-6
-    text-gray-700
-    "
-                    >
-                        {answer}
-                    </p>
-                </div>
-
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setShowCommunity(!showCommunity);
-                    }}
-                    className="
-    mt-6
-    flex
-    w-full
-    items-center
-    justify-between
-    rounded-xl
-    border
-    border-gray-200
-    bg-gray-50
-    px-4
-    py-3
-    text-sm
-    sm:text-base
-    font-semibold
-    text-gray-700
-    hover:bg-gray-100
-    "
-                >
-                    <span>
-                        💬 Community Discussion
-                    </span>
-
-                    {showCommunity ? (
-                        <ChevronUp size={18} />
-                    ) : (
-                        <ChevronDown size={18} />
-                    )}
-
-                </button>
-
-                <div
-                    className={`
-    overflow-hidden
-    transition-all
-    duration-300
-    ease-in-out
-    ${showCommunity
-                            ? "max-h-[10000px] opacity-100 mt-4"
-                            : "max-h-0 opacity-0 pointer-events-none"
-                        }
-    `}
-                >
-
-                    <h3
-                        className="
-mb-4
-text-lg
-font-semibold
-"
-                    >
-                        Community Answers
-                    </h3>
-
-
-                    {communityAnswers.length === 0 ? (
-
-                        <p className="text-sm text-gray-500">
-                            No community answers yet.
+                        <p className="mt-2 text-sm text-gray-500">
+                            Download the latest Oral and Written question banks.
                         </p>
+                    </Link>
 
-                    ) : (
-
-                        <div className="space-y-4">
-
-                            {communityAnswers.map((item) => (
-                                <CommunityAnswer
-                                    key={item.id}
-                                    userName={item.userName}
-                                    answer={item.answer}
-                                    likes={item.likes}
-                                />
-                            ))}
-
-                        </div>
-
-                    )}
-
-
-
-                    {/* Submit Your Answer */}
-
-                    <div
-                        className="
-        mt-8
-        border-t
-        pt-6
-        "
+                    <Link
+                        href="/admin/manage"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
                     >
+                        <h2 className="text-l font-semibold">
+                            MANAGE QUESTIONS ALL
+                        </h2>
 
-                        <h3
-                            className="
-            mb-4
-            text-lg
-            font-semibold
-            "
-                        >
-                            Submit Your Answer
-                        </h3>
-
-
-                        <textarea
-                            value={myAnswer}
-                            onChange={(e) => setMyAnswer(e.target.value)}
-                            placeholder="Write your answer here..."
-                            className="
-            min-h-36
-            w-full
-            rounded-2xl
-            border
-            border-gray-300
-            p-4
-            outline-none
-            focus:border-black
-            "
-                        />
-
-
-                        <button
-                            onClick={handleSubmit}
-                            disabled={submitting}
-                            className="
-            mt-4
-            w-full
-            sm:w-auto
-            rounded-2xl
-            bg-black
-            px-6
-            py-3
-            text-white
-            disabled:opacity-50
-            "
-                        >
-                            {submitting ? "Submitting..." : "Submit Answer"}
-                        </button>
-
-
-                    </div>
-
+                        <p className="mt-2 text-sm text-gray-500">
+                            View, edit and delete written questions.
+                        </p>
+                    </Link>
 
                 </div>
 
 
 
+                <div className="mt-12">
+
+                    <h2 className="text-2xl font-bold">
+                        Pending Community Answers
+                    </h2>
+
+                    <div className="mt-6 space-y-6">
+
+                        {answers.length === 0 && (
+                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
+                                No pending answers.
+                            </div>
+                        )}
+
+                        {answers.map((answer) => (
+                            <AdminAnswerCard
+                                key={answer.id}
+                                id={answer.id}
+                                questionId={answer.questionId}
+                                category={answer.category}
+                                userName={answer.userName}
+                                answer={answer.answer}
+                                onApprove={handleApprove}
+                                onReject={handleReject}
+                            />
+                        ))}
+
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="app/(protected)/writtens/[category]/page.tsx">
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Sailboat,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
+
+import WrittenCard from "@/components/WrittenCard";
+import WrittenFilters from "@/components/WrittenFilters";
+import { useAuth } from "@/app/context/AuthContext";
+
+import LoadingScreen from "@/components/LoadingScreen";
+
+import {
+  getWrittenQuestions,
+  WrittenQuestion,
+} from "@/services/written.service";
+
+export default function WrittensPage() {
+  const params = useParams();
+  const { user } = useAuth();
+
+  const name =
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Sailor";
+
+  const category =
+    typeof params.category === "string"
+      ? params.category.toLowerCase()
+      : "general";
+
+  const STORAGE_KEY = `bookmarkedWrittenQuestions-${category}`;
+
+  const [questions, setQuestions] = useState<WrittenQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [selectedClass, setSelectedClass] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedMonth, setSelectedMonth] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+  const bookmarkStorageKey = `bookmarkedWrittenQuestions_${category}`;
+  useEffect(() => {
+    async function loadQuestions() {
+      try {
+        setLoading(true);
+
+        const data = await getWrittenQuestions(category);
+
+        setQuestions(data);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadQuestions();
+  }, [category]);
+
+  const years = useMemo(() => {
+    return [...new Set(questions.map((q) => q.year))]
+      .filter(Boolean)
+      .sort((a, b) => b - a);
+  }, [questions]);
+
+  const topics = useMemo(() => {
+    return [...new Set(questions.map((q) => q.topic))]
+      .filter(Boolean)
+      .sort();
+  }, [questions]);
+
+  const bookmarkCount = useMemo(() => {
+    return questions.filter((q) =>
+      bookmarks.includes(q.id)
+    ).length;
+  }, [questions, bookmarks]);
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((question) => {
+      if (
+        showBookmarksOnly &&
+        !bookmarks.includes(question.id)
+      )
+        return false;
+
+      const classMatch =
+        selectedClass === "All" ||
+        question.class === selectedClass;
+
+      const yearMatch =
+        selectedYear === "All" ||
+        String(question.year) === selectedYear;
+
+      const monthMatch =
+        selectedMonth === "All" ||
+        question.month === selectedMonth;
+
+      const topicMatch =
+        selectedTopic === "All" ||
+        question.topic === selectedTopic;
+
+      const searchMatch =
+        search.trim() === "" ||
+        question.question
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.answer
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.topic
+          .toLowerCase()
+          .includes(search.toLowerCase());
+
+      return (
+        classMatch &&
+        yearMatch &&
+        monthMatch &&
+        topicMatch &&
+        searchMatch
+      );
+    });
+  }, [
+    questions,
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+    bookmarks,
+    showBookmarksOnly,
+  ]);
+
+  const currentQuestion = filteredQuestions[currentIndex];
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedClass("All");
+    setSelectedYear("All");
+    setSelectedMonth("All");
+    setSelectedTopic("All");
+    setShowBookmarksOnly(false);
+  };
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+    showBookmarksOnly,
+    bookmarks,
+  ]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(bookmarkStorageKey);
+
+    if (saved) {
+      setBookmarks(JSON.parse(saved));
+    } else {
+      setBookmarks([]);
+    }
+  }, [bookmarkStorageKey]);
+
+  const titles: Record<
+    string,
+    {
+      badge: string;
+      title: string;
+    }
+  > = {
+    general: {
+      badge: "MEKG",
+      title: "GENERAL WRITTEN",
+    },
+    mep: {
+      badge: "MEP",
+      title: "MEP WRITTEN",
+    },
+    motor: {
+      badge: "MEKM",
+      title: "MOTOR WRITTEN",
+    },
+    met: {
+      badge: "MET",
+      title: "ELECTRICAL WRITTEN",
+    },
+    naval: {
+      badge: "SHIP-CO",
+      title: "NAVAL WRITTEN",
+    },
+    ssep: {
+      badge: "SSEP",
+      title: "SAFETY WRITTEN",
+    },
+  };
+  const page = titles[category] ?? {
+    badge: category.toUpperCase(),
+    title: "Written Questions",
+  };
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        bookmarkStorageKey,
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
+  };
+
+  if (loading) {
+    return (
+      <LoadingScreen
+        text="Loading Questions..."
+      />
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-5 py-8">
+
+        {/* HEADER CARD */}
+        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+
+            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+              <Sailboat
+                size={30}
+                strokeWidth={2}
+              />
             </div>
 
-        </div >
-    );
+          </div>
+
+          <div className="mt-7">
+
+            <h2 className="text-2xl font-bold">
+              Hi, {name} 👋
+            </h2>
+
+            <p className="text-gray-500">
+              Welcome Back
+            </p>
+
+            <div className="mt-6 border-l-4 border-black pl-4">
+              <p className="text-sm italic text-gray-600">
+                Coffee. Questions. Repeat.
+              </p>
+            </div>
+
+            <div className="mt-6 inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white">
+              {page.badge}
+            </div>
+
+            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
+              {page.title}
+            </h1>
+
+            <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
+              <span>{questions.length} Questions</span>
+              <span>•</span>
+              <span>{topics.length} Topics</span>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* SEARCH */}
+
+        <div className="mt-8">
+          <input
+            type="text"
+            placeholder="🔍 Search Questions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+          />
+        </div>
+
+        {/* FILTER BUTTON */}
+
+        {/* FILTER BUTTONS */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+          >
+            <div className="flex items-center gap-3">
+              <SlidersHorizontal size={18} />
+              <span className="font-semibold">
+                Filters
+              </span>
+            </div>
+
+            {showFilters ? (
+              <ChevronUp size={18} />
+            ) : (
+              <ChevronDown size={18} />
+            )}
+          </button>
+
+          <button
+            onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+            className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
+              ? "border-black bg-black text-white"
+              : "border-gray-200 bg-white hover:border-black"
+              }`}
+          >
+            🔖 Bookmarks ({bookmarkCount})
+          </button>
+
+        </div>
+
+        {/* FILTER PANEL */}
+
+        {showFilters && (
+          <div className="mt-4">
+            <WrittenFilters
+              selectedClass={selectedClass}
+              setSelectedClass={setSelectedClass}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              selectedTopic={selectedTopic}
+              setSelectedTopic={setSelectedTopic}
+              years={years}
+              topics={topics}
+              onClearFilters={clearFilters}
+            />
+          </div>
+        )}
+
+        <div className="mt-8 mb-6 flex items-center justify-between gap-4">
+
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+            Questions
+          </h2>
+
+          <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+            <span className="text-gray-500">Current:</span>{" "}
+            <span className="font-bold text-black">
+              {filteredQuestions.length > 0
+                ? `${currentIndex + 1} / ${filteredQuestions.length}`
+                : "0 / 0"}
+            </span>
+
+            <span className="mx-2 text-gray-300">|</span>
+          </div>
+
+        </div>
+
+        {filteredQuestions.length === 0 ? (
+          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
+            No Questions Found.
+          </div>
+        ) : (
+          <div className="mt-8 space-y-6">
+            {currentQuestion && (
+              <>
+                <WrittenCard
+                  question={currentQuestion}
+                  isBookmarked={bookmarks.includes(currentQuestion.id)}
+                  onBookmark={() => toggleBookmark(currentQuestion.id)}
+                />
+
+                {/* Navigation */}
+                <div className="mt-6 flex items-center justify-between">
+
+                  <button
+                    onClick={() =>
+                      setCurrentIndex((prev) => prev - 1)
+                    }
+                    disabled={currentIndex === 0}
+                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
+                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                      : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                  >
+                    ◀ Previous
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setCurrentIndex((prev) => prev + 1)
+                    }
+                    disabled={currentIndex === filteredQuestions.length - 1}
+                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
+                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                      : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                  >
+                    Next ▶
+                  </button>
+
+                </div>
+              </>
+            )}
+
+            {filteredQuestions.length === 0 && (
+              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
+                <p className="text-gray-500">
+                  No Questions Found.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="app/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+
+import Header from "@/components/Header";
+import AuthModal from "@/components/AuthModal";
+import CategoryCard from "@/components/CategoryCard";
+import SectionHeading from "@/components/SectionHeading";
+import { getOralStats } from "@/lib/orals";
+import { getWrittenStats } from "@/lib/writtens";
+
+import {
+  ShieldCheck,
+  Cog,
+  Folder,
+  ShipWheel,
+  Zap,
+  BookOpen,
+  Wrench,
+  ChartColumn,
+  Anchor,
+  FileText,
+} from "lucide-react";
+
+export default function HomePage() {
+  const [showAuth, setShowAuth] = useState(false);
+  const [redirectPath, setRedirectPath] = useState("");
+
+  const [oralStats, setOralStats] = useState<
+    Record<
+      string,
+      {
+        questions: number;
+        topics: number;
+        updatedAt: Date | null;
+      }
+    >
+  >({});
+
+  const [writtenStats, setWrittenStats] = useState<
+    Record<
+      string,
+      {
+        questions: number;
+        topics: number;
+        updatedAt: Date | null;
+      }
+    >
+  >({});
+
+  const requireLogin = (path: string) => {
+    setRedirectPath(path);
+    setShowAuth(true);
+  };
+
+  useEffect(() => {
+    async function loadStats() {
+      const categories = ["fn3", "fn4b", "fn5", "fn6"];
+
+      const results = await Promise.all(
+        categories.map(async (category) => ({
+          category,
+          stats: await getOralStats(category),
+        }))
+      );
+
+      const statsMap: Record<
+        string,
+        {
+          questions: number;
+          topics: number;
+          updatedAt: Date | null;
+        }
+      > = {};
+
+      results.forEach(({ category, stats }) => {
+        statsMap[category] = stats;
+      });
+
+      console.log("Stats Map:", statsMap);
+
+      setOralStats(statsMap);
+    }
+
+    loadStats();
+  }, []);
+
+  // 👇 PASTE THE NEW useEffect HERE
+
+  useEffect(() => {
+    async function loadWrittenStats() {
+      const categories = [
+        "general",
+        "mep",
+        "motor",
+        "met",
+        "naval",
+        "ssep",
+      ];
+
+      const results = await Promise.all(
+        categories.map(async (category) => ({
+          category,
+          stats: await getWrittenStats(category),
+        }))
+      );
+
+      const statsMap: Record<
+        string,
+        {
+          questions: number;
+          topics: number;
+          updatedAt: Date | null;
+        }
+      > = {};
+
+      results.forEach(({ category, stats }) => {
+        statsMap[category] = stats;
+      });
+
+      console.log("Written Stats:", statsMap);
+
+      setWrittenStats(statsMap);
+    }
+
+    loadWrittenStats();
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-5 py-5">
+        <Header setShowAuth={setShowAuth} />
+
+        {/* BROWSE BY ORALS */}
+        <section className="mt-10">
+          <SectionHeading title="BROWSE BY ORALS" />
+
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+            <CategoryCard
+              href="/orals/fn3"
+              title="SAFETY"
+              icon={Folder}
+              badge="FN-3"
+              questions={oralStats.fn3?.questions}
+              topics={oralStats.fn3?.topics}
+              updatedAt={oralStats.fn3?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/orals/fn4b"
+              title="MOTOR"
+              icon={Folder}
+              badge="FN-4B"
+              questions={oralStats.fn4b?.questions}
+              topics={oralStats.fn4b?.topics}
+              updatedAt={oralStats.fn4b?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/orals/fn6"
+              title="MEP"
+              icon={Folder}
+              badge="FN-6"
+              questions={oralStats.fn6?.questions}
+              topics={oralStats.fn6?.topics}
+              updatedAt={oralStats.fn6?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/orals/fn5"
+              title="ELECTRICAL"
+              icon={Folder}
+              badge="FN-5"
+              questions={oralStats.fn5?.questions}
+              topics={oralStats.fn5?.topics}
+              updatedAt={oralStats.fn5?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+          </div>
+        </section>
+
+        {/* BROWSE BY WRITTENS */}
+        <section className="mt-12">
+          <SectionHeading title="BROWSE BY WRITTENS" />
+
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+            <CategoryCard
+              href="/writtens/general"
+              title="GENERAL"
+              icon={Folder}
+              badge="MEKG"
+              questions={writtenStats.general?.questions}
+              topics={writtenStats.general?.topics}
+              updatedAt={writtenStats.general?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/mep"
+              title="MEP"
+              icon={Folder}
+              badge="MEP"
+              questions={writtenStats.mep?.questions}
+              topics={writtenStats.mep?.topics}
+              updatedAt={writtenStats.mep?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/motor"
+              title="MOTOR"
+              icon={Folder}
+              badge="MEKM"
+              questions={writtenStats.motor?.questions}
+              topics={writtenStats.motor?.topics}
+              updatedAt={writtenStats.motor?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/met"
+              title="ELECTRICAL"
+              icon={Folder}
+              badge="MET"
+              questions={writtenStats.met?.questions}
+              topics={writtenStats.met?.topics}
+              updatedAt={writtenStats.met?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/naval"
+              title="NAVAL"
+              icon={Folder}
+              badge="SHIP-CO"
+              questions={writtenStats.naval?.questions}
+              topics={writtenStats.naval?.topics}
+              updatedAt={writtenStats.naval?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/writtens/ssep"
+              title="SAFETY"
+              icon={Folder}
+              badge="SSEP"
+              questions={writtenStats.ssep?.questions}
+              topics={writtenStats.ssep?.topics}
+              updatedAt={writtenStats.ssep?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+          </div>
+        </section>
+      </div>
+
+      <AuthModal
+        show={showAuth}
+        setShow={setShowAuth}
+        redirectPath={redirectPath}
+      />
+    </main>
+  );
+}
+</file>
+
+<file path="components/Header.tsx">
+"use client";
+
+import { Sailboat, User, LogOut } from "lucide-react";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useAuth } from "@/app/context/AuthContext";
+
+interface HeaderProps {
+  setShowAuth: (show: boolean) => void;
+}
+
+export default function Header({ setShowAuth }: HeaderProps) {
+  const { user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  const shortEmail = user?.email
+    ? user.email.length > 14
+      ? user.email.slice(0, 14) + "..."
+      : user.email
+    : "";
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm">
+
+      <div className="flex items-center justify-between">
+
+        {/* LEFT SIDE (LOGO + TEXT) */}
+        <div className="flex items-center gap-.8 min-w-0">
+
+          <div className="w-12 h-12 flex items-center justify-center rotate-[-8deg] flex-shrink-0">
+            <Sailboat size={30} />
+          </div>
+
+          <div className="leading-tight min-w-0">
+            <h1 className="text-xl font-bold tracking-tight truncate">
+              NAVIK
+            </h1>
+            <p className="text-xs text-gray-500 truncate">
+              Sail towards COC
+            </p>
+          </div>
+
+        </div>
+
+        {/* RIGHT SIDE */}
+        {user ? (
+          <div className="flex items-center gap-3 flex-shrink-0">
+
+            {/* EMAIL BOX (COMPACT) */}
+            <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
+              <p className="text-[9px] text-gray-500 leading-none">
+                Signed in
+              </p>
+
+              <p className="text-[11px] font-medium truncate">
+                {shortEmail}
+              </p>
+            </div>
+
+            {/* LOGOUT */}
+            <button
+              onClick={handleLogout}
+              className="w-10 h-9 rounded-2xl bg-black text-white flex items-center justify-center"
+            >
+              <LogOut size={16} />
+            </button>
+
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAuth(true)}
+            className="bg-black text-white px-4 py-2 rounded-xl flex items-center gap-1 text-sm font-medium"
+          >
+            <User size={16} />
+            Login
+          </button>
+        )}
+
+      </div>
+    </div>
+  );
 }
 </file>
 
@@ -4230,914 +5596,69 @@ export async function updateQuestionTopic(
 
     clearQuestionCache(category);
 }
-</file>
+export async function moveQuestionsBatch(
+    questions: any[],
+    fromCategory: string,
+    toCategory: string
+) {
+    const batch = writeBatch(db);
 
-<file path="app/(protected)/admin/page.tsx">
-"use client";
+    questions.forEach((question) => {
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-
-import { useAuth } from "@/app/context/AuthContext";
-import { isUserAdmin } from "@/services/admin";
-import {
-    getPendingAnswers,
-    approveAnswer,
-    rejectAnswer,
-} from "@/services/firestore";
-
-import AdminAnswerCard from "@/components/AdminAnswerCard";
-
-interface PendingAnswer {
-    id: string;
-    questionId: string;
-    category: string;
-    userName: string;
-    answer: string;
-}
-
-export default function AdminPage() {
-    const { user, loading } = useAuth();
-    const router = useRouter();
-
-    const [checking, setChecking] = useState(true);
-    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
-
-    useEffect(() => {
-        async function init() {
-            if (loading) return;
-
-            if (!user) {
-                router.replace("/");
-                return;
-            }
-
-            const admin = await isUserAdmin(user.uid);
-
-            if (!admin) {
-                router.replace("/");
-                return;
-            }
-
-            const pending = await getPendingAnswers();
-
-            setAnswers(pending as PendingAnswer[]);
-            setChecking(false);
-        }
-
-        init();
-    }, [user, loading, router]);
-
-    async function handleApprove(id: string) {
-        await approveAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
+        const newRef = doc(
+            collection(
+                db,
+                "orals",
+                toCategory.toLowerCase(),
+                "questions"
+            )
         );
-    }
 
-    async function handleReject(id: string) {
-        await rejectAnswer(id);
+        const { id, ...data } = question;
 
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
+        batch.set(newRef, {
+            ...data,
+            updatedAt: serverTimestamp(),
+        });
+
+        batch.delete(
+            doc(
+                db,
+                "orals",
+                fromCategory.toLowerCase(),
+                "questions",
+                question.id
+            )
         );
-    }
-
-    if (checking) {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                Checking permissions...
-            </div>
-        );
-    }
-
-    return (
-        <main className="min-h-screen bg-[#f5f5f5]">
-            <div className="mx-auto max-w-6xl px-6 py-10">
-
-                <h1 className="text-4xl font-bold">
-                    Admin Dashboard
-                </h1>
-
-                <p className="mt-2 text-gray-500">
-                    Manage uploads and community answers.
-                </p>
-
-                <div className="mt-8 flex flex-wrap gap-4">
-
-                    <Link
-                        href="/admin/orals"
-                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
-                    >
-                        Upload Oral Questions
-                    </Link>
-
-                    <Link
-                        href="/admin/writtens"
-                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
-                    >
-                        Upload Written Questions
-                    </Link>
-
-                    <Link
-                        href="/admin/downloads"
-                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
-                    >
-                        <h2 className="text-lg font-semibold">
-                            Download Questions
-                        </h2>
-
-                        <p className="mt-2 text-sm text-gray-500">
-                            Download the latest Oral and Written question banks.
-                        </p>
-                    </Link>
-
-                    <Link
-                        href="/admin/manage"
-                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
-                    >
-                        <h2 className="text-l font-semibold">
-                            MANAGE QUESTIONS ALL
-                        </h2>
-
-                        <p className="mt-2 text-sm text-gray-500">
-                            View, edit and delete written questions.
-                        </p>
-                    </Link>
-
-                </div>
-
-
-
-                <div className="mt-12">
-
-                    <h2 className="text-2xl font-bold">
-                        Pending Community Answers
-                    </h2>
-
-                    <div className="mt-6 space-y-6">
-
-                        {answers.length === 0 && (
-                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
-                                No pending answers.
-                            </div>
-                        )}
-
-                        {answers.map((answer) => (
-                            <AdminAnswerCard
-                                key={answer.id}
-                                id={answer.id}
-                                questionId={answer.questionId}
-                                category={answer.category}
-                                userName={answer.userName}
-                                answer={answer.answer}
-                                onApprove={handleApprove}
-                                onReject={handleReject}
-                            />
-                        ))}
-
-                    </div>
-
-                </div>
-
-            </div>
-        </main>
-    );
-}
-</file>
-
-<file path="app/(protected)/writtens/[category]/page.tsx">
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  Sailboat,
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
-} from "lucide-react";
-
-import WrittenCard from "@/components/WrittenCard";
-import WrittenFilters from "@/components/WrittenFilters";
-import { useAuth } from "@/app/context/AuthContext";
-
-import LoadingScreen from "@/components/LoadingScreen";
-
-import {
-  getWrittenQuestions,
-  WrittenQuestion,
-} from "@/services/written.service";
-
-export default function WrittensPage() {
-  const params = useParams();
-  const { user } = useAuth();
-
-  const name =
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "Sailor";
-
-  const category =
-    typeof params.category === "string"
-      ? params.category.toLowerCase()
-      : "general";
-
-  const [questions, setQuestions] = useState<WrittenQuestion[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const [selectedClass, setSelectedClass] = useState("All");
-  const [selectedYear, setSelectedYear] = useState("All");
-  const [selectedMonth, setSelectedMonth] = useState("All");
-  const [selectedTopic, setSelectedTopic] = useState("All");
-
-  useEffect(() => {
-    async function loadQuestions() {
-      try {
-        setLoading(true);
-
-        const data = await getWrittenQuestions(category);
-
-        setQuestions(data);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadQuestions();
-  }, [category]);
-
-  const years = useMemo(() => {
-    return [...new Set(questions.map((q) => q.year))]
-      .filter(Boolean)
-      .sort((a, b) => b - a);
-  }, [questions]);
-
-  const topics = useMemo(() => {
-    return [...new Set(questions.map((q) => q.topic))]
-      .filter(Boolean)
-      .sort();
-  }, [questions]);
-
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((question) => {
-      const classMatch =
-        selectedClass === "All" ||
-        question.class === selectedClass;
-
-      const yearMatch =
-        selectedYear === "All" ||
-        String(question.year) === selectedYear;
-
-      const monthMatch =
-        selectedMonth === "All" ||
-        question.month === selectedMonth;
-
-      const topicMatch =
-        selectedTopic === "All" ||
-        question.topic === selectedTopic;
-
-      const searchMatch =
-        search.trim() === "" ||
-        question.question
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.answer
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.topic
-          .toLowerCase()
-          .includes(search.toLowerCase());
-
-      return (
-        classMatch &&
-        yearMatch &&
-        monthMatch &&
-        topicMatch &&
-        searchMatch
-      );
     });
-  }, [
-    questions,
-    search,
-    selectedClass,
-    selectedYear,
-    selectedMonth,
-    selectedTopic,
-  ]);
 
-  const currentQuestion = filteredQuestions[currentIndex];
+    await batch.commit();
 
-  useEffect(() => {
-    setCurrentIndex(0);
-  }, [
-    search,
-    selectedClass,
-    selectedYear,
-    selectedMonth,
-    selectedTopic,
-  ]);
-
-  const titles: Record<
-    string,
-    {
-      badge: string;
-      title: string;
-    }
-  > = {
-    general: {
-      badge: "MEKG",
-      title: "GENERAL WRITTEN",
-    },
-    mep: {
-      badge: "MEP",
-      title: "MEP WRITTEN",
-    },
-    motor: {
-      badge: "MEKM",
-      title: "MOTOR WRITTEN",
-    },
-    met: {
-      badge: "MET",
-      title: "ELECTRICAL WRITTEN",
-    },
-    naval: {
-      badge: "SHIP-CO",
-      title: "NAVAL WRITTEN",
-    },
-    ssep: {
-      badge: "SSEP",
-      title: "SAFETY WRITTEN",
-    },
-  };
-  const page = titles[category] ?? {
-    badge: category.toUpperCase(),
-    title: "Written Questions",
-  };
-
-  if (loading) {
-    return (
-      <LoadingScreen
-        text="Loading Questions..."
-      />
-    );
-  }
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-5 py-8">
-
-        {/* HEADER CARD */}
-        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-
-          <div className="flex items-center justify-between">
-
-            <Link
-              href="/"
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
-            >
-              <ArrowLeft size={20} />
-            </Link>
-
-            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
-              <Sailboat
-                size={30}
-                strokeWidth={2}
-              />
-            </div>
-
-          </div>
-
-          <div className="mt-7">
-
-            <h2 className="text-2xl font-bold">
-              Hi, {name} 👋
-            </h2>
-
-            <p className="text-gray-500">
-              Welcome Back
-            </p>
-
-            <div className="mt-6 border-l-4 border-black pl-4">
-              <p className="text-sm italic text-gray-600">
-                Coffee. Questions. Repeat.
-              </p>
-            </div>
-
-            <div className="mt-6 inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white">
-              {page.badge}
-            </div>
-
-            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
-              {page.title}
-            </h1>
-
-            <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
-              <span>{questions.length} Questions</span>
-              <span>•</span>
-              <span>{topics.length} Topics</span>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* SEARCH */}
-
-        <div className="mt-8">
-          <input
-            type="text"
-            placeholder="🔍 Search Questions..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
-          />
-        </div>
-
-        {/* FILTER BUTTON */}
-
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="mt-4 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
-        >
-          <div className="flex items-center gap-3">
-            <SlidersHorizontal size={18} />
-            <span className="font-semibold">
-              Filters
-            </span>
-          </div>
-
-          {showFilters ? (
-            <ChevronUp size={18} />
-          ) : (
-            <ChevronDown size={18} />
-          )}
-        </button>
-
-        {/* FILTER PANEL */}
-
-        {showFilters && (
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <WrittenFilters
-              selectedClass={selectedClass}
-              setSelectedClass={setSelectedClass}
-              selectedYear={selectedYear}
-              setSelectedYear={setSelectedYear}
-              selectedMonth={selectedMonth}
-              setSelectedMonth={setSelectedMonth}
-              selectedTopic={selectedTopic}
-              setSelectedTopic={setSelectedTopic}
-              years={years}
-              topics={topics}
-            />
-          </div>
-        )}
-
-        <div className="mt-8 mb-6 flex items-center justify-between gap-4">
-
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
-            Questions
-          </h2>
-
-          <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
-            <span className="text-gray-500">Current:</span>{" "}
-            <span className="font-bold text-black">
-              {filteredQuestions.length > 0
-                ? `${currentIndex + 1} / ${filteredQuestions.length}`
-                : "0 / 0"}
-            </span>
-
-            <span className="mx-2 text-gray-300">|</span>
-          </div>
-
-        </div>
-
-        {filteredQuestions.length === 0 ? (
-        <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
-          No Questions Found.
-        </div>
-        ) : (
-        <div className="mt-8 space-y-6">
-          {currentQuestion && (
-            <>
-              <WrittenCard
-                question={currentQuestion}
-              />
-
-              {/* Navigation */}
-              <div className="mt-6 flex items-center justify-between">
-
-                <button
-                  onClick={() =>
-                    setCurrentIndex((prev) => prev - 1)
-                  }
-                  disabled={currentIndex === 0}
-                  className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
-                    ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                    : "bg-black text-white hover:bg-gray-800"
-                    }`}
-                >
-                  ◀ Previous
-                </button>
-
-                <button
-                  onClick={() =>
-                    setCurrentIndex((prev) => prev + 1)
-                  }
-                  disabled={currentIndex === filteredQuestions.length - 1}
-                  className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
-                    ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                    : "bg-black text-white hover:bg-gray-800"
-                    }`}
-                >
-                  Next ▶
-                </button>
-
-              </div>
-            </>
-          )}
-
-          {filteredQuestions.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
-              <p className="text-gray-500">
-                No Questions Found.
-              </p>
-            </div>
-          )}
-        </div>
-        )}
-
-      </div>
-    </main>
-  );
-}
-</file>
-
-<file path="app/page.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-
-import Header from "@/components/Header";
-import AuthModal from "@/components/AuthModal";
-import CategoryCard from "@/components/CategoryCard";
-import SectionHeading from "@/components/SectionHeading";
-import { getOralStats } from "@/lib/orals";
-import { getWrittenStats } from "@/lib/writtens";
-
-import {
-  ShieldCheck,
-  Cog,
-  Folder,
-  ShipWheel,
-  Zap,
-  BookOpen,
-  Wrench,
-  ChartColumn,
-  Anchor,
-  FileText,
-} from "lucide-react";
-
-export default function HomePage() {
-  const [showAuth, setShowAuth] = useState(false);
-  const [redirectPath, setRedirectPath] = useState("");
-
-  const [oralStats, setOralStats] = useState<
-    Record<
-      string,
-      {
-        questions: number;
-        topics: number;
-        updatedAt: Date | null;
-      }
-    >
-  >({});
-
-  const [writtenStats, setWrittenStats] = useState<
-    Record<
-      string,
-      {
-        questions: number;
-        topics: number;
-        updatedAt: Date | null;
-      }
-    >
-  >({});
-
-  const requireLogin = (path: string) => {
-    setRedirectPath(path);
-    setShowAuth(true);
-  };
-
-  useEffect(() => {
-    async function loadStats() {
-      const categories = ["fn3", "fn4b", "fn5", "fn6"];
-
-      const results = await Promise.all(
-        categories.map(async (category) => ({
-          category,
-          stats: await getOralStats(category),
-        }))
-      );
-
-      const statsMap: Record<
-        string,
-        {
-          questions: number;
-          topics: number;
-          updatedAt: Date | null;
-        }
-      > = {};
-
-      results.forEach(({ category, stats }) => {
-        statsMap[category] = stats;
-      });
-
-      console.log("Stats Map:", statsMap);
-
-      setOralStats(statsMap);
-    }
-
-    loadStats();
-  }, []);
-
-  // 👇 PASTE THE NEW useEffect HERE
-
-  useEffect(() => {
-    async function loadWrittenStats() {
-      const categories = [
-        "general",
-        "mep",
-        "motor",
-        "met",
-        "naval",
-        "ssep",
-      ];
-
-      const results = await Promise.all(
-        categories.map(async (category) => ({
-          category,
-          stats: await getWrittenStats(category),
-        }))
-      );
-
-      const statsMap: Record<
-        string,
-        {
-          questions: number;
-          topics: number;
-          updatedAt: Date | null;
-        }
-      > = {};
-
-      results.forEach(({ category, stats }) => {
-        statsMap[category] = stats;
-      });
-
-      console.log("Written Stats:", statsMap);
-
-      setWrittenStats(statsMap);
-    }
-
-    loadWrittenStats();
-  }, []);
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-5 py-5">
-        <Header setShowAuth={setShowAuth} />
-
-        {/* BROWSE BY ORALS */}
-        <section className="mt-10">
-          <SectionHeading title="BROWSE BY ORALS" />
-
-          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
-            <CategoryCard
-              href="/orals/fn3"
-              title="SAFETY"
-              icon={Folder}
-              badge="FN-3"
-              questions={oralStats.fn3?.questions}
-              topics={oralStats.fn3?.topics}
-              updatedAt={oralStats.fn3?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/orals/fn4b"
-              title="MOTOR"
-              icon={Folder}
-              badge="FN-4B"
-              questions={oralStats.fn4b?.questions}
-              topics={oralStats.fn4b?.topics}
-              updatedAt={oralStats.fn4b?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/orals/fn6"
-              title="MEP"
-              icon={Folder}
-              badge="FN-6"
-              questions={oralStats.fn6?.questions}
-              topics={oralStats.fn6?.topics}
-              updatedAt={oralStats.fn6?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/orals/fn5"
-              title="ELECTRICAL"
-              icon={Folder}
-              badge="FN-5"
-              questions={oralStats.fn5?.questions}
-              topics={oralStats.fn5?.topics}
-              updatedAt={oralStats.fn5?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-          </div>
-        </section>
-
-        {/* BROWSE BY WRITTENS */}
-        <section className="mt-12">
-          <SectionHeading title="BROWSE BY WRITTENS" />
-
-          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
-            <CategoryCard
-              href="/writtens/general"
-              title="GENERAL"
-              icon={Folder}
-              badge="MEKG"
-              questions={writtenStats.general?.questions}
-              topics={writtenStats.general?.topics}
-              updatedAt={writtenStats.general?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/mep"
-              title="MEP"
-              icon={Folder}
-              badge="MEP"
-              questions={writtenStats.mep?.questions}
-              topics={writtenStats.mep?.topics}
-              updatedAt={writtenStats.mep?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/motor"
-              title="MOTOR"
-              icon={Folder}
-              badge="MEKM"
-              questions={writtenStats.motor?.questions}
-              topics={writtenStats.motor?.topics}
-              updatedAt={writtenStats.motor?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/met"
-              title="ELECTRICAL"
-              icon={Folder}
-              badge="MET"
-              questions={writtenStats.met?.questions}
-              topics={writtenStats.met?.topics}
-              updatedAt={writtenStats.met?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/naval"
-              title="NAVAL"
-              icon={Folder}
-              badge="SHIP-CO"
-              questions={writtenStats.naval?.questions}
-              topics={writtenStats.naval?.topics}
-              updatedAt={writtenStats.naval?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/ssep"
-              title="SAFETY"
-              icon={Folder}
-              badge="SSEP"
-              questions={writtenStats.ssep?.questions}
-              topics={writtenStats.ssep?.topics}
-              updatedAt={writtenStats.ssep?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-          </div>
-        </section>
-      </div>
-
-      <AuthModal
-        show={showAuth}
-        setShow={setShowAuth}
-        redirectPath={redirectPath}
-      />
-    </main>
-  );
-}
-</file>
-
-<file path="components/Header.tsx">
-"use client";
-
-import { Sailboat, User, LogOut } from "lucide-react";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useAuth } from "@/app/context/AuthContext";
-
-interface HeaderProps {
-  setShowAuth: (show: boolean) => void;
+    clearQuestionCache(fromCategory);
+    clearQuestionCache(toCategory);
 }
 
-export default function Header({ setShowAuth }: HeaderProps) {
-  const { user } = useAuth();
+export async function deleteQuestionsBatch(
+    category: string,
+    ids: string[]
+) {
+    const batch = writeBatch(db);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-  const shortEmail = user?.email
-    ? user.email.length > 14
-      ? user.email.slice(0, 14) + "..."
-      : user.email
-    : "";
+    ids.forEach((id) => {
+        batch.delete(
+            doc(
+                db,
+                "orals",
+                category.toLowerCase(),
+                "questions",
+                id
+            )
+        );
+    });
 
-  return (
-    <div className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm">
+    await batch.commit();
 
-      <div className="flex items-center justify-between">
-
-        {/* LEFT SIDE (LOGO + TEXT) */}
-        <div className="flex items-center gap-.8 min-w-0">
-
-          <div className="w-12 h-12 flex items-center justify-center rotate-[-8deg] flex-shrink-0">
-            <Sailboat size={30} />
-          </div>
-
-          <div className="leading-tight min-w-0">
-            <h1 className="text-xl font-bold tracking-tight truncate">
-              NAVIK
-            </h1>
-            <p className="text-xs text-gray-500 truncate">
-              Sail towards COC
-            </p>
-          </div>
-
-        </div>
-
-        {/* RIGHT SIDE */}
-        {user ? (
-          <div className="flex items-center gap-3 flex-shrink-0">
-
-            {/* EMAIL BOX (COMPACT) */}
-            <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
-              <p className="text-[9px] text-gray-500 leading-none">
-                Signed in
-              </p>
-
-              <p className="text-[11px] font-medium truncate">
-                {shortEmail}
-              </p>
-            </div>
-
-            {/* LOGOUT */}
-            <button
-              onClick={handleLogout}
-              className="w-10 h-9 rounded-2xl bg-black text-white flex items-center justify-center"
-            >
-              <LogOut size={16} />
-            </button>
-
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowAuth(true)}
-            className="bg-black text-white px-4 py-2 rounded-xl flex items-center gap-1 text-sm font-medium"
-          >
-            <User size={16} />
-            Login
-          </button>
-        )}
-
-      </div>
-    </div>
-  );
+    clearQuestionCache(category);
 }
 </file>
 
@@ -5182,7 +5703,7 @@ export default function InitialLoader({
 <file path="components/QuestionsList.tsx">
 "use client"
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   ChevronDown,
@@ -5220,7 +5741,12 @@ export default function QuestionsList({
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  const [selectedMmd, setSelectedMmd] = useState("All");
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+
+  const DEFAULT_MMD = "Chennai";
+
+  const [selectedMmd, setSelectedMmd] = useState(DEFAULT_MMD);
   const [selectedSurveyor, setSelectedSurveyor] = useState("All");
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [selectedClass, setSelectedClass] = useState("All");
@@ -5252,6 +5778,8 @@ export default function QuestionsList({
   const filteredQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (!q.isActive) return false;
+      if (showBookmarksOnly && !bookmarks.includes(q.id))
+        return false;
 
       if (
         selectedMmd !== "All" &&
@@ -5309,9 +5837,42 @@ export default function QuestionsList({
     selectedSurveyor,
     selectedTopic,
     selectedClass,
+    bookmarks,
+    showBookmarksOnly,
   ]);
 
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedMmd(DEFAULT_MMD);
+    setSelectedSurveyor("All");
+    setSelectedTopic("All");
+    setSelectedClass("All");
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem("bookmarkedQuestions");
+
+    if (saved) {
+      setBookmarks(JSON.parse(saved));
+    }
+  }, []);
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        "bookmarkedQuestions",
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
+  };
 
   return (
     <>
@@ -5327,90 +5888,116 @@ export default function QuestionsList({
       </div>
 
       {/* FILTER BUTTON */}
-      <button
-        onClick={() => setShowFilters(!showFilters)}
-        className="mt-4 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
-      >
-        <div className="flex items-center gap-3">
-          <SlidersHorizontal size={18} />
+      <div className="mt-4 grid grid-cols-2 gap-3">
 
-          <span className="font-semibold">
-            Filters
-          </span>
-        </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+        >
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal size={18} />
+            <span className="font-semibold">Filters</span>
+          </div>
 
-        {showFilters ? (
-          <ChevronUp size={18} />
-        ) : (
-          <ChevronDown size={18} />
-        )}
-      </button>
+          {showFilters ? (
+            <ChevronUp size={18} />
+          ) : (
+            <ChevronDown size={18} />
+          )}
+        </button>
+
+        <button
+          onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+          className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
+            ? "border-black bg-black text-white"
+            : "border-gray-200 bg-white hover:border-black"
+            }`}
+        >
+          🔖 Bookmarks ({bookmarks.length})
+        </button>
+
+      </div>
 
       {/* FILTERS */}
-      {showFilters && (
-        <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      {
+        showFilters && (
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
 
-          <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-4">
 
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="rounded-xl border border-gray-300 p-3"
-            >
-              <option value="All">Class</option>
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">Class</option>
 
-              {classes.map((questionClass) => (
-                <option key={questionClass} value={questionClass}>
-                  {questionClass}
-                </option>
-              ))}
-            </select>
+                {classes.map((questionClass) => (
+                  <option key={questionClass} value={questionClass}>
+                    {questionClass}
+                  </option>
+                ))}
+              </select>
 
-            <select
-              value={selectedMmd}
-              onChange={(e) => setSelectedMmd(e.target.value)}
-              className="rounded-xl border border-gray-300 p-3"
-            >
-              <option value="All">All MMDs</option>
+              <select
+                value={selectedMmd}
+                onChange={(e) => setSelectedMmd(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All MMDs</option>
 
-              {mmds.map((mmd) => (
-                <option key={mmd} value={mmd}>
-                  {mmd}
-                </option>
-              ))}
-            </select>
+                {mmds.map((mmd) => (
+                  <option key={mmd} value={mmd}>
+                    {mmd}
+                  </option>
+                ))}
+              </select>
 
-            <select
-              value={selectedSurveyor}
-              onChange={(e) => setSelectedSurveyor(e.target.value)}
-              className="rounded-xl border border-gray-300 p-3"
-            >
-              <option value="All">All Surveyors</option>
+              <select
+                value={selectedSurveyor}
+                onChange={(e) => setSelectedSurveyor(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Surveyors</option>
 
-              {surveyors.map((surveyor) => (
-                <option key={surveyor} value={surveyor}>
-                  {surveyor}
-                </option>
-              ))}
-            </select>
+                {surveyors.map((surveyor) => (
+                  <option key={surveyor} value={surveyor}>
+                    {surveyor}
+                  </option>
+                ))}
+              </select>
 
-            <select
-              value={selectedTopic}
-              onChange={(e) => setSelectedTopic(e.target.value)}
-              className="rounded-xl border border-gray-300 p-3"
-            >
-              <option value="All">All Topics</option>
+              <select
+                value={selectedTopic}
+                onChange={(e) => setSelectedTopic(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Topics</option>
 
-              {topics.map((topic) => (
-                <option key={topic} value={topic}>
-                  {topic}
-                </option>
-              ))}
-            </select>
+                {topics.map((topic) => (
+                  <option key={topic} value={topic}>
+                    {topic}
+                  </option>
+                ))}
+              </select>
+
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={clearFilters}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
 
           </div>
-        </div>
-      )}
+        )
+      }
+
+
+
 
       {/* HEADING */}
       <div className="mt-8 mb-6 flex items-center justify-between gap-4">
@@ -5453,6 +6040,8 @@ export default function QuestionsList({
               showMmd={showMmd}
               showSurveyor={showSurveyor}
               showTopic={showTopic}
+              isBookmarked={bookmarks.includes(q.id)}
+              onBookmark={() => toggleBookmark(q.id)}
               isOpen={openQuestion === q.id}
               onToggle={() => {
                 const currentScroll = window.scrollY;
@@ -5793,15 +6382,26 @@ export async function deleteWrittenQuestion(
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Bookmark,
+  BookmarkCheck,
+} from "lucide-react";
 import { WrittenQuestion } from "@/services/written.service";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 interface Props {
   question: WrittenQuestion;
+  isBookmarked: boolean;
+  onBookmark: () => void;
 }
 
-export default function WrittenCard({ question }: Props) {
+export default function WrittenCard({
+  question,
+  isBookmarked,
+  onBookmark,
+}: Props) {
 
   const [showAnswer, setShowAnswer] = useState(false);
 
@@ -5828,83 +6428,46 @@ export default function WrittenCard({ question }: Props) {
   "
     >
 
-      {/* Header Tags */}
+      {/* Header */}
 
-      <div
-        className="
-            flex
-            flex-wrap
-            gap-2
-            mb-5
-            "
-      >
+      <div className="mb-5 flex items-start justify-between gap-4">
 
-        <span
-          className="
-                rounded-full
-                bg-blue-100
-                px-3
-                py-1
-                text-xs
-                sm:text-sm
-                font-semibold
-                text-blue-700
-                "
+        <div className="flex flex-wrap gap-2">
+
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs sm:text-sm font-semibold text-blue-700">
+            {question.class}
+          </span>
+
+          <span className="rounded-full bg-green-100 px-3 py-1 text-xs sm:text-sm font-semibold text-green-700">
+            {question.year}
+          </span>
+
+          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs sm:text-sm font-semibold text-purple-700">
+            {question.month}
+          </span>
+
+          <span className="max-w-full truncate rounded-full bg-orange-100 px-3 py-1 text-xs sm:text-sm font-semibold text-orange-700">
+            {question.topic}
+          </span>
+
+        </div>
+
+        <button
+          onClick={onBookmark}
+          className="rounded-full p-2 hover:bg-gray-100 transition"
         >
-          {question.class}
-        </span>
-
-
-        <span
-          className="
-                rounded-full
-                bg-green-100
-                px-3
-                py-1
-                text-xs
-                sm:text-sm
-                font-semibold
-                text-green-700
-                "
-        >
-          {question.year}
-        </span>
-
-
-        <span
-          className="
-                rounded-full
-                bg-purple-100
-                px-3
-                py-1
-                text-xs
-                sm:text-sm
-                font-semibold
-                text-purple-700
-                "
-        >
-          {question.month}
-        </span>
-
-        <span
-          className="
-    max-w-full
-    truncate
-    rounded-full
-    bg-orange-100
-    px-3
-    py-1
-    text-xs
-    sm:text-sm
-    font-semibold
-    text-orange-700
-  "
-        >
-          {question.topic}
-        </span>
-
+          {isBookmarked ? (
+            <Bookmark
+              size={22}
+              className="fill-yellow-400 text-yellow-500"
+            />
+          ) : (
+            <Bookmark size={22} />
+          )}
+        </button>
 
       </div>
+
       {/* Scroll Area */}
 
       <div className="flex-1 overflow-y-auto pr-2 min-h-0">

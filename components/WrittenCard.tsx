@@ -1,15 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Bookmark,
+  BookmarkCheck,
+} from "lucide-react";
 import { WrittenQuestion } from "@/services/written.service";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 interface Props {
   question: WrittenQuestion;
+  isBookmarked: boolean;
+  onBookmark: () => void;
 }
 
-export default function WrittenCard({ question }: Props) {
+export default function WrittenCard({
+  question,
+  isBookmarked,
+  onBookmark,
+}: Props) {
 
   const [showAnswer, setShowAnswer] = useState(false);
 
@@ -36,83 +47,46 @@ export default function WrittenCard({ question }: Props) {
   "
     >
 
-      {/* Header Tags */}
+      {/* Header */}
 
-      <div
-        className="
-            flex
-            flex-wrap
-            gap-2
-            mb-5
-            "
-      >
+      <div className="mb-5 flex items-start justify-between gap-4">
 
-        <span
-          className="
-                rounded-full
-                bg-blue-100
-                px-3
-                py-1
-                text-xs
-                sm:text-sm
-                font-semibold
-                text-blue-700
-                "
+        <div className="flex flex-wrap gap-2">
+
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs sm:text-sm font-semibold text-blue-700">
+            {question.class}
+          </span>
+
+          <span className="rounded-full bg-green-100 px-3 py-1 text-xs sm:text-sm font-semibold text-green-700">
+            {question.year}
+          </span>
+
+          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs sm:text-sm font-semibold text-purple-700">
+            {question.month}
+          </span>
+
+          <span className="max-w-full truncate rounded-full bg-orange-100 px-3 py-1 text-xs sm:text-sm font-semibold text-orange-700">
+            {question.topic}
+          </span>
+
+        </div>
+
+        <button
+          onClick={onBookmark}
+          className="rounded-full p-2 hover:bg-gray-100 transition"
         >
-          {question.class}
-        </span>
-
-
-        <span
-          className="
-                rounded-full
-                bg-green-100
-                px-3
-                py-1
-                text-xs
-                sm:text-sm
-                font-semibold
-                text-green-700
-                "
-        >
-          {question.year}
-        </span>
-
-
-        <span
-          className="
-                rounded-full
-                bg-purple-100
-                px-3
-                py-1
-                text-xs
-                sm:text-sm
-                font-semibold
-                text-purple-700
-                "
-        >
-          {question.month}
-        </span>
-
-        <span
-          className="
-    max-w-full
-    truncate
-    rounded-full
-    bg-orange-100
-    px-3
-    py-1
-    text-xs
-    sm:text-sm
-    font-semibold
-    text-orange-700
-  "
-        >
-          {question.topic}
-        </span>
-
+          {isBookmarked ? (
+            <Bookmark
+              size={22}
+              className="fill-yellow-400 text-yellow-500"
+            />
+          ) : (
+            <Bookmark size={22} />
+          )}
+        </button>
 
       </div>
+
       {/* Scroll Area */}
 
       <div className="flex-1 overflow-y-auto pr-2 min-h-0">

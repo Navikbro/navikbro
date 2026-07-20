@@ -16,6 +16,8 @@ interface Props {
 
   years: number[];
   topics: string[];
+
+  onClearFilters: () => void;
 }
 
 const classes = [
@@ -56,10 +58,11 @@ export default function WrittenFilters({
 
   years,
   topics,
+  onClearFilters,
 }: Props) {
   return (
     <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 
         <select
           value={selectedClass}
@@ -115,6 +118,15 @@ export default function WrittenFilters({
           ))}
         </select>
 
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={onClearFilters}
+          className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium transition hover:bg-gray-100"
+        >
+          Clear Filters
+        </button>
       </div>
     </div>
   );

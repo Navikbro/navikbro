@@ -5,7 +5,6 @@ import * as XLSX from "xlsx";
 
 import {
     bulkUploadQuestions,
-    getOralQuestionCount,
 } from "@/services/firestore";
 
 interface ExcelQuestion {
@@ -22,11 +21,13 @@ interface ExcelQuestion {
 export default function BulkUploadPage() {
     const [rows, setRows] = useState<ExcelQuestion[]>([]);
     const [uploading, setUploading] = useState(false);
-    const [checkingCount, setCheckingCount] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState({
+        uploaded: 0,
+        total: 0,
+    });
+
 
     const [showConfirm, setShowConfirm] = useState(false);
-
-    const [existingCount, setExistingCount] = useState(0);
 
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     function handleFile(file: File) {
@@ -34,7 +35,7 @@ export default function BulkUploadPage() {
 
         reader.onload = (e) => {
             const workbook = XLSX.read(e.target?.result, {
-                type: "binary",
+                type: "array",
             });
 
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -44,14 +45,16 @@ export default function BulkUploadPage() {
                 raw: false,
             });
 
-            console.table(json);
-            console.log("First Row:", json[0]);
-
             setRows(json);
             setValidationErrors([]);
+
+            setUploadProgress({
+                uploaded: 0,
+                total: 0,
+            });
         };
 
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
     }
 
     function validateExcel(rows: ExcelQuestion[]) {
@@ -111,7 +114,7 @@ export default function BulkUploadPage() {
         return errors;
     }
 
-    async function handleUpload() {
+    function handleUpload() {
 
         if (!rows.length) {
             alert("Please upload an Excel file.");
@@ -125,50 +128,23 @@ export default function BulkUploadPage() {
             return;
         }
 
-        setCheckingCount(true);
-
-        try {
-
-            const categories = [
-                ...new Set(
-                    rows.map((row) =>
-                        row.Category.trim().toLowerCase()
-                    )
-                ),
-            ];
-
-            let count = 0;
-
-            for (const category of categories) {
-
-                const existing =
-                    await getOralQuestionCount(category);
-
-                count += existing;
-
-            }
-
-            setExistingCount(count);
-
-            setShowConfirm(true);
-
-        }
-        finally {
-
-            setCheckingCount(false);
-
-        }
-
-
+        setShowConfirm(true);
     }
-
     async function confirmUpload() {
 
         try {
 
             setUploading(true);
 
-            await bulkUploadQuestions(rows);
+            await bulkUploadQuestions(
+                rows,
+                (uploaded, total) => {
+                    setUploadProgress({
+                        uploaded,
+                        total,
+                    });
+                }
+            );
 
             alert(
                 `${rows.length} questions uploaded successfully.`
@@ -293,21 +269,53 @@ export default function BulkUploadPage() {
 
                             <button
                                 onClick={handleUpload}
-                                disabled={uploading || checkingCount}
+                                disabled={uploading}
                                 className="rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
                             >
                                 {uploading
-                                    ? "Uploading..."
-                                    : checkingCount
-                                        ? "Checking Existing Questions..."
-                                        : `Upload ${rows.length} Questions`}
-                            </button>
+                                    ? `Uploading... ${uploadProgress.uploaded.toLocaleString()} / ${uploadProgress.total.toLocaleString()}`
+                                    : `Upload ${rows.length} Questions`
+                                }
+                                
+                                </button>
+                                
 
                         </div>
 
+                        {uploading && uploadProgress.total > 0 && (
+                            <div className="mt-5">
+
+                                <div className="mb-2 text-sm text-gray-600">
+                                    Uploading{" "}
+                                    {uploadProgress.uploaded.toLocaleString()}
+                                    {" / "}
+                                    {uploadProgress.total.toLocaleString()}
+                                </div>
+
+                                <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+
+                                    <div
+                                        className="h-full bg-black transition-all"
+                                        style={{
+                                            width: `${(uploadProgress.uploaded /
+                                                uploadProgress.total) *
+                                                100
+                                                }%`,
+                                        }}
+                                    />
+
+                                </div>
+
+                            </div>
+                        )}
+
                         <div className="mt-8 space-y-5">
 
-                            {rows.map((row, index) => (
+                            <p className="text-gray-500">
+                                Showing first {Math.min(100, rows.length)} of {rows.length} questions
+                            </p>
+
+                            {rows.slice(0, 100).map((row, index) => (
                                 <div
                                     key={index}
                                     className="rounded-2xl border p-5"
@@ -366,16 +374,6 @@ export default function BulkUploadPage() {
                             </h2>
 
 
-                            <p className="mt-4 text-gray-600">
-
-                                Existing Questions:
-                                <b className="ml-2">
-                                    {existingCount}
-                                </b>
-
-                            </p>
-
-
                             <p className="mt-2 text-gray-600">
 
                                 New Upload:
@@ -409,8 +407,9 @@ export default function BulkUploadPage() {
                                 </button>
 
                                 <button
+                                    disabled={uploading}
                                     onClick={confirmUpload}
-                                    className="rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700"
+                                    className="rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                                 >
                                     ⬆️ Upload Questions
                                 </button>
