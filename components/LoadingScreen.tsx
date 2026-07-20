@@ -7,34 +7,41 @@ interface Props {
 }
 
 export default function LoadingScreen({
-  text = "Loading Questions..."
+  text = "Loading Questions...",
 }: Props) {
   return (
-    <div className="fixed inset-0 z-50 bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#f5f5f5]">
 
       <div className="flex flex-col items-center">
 
-        {/* WAVES */}
-        <div className="relative w-64 h-24 flex items-end justify-center overflow-hidden mb-2">
+        {/* WAVES + SHIP */}
+        <div className="relative mb-2 flex h-24 w-64 items-end justify-center overflow-hidden">
 
-          <div className="absolute bottom-0 w-[300px] h-6 bg-black/10 rounded-[100%] animate-wave1" />
+          {/* Wave 1 */}
+          <div className="absolute bottom-0 h-6 w-[300px] rounded-[100%] bg-black/10 animate-wave1" />
 
-          <div className="absolute bottom-2 w-[260px] h-5 bg-black/5 rounded-[100%] animate-wave2" />
+          {/* Wave 2 */}
+          <div className="absolute bottom-2 h-5 w-[260px] rounded-[100%] bg-black/5 animate-wave2" />
 
 
           {/* SHIP */}
           <div className="relative animate-float">
-            <Sailboat
-              size={60}
-              strokeWidth={2}
-              className="text-black -rotate-5 animate-float"
-            />
+
+            <div className="animate-ship">
+              <Sailboat
+                size={60}
+                strokeWidth={2}
+                className="text-black"
+              />
+            </div>
+
           </div>
 
         </div>
 
 
-        <p className="text-gray-500 mt-2 text-sm tracking-wide text-center px-5">
+        {/* TEXT */}
+        <p className="mt-2 px-5 text-center text-sm tracking-wide text-gray-500">
           {text}
         </p>
 

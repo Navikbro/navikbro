@@ -7,12 +7,14 @@
   --foreground: #171717;
 }
 
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -21,11 +23,44 @@
   }
 }
 
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+/* ------------------------------
+   GLOBAL MOBILE COMPACT SCALE
+------------------------------ */
+
+html {
+  font-size: 16px;
+}
+
+
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+
+@media (max-width: 380px) {
+  html {
+    font-size: 13px;
+  }
+}
+
+
+/* ------------------------------
+   LOADING SCREEN ANIMATIONS
+------------------------------ */
+
+
+/* Wave 1 */
+
 @keyframes wave1 {
   0%, 100% {
     transform: translateX(-20px);
@@ -36,6 +71,13 @@ body {
   }
 }
 
+
+.animate-wave1 {
+  animation: wave1 5s ease-in-out infinite;
+}
+
+
+/* Wave 2 */
 
 @keyframes wave2 {
   0%, 100% {
@@ -48,49 +90,47 @@ body {
 }
 
 
+.animate-wave2 {
+  animation: wave2 4s ease-in-out infinite;
+}
+
+
+/* Ship floating */
+
 @keyframes float {
-  0%,100% {
+  0%, 100% {
     transform: translateY(0px);
   }
 
   50% {
-    transform: translateY(-6px);
+    transform: translateY(-8px);
   }
-}
-
-
-.animate-wave1 {
-  animation: wave1 3s ease-in-out infinite;
-}
-
-
-.animate-wave2 {
-  animation: wave2 2.5s ease-in-out infinite;
 }
 
 
 .animate-float {
-  animation: float 3s ease-in-out infinite;
+  animation: float 5s ease-in-out infinite;
 }
 
-/* ------------------------------
-   GLOBAL MOBILE COMPACT SCALE
------------------------------- */
 
-html {
-  font-size: 16px;
-}
+/* Ship rocking */
 
-/* Phones */
-@media (max-width: 640px) {
-  html {
-    font-size: 14px;
+@keyframes ship {
+  0% {
+    transform: rotate(-5deg);
+  }
+
+  50% {
+    transform: rotate(5deg);
+  }
+
+  100% {
+    transform: rotate(-5deg);
   }
 }
 
-/* Very small phones */
-@media (max-width: 380px) {
-  html {
-    font-size: 13px;
-  }
+
+.animate-ship {
+  animation: ship 9s ease-in-out infinite;
+  transform-origin: center;
 }
