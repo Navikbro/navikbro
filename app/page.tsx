@@ -24,7 +24,6 @@ import {
 
 export default function HomePage() {
   const [showAuth, setShowAuth] = useState(false);
-  const [redirectPath, setRedirectPath] = useState("");
 
   const [oralStats, setOralStats] = useState<
     Record<
@@ -48,8 +47,7 @@ export default function HomePage() {
     >
   >({});
 
-  const requireLogin = (path: string) => {
-    setRedirectPath(path);
+  const requireLogin = () => {
     setShowAuth(true);
   };
 
@@ -76,8 +74,6 @@ export default function HomePage() {
       results.forEach(({ category, stats }) => {
         statsMap[category] = stats;
       });
-
-      console.log("Stats Map:", statsMap);
 
       setOralStats(statsMap);
     }
@@ -117,8 +113,6 @@ export default function HomePage() {
       results.forEach(({ category, stats }) => {
         statsMap[category] = stats;
       });
-
-      console.log("Written Stats:", statsMap);
 
       setWrittenStats(statsMap);
     }
@@ -259,7 +253,6 @@ export default function HomePage() {
       <AuthModal
         show={showAuth}
         setShow={setShowAuth}
-        redirectPath={redirectPath}
       />
     </main>
   );

@@ -14,7 +14,7 @@ interface CategoryCardProps {
   topics?: number;
   updatedAt?: Date | null;
 
-  onRequireLogin: (path: string) => void;
+  onRequireLogin: () => void;
 }
 
 export default function CategoryCard({
@@ -34,7 +34,7 @@ export default function CategoryCard({
     if (user) {
       router.push(href);
     } else {
-      onRequireLogin(href);
+      onRequireLogin();
     }
   };
 
@@ -87,9 +87,9 @@ export default function CategoryCard({
           Updated •{" "}
           {updatedAt
             ? updatedAt.toLocaleDateString("en-IN", {
-                month: "short",
-                year: "numeric",
-              })
+              month: "short",
+              year: "numeric",
+            })
             : "-"}
         </p>
       </div>

@@ -13,14 +13,13 @@ import { X, Sailboat } from "lucide-react";
 interface Props {
   show: boolean;
   setShow: (show: boolean) => void;
-  redirectPath: string;
 }
 
 export default function AuthModal({
   show,
   setShow,
-  redirectPath,
 }: Props) {
+
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -29,8 +28,7 @@ export default function AuthModal({
   const redirectUser = () => {
     setShow(false);
 
-    // use the requested path
-    router.replace(redirectPath || "/");
+    router.replace("/");
   };
 
   const handleGoogleLogin = async () => {
@@ -39,12 +37,16 @@ export default function AuthModal({
 
       const provider = new GoogleAuthProvider();
 
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
 
-      redirectUser();
+      if (result.user) {
+        redirectUser();
+      }
+
     } catch (err) {
       console.error(err);
       alert("Google Sign In Failed");
+
     } finally {
       setLoading(false);
     }
@@ -52,11 +54,15 @@ export default function AuthModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-5">
+
       <div className="w-full max-w-sm rounded-[32px] bg-white p-7 shadow-2xl">
 
         <div className="mb-8 flex items-start justify-between">
+
           <div>
+
             <div className="flex items-center gap-3">
+
               <Sailboat
                 size={30}
                 strokeWidth={2.2}
@@ -66,12 +72,15 @@ export default function AuthModal({
               <h2 className="text-3xl font-bold tracking-tight text-black">
                 NAVIK
               </h2>
+
             </div>
 
             <p className="mt-3 text-sm text-gray-500">
               Sign in to continue
             </p>
+
           </div>
+
 
           <button
             onClick={() => setShow(false)}
@@ -79,6 +88,7 @@ export default function AuthModal({
           >
             <X size={20} />
           </button>
+
         </div>
 
 
@@ -87,18 +97,23 @@ export default function AuthModal({
           disabled={loading}
           className="flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-300 px-4 py-4 font-medium hover:bg-gray-50 disabled:opacity-60"
         >
+
           <img
             src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
             alt="Google"
             className="h-5 w-5"
           />
 
+
           {loading
             ? "Signing in..."
             : "Continue with Google"}
+
         </button>
 
+
       </div>
+
     </div>
   );
 }
