@@ -36,8 +36,6 @@ export default function WrittensPage() {
       ? params.category.toLowerCase()
       : "general";
 
-  const STORAGE_KEY = `bookmarkedWrittenQuestions-${category}`;
-
   const [questions, setQuestions] = useState<WrittenQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookmarks, setBookmarks] = useState<string[]>([]);
@@ -45,7 +43,6 @@ export default function WrittensPage() {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-
   const [selectedClass, setSelectedClass] = useState("All");
   const [selectedYear, setSelectedYear] = useState("All");
   const [selectedMonth, setSelectedMonth] = useState("All");
@@ -160,7 +157,6 @@ export default function WrittensPage() {
     selectedMonth,
     selectedTopic,
     showBookmarksOnly,
-    bookmarks,
   ]);
 
   useEffect(() => {
@@ -172,6 +168,14 @@ export default function WrittensPage() {
       setBookmarks([]);
     }
   }, [bookmarkStorageKey]);
+
+  useEffect(() => {
+    if (currentIndex >= filteredQuestions.length) {
+      setCurrentIndex(
+        Math.max(filteredQuestions.length - 1, 0)
+      );
+    }
+  }, [filteredQuestions.length, currentIndex]);
 
   const titles: Record<
     string,
@@ -211,6 +215,18 @@ export default function WrittensPage() {
   };
 
   const toggleBookmark = (id: string) => {
+    // If we're in Bookmarks Only mode and removing the current bookmark,
+    // move to the next/previous question first.
+    if (
+      showBookmarksOnly &&
+      bookmarks.includes(id) &&
+      filteredQuestions.length > 1
+    ) {
+      if (currentIndex === filteredQuestions.length - 1) {
+        setCurrentIndex(currentIndex - 1);
+      }
+    }
+
     setBookmarks((prev) => {
       const updated = prev.includes(id)
         ? prev.filter((item) => item !== id)
@@ -386,11 +402,13 @@ export default function WrittensPage() {
           <div className="mt-8 space-y-6">
             {currentQuestion && (
               <>
-                <WrittenCard
-                  question={currentQuestion}
-                  isBookmarked={bookmarks.includes(currentQuestion.id)}
-                  onBookmark={() => toggleBookmark(currentQuestion.id)}
-                />
+                <div id="question-card">
+                  <WrittenCard
+                    question={currentQuestion}
+                    isBookmarked={bookmarks.includes(currentQuestion.id)}
+                    onBookmark={() => toggleBookmark(currentQuestion.id)}
+                  />
+                </div>
 
                 {/* Navigation */}
                 <div className="mt-6 flex items-center justify-between">
