@@ -6,6 +6,7 @@ import {
     deleteDoc,
     doc,
     getDocs,
+    getDoc,
     orderBy,
     query,
     serverTimestamp,
@@ -13,6 +14,10 @@ import {
     updateDoc,
     where,
     writeBatch,
+    limit,
+    startAfter,
+    QueryDocumentSnapshot,
+    DocumentData,
 } from "firebase/firestore";
 
 
@@ -49,6 +54,13 @@ export interface Question {
     order: number;
     isActive: boolean;
 }
+
+export interface PaginatedQuestions {
+    questions: Question[];
+    lastDoc: QueryDocumentSnapshot<DocumentData> | null;
+    hasMore: boolean;
+}
+
 export interface CommunityAnswer {
     id: string;
     category: string;
@@ -103,6 +115,68 @@ export async function getQuestions(
     questionCache.set(key, result);
 
     return result;
+}
+
+export async function getQuestionsPaginated(
+    category: string,
+    lastDoc: QueryDocumentSnapshot<DocumentData> | null = null,
+    pageSize = 20
+): Promise<PaginatedQuestions> {
+
+    let q;
+
+    if (lastDoc) {
+        q = query(
+            collection(
+                db,
+                "orals",
+                category.toLowerCase(),
+                "questions"
+            ),
+            orderBy("order"),
+            startAfter(lastDoc),
+            limit(pageSize)
+        );
+    } else {
+        q = query(
+            collection(
+                db,
+                "orals",
+                category.toLowerCase(),
+                "questions"
+            ),
+            orderBy("order"),
+            limit(pageSize)
+        );
+    }
+
+    const snapshot = await getDocs(q);
+
+    const questions = snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+            id: doc.id,
+            question: data.question,
+            answer: data.answer,
+            topic: data.topic,
+            mmd: data.mmd,
+            surveyor: data.surveyor,
+            class: data.class ?? "",
+            examDate: data.examDate ?? "",
+            order: data.order,
+            isActive: data.isActive,
+        };
+    });
+
+    return {
+        questions,
+        lastDoc:
+            snapshot.docs.length > 0
+                ? snapshot.docs[snapshot.docs.length - 1]
+                : null,
+        hasMore: snapshot.docs.length === pageSize,
+    };
 }
 
 export async function submitCommunityAnswer(data: {
@@ -263,6 +337,37 @@ export async function getAllOralQuestionCounts() {
     }
 
     return counts;
+}
+
+export interface OralCategoryMeta {
+    questionCount: number;
+    topicCount: number;
+}
+
+export async function getOralCategoryMeta(
+    category: string
+): Promise<OralCategoryMeta> {
+    const snapshot = await getDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase()
+        )
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            questionCount: 0,
+            topicCount: 0,
+        };
+    }
+
+    const data = snapshot.data();
+
+    return {
+        questionCount: data.questionCount ?? 0,
+        topicCount: data.topicCount ?? 0,
+    };
 }
 
 export async function getOralQuestionsForExport(
@@ -691,3 +796,57 @@ export async function deleteQuestionsBatch(
 
     clearQuestionCache(category);
 }
+
+export interface OrderPaginationResult {
+    questions: Question[];
+    lastOrder: number | null;
+    hasMore: boolean;
+}
+
+export async function getQuestionsByOrder(
+    category: string,
+    lastOrder = 0,
+    pageSize = 20
+): Promise<OrderPaginationResult> {
+
+    const q = query(
+        collection(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions"
+        ),
+        where("order", ">", lastOrder),
+        orderBy("order"),
+        limit(pageSize)
+    );
+
+    const snapshot = await getDocs(q);
+
+    const questions = snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+            id: doc.id,
+            question: data.question,
+            answer: data.answer,
+            topic: data.topic,
+            mmd: data.mmd,
+            surveyor: data.surveyor,
+            class: data.class ?? "",
+            examDate: data.examDate ?? "",
+            order: data.order,
+            isActive: data.isActive,
+        };
+    });
+
+    return {
+        questions,
+        lastOrder:
+            questions.length > 0
+                ? questions[questions.length - 1].order
+                : null,
+        hasMore: questions.length === pageSize,
+    };
+}
+

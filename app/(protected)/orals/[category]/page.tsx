@@ -1,11 +1,12 @@
-import QuestionsList from "@/components/QuestionsList";
-import { getQuestions } from "@/services/firestore";
+
+
 import UserGreeting from "@/components/UserGreeting";
+import QuestionsContainer from "@/components/QuestionsContainer";
 
 import Link from "next/link";
 import { ArrowLeft, Sailboat } from "lucide-react";
 import InsightSwitcher from "@/components/InsightSwitcher";
-
+import { getOralCategoryMeta } from "@/services/firestore";
 interface PageProps {
   params: Promise<{
     category: string;
@@ -16,8 +17,7 @@ export default async function OralCategoryPage({
   params,
 }: PageProps) {
   const { category } = await params;
-
-  const questions = await getQuestions(category);
+  const meta = await getOralCategoryMeta(category);
 
   const titles: Record<
     string,
@@ -60,10 +60,7 @@ export default async function OralCategoryPage({
       "Success belongs to those who prepare before opportunity arrives.",
   };
 
-  // Count Topics
-  const topics = new Set(
-    questions.map((q: any) => q.topic).filter(Boolean)
-  ).size;
+  const topics = 0;
 
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
@@ -126,13 +123,11 @@ export default async function OralCategoryPage({
 
           {/* Stats */}
           <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
-
-            <span>{questions.length} Questions</span>
+            <span>{meta.questionCount} Questions</span>
 
             <span>•</span>
 
-            <span>{topics} Topics</span>
-
+            <span>{meta.topicCount} Topics</span>
           </div>
 
         </div>
@@ -143,9 +138,8 @@ export default async function OralCategoryPage({
         />
 
         {/* Questions */}
-        <QuestionsList
+        <QuestionsContainer
           category={category}
-          questions={questions}
         />
 
       </div>
