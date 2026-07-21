@@ -41,9 +41,10 @@ export default function QuestionsList({
   const [bookmarks, setBookmarks] = useState<string[]>([]);
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
 
-  const DEFAULT_MMD = "Chennai";
+  const DEFAULT_MMD = "All";
 
-  const [selectedMmd, setSelectedMmd] = useState(DEFAULT_MMD);
+  const [selectedMmd, setSelectedMmd] =
+    useState(DEFAULT_MMD);
   const [selectedSurveyor, setSelectedSurveyor] = useState("All");
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [selectedClass, setSelectedClass] = useState("All");
@@ -74,7 +75,7 @@ export default function QuestionsList({
 
   const filteredQuestions = useMemo(() => {
     return questions.filter((q) => {
-      if (!q.isActive) return false;
+      if (q.isActive === false) return false;
       if (showBookmarksOnly && !bookmarks.includes(q.id))
         return false;
 
@@ -108,8 +109,7 @@ export default function QuestionsList({
           q.question
             .toLowerCase()
             .includes(search.toLowerCase()) ||
-          q.answer
-            .toLowerCase()
+          (q.answer ?? "").toLowerCase()
             .includes(search.toLowerCase()) ||
           q.topic
             .toLowerCase()
