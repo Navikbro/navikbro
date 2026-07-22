@@ -1,9 +1,12 @@
 import { unstable_cache } from "next/cache";
-import { getQuestionsByOrder } from "@/services/firestore";
+import {
+  getQuestionsPaginated,
+  PaginatedQuestions,
+} from "@/services/firestore";
 
 export const getCachedFirstQuestions = unstable_cache(
-  async (category: string) => {
-    return getQuestionsByOrder(category, 0, 20);
+  async (category: string): Promise<PaginatedQuestions> => {
+    return getQuestionsPaginated(category);
   },
   ["oral-first-page"],
   {
