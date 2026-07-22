@@ -5,70 +5,64 @@ import { useEffect, useRef, useState } from "react";
 import QuestionsList from "./QuestionsList";
 
 import {
-    getQuestionsByOrder,
+    getQuestionsPaginated,
     Question,
 } from "@/services/firestore";
 
+import type {
+    QueryDocumentSnapshot,
+    DocumentData,
+} from "firebase/firestore";
+
 interface Props {
     category: string;
+    initialQuestions: Question[];
+    initialLastDoc: QueryDocumentSnapshot<DocumentData> | null;
+    initialHasMore: boolean;
 }
 
 export default function QuestionsContainer({
     category,
+    initialQuestions,
+    initialLastDoc,
+    initialHasMore,
 }: Props) {
-    const [questions, setQuestions] = useState<Question[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [questions, setQuestions] = useState(initialQuestions);
 
-    const [lastOrder, setLastOrder] = useState(0);
-    const [hasMore, setHasMore] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const [lastDoc, setLastDoc] =
+        useState(initialLastDoc);
+
+    const [hasMore, setHasMore] =
+        useState(initialHasMore);
+
+    const [loadingMore, setLoadingMore] =
+        useState(false);
 
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-    const hasMoreRef = useRef(false);
+    const hasMoreRef = useRef(initialHasMore);
+
     const loadingRef = useRef(false);
+
     const loadingMoreRef = useRef(false);
-    const lastOrderRef = useRef(0);
+
+    const lastDocRef = useRef(initialLastDoc);
 
     useEffect(() => {
-        setQuestions([]);
-        setLoading(true);
-        setLastOrder(0);
-        setHasMore(false);
+        setQuestions(initialQuestions);
+        setLastDoc(initialLastDoc);
+        setHasMore(initialHasMore);
 
-        lastOrderRef.current = 0;
-        hasMoreRef.current = false;
-        loadingRef.current = true;
-        loadingMoreRef.current = false;
-
-        loadFirstPage();
-    }, [category]);
-
-    async function loadFirstPage() {
-        try {
-            loadingRef.current = true;
-            setLoading(true);
-
-            const result = await getQuestionsByOrder(category);
-
-            setQuestions(result.questions);
-            setLastOrder(result.lastOrder ?? 0);
-            const nextOrder = result.lastOrder ?? 0;
-
-            setLastOrder(nextOrder);
-            lastOrderRef.current = nextOrder;
-
-            setHasMore(result.hasMore);
-            hasMoreRef.current = result.hasMore;
-            setHasMore(result.hasMore);
-            hasMoreRef.current = result.hasMore;
-        } catch (err) {
-            console.error(err);
-        } finally {
-            loadingRef.current = false;
-            setLoading(false);
-        }
-    }
+        lastDocRef.current = initialLastDoc;
+        hasMoreRef.current = initialHasMore;
+    }, [
+        category,
+        initialQuestions,
+        initialLastDoc,
+        initialHasMore,
+    ]);
 
     async function loadMore() {
         if (
@@ -83,9 +77,9 @@ export default function QuestionsContainer({
             setLoadingMore(true);
             loadingMoreRef.current = true;
 
-            const result = await getQuestionsByOrder(
+            const result = await getQuestionsPaginated(
                 category,
-                lastOrderRef.current
+                lastDocRef.current
             );
 
             setQuestions((prev) => {
@@ -98,12 +92,11 @@ export default function QuestionsContainer({
                     ),
                 ];
             });
+            setLastDoc(result.lastDoc);
+            lastDocRef.current = result.lastDoc;
 
-            const nextOrder = result.lastOrder ?? lastOrderRef.current;
-
-            setLastOrder(nextOrder);
-            lastOrderRef.current = nextOrder;
             setHasMore(result.hasMore);
+            hasMoreRef.current = result.hasMore;
         } catch (err) {
             console.error(err);
         } finally {
@@ -125,8 +118,8 @@ export default function QuestionsContainer({
     }, [loadingMore]);
 
     useEffect(() => {
-        lastOrderRef.current = lastOrder;
-    }, [lastOrder]);
+        lastDocRef.current = lastDoc;
+    }, [lastDoc]);
 
     useEffect(() => {
         const element = loadMoreRef.current;
@@ -152,7 +145,7 @@ export default function QuestionsContainer({
         observer.observe(element);
 
         return () => observer.disconnect();
-    }, [hasMore]);
+    }, []);
 
     if (loading) {
         return (

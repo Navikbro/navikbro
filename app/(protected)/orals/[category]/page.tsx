@@ -2,11 +2,23 @@
 
 import UserGreeting from "@/components/UserGreeting";
 import QuestionsContainer from "@/components/QuestionsContainer";
-
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft, Sailboat } from "lucide-react";
 import InsightSwitcher from "@/components/InsightSwitcher";
 import { getOralCategoryMeta } from "@/services/firestore";
+import { getCachedFirstQuestions } from "@/lib/oral-cache";
+
+const getCachedOralCategoryMeta = unstable_cache(
+  async (category: string) => {
+    return getOralCategoryMeta(category);
+  },
+  ["oral-category-meta"],
+  {
+    revalidate: 3600, // 1 hour
+  }
+);
+
 interface PageProps {
   params: Promise<{
     category: string;
@@ -17,7 +29,11 @@ export default async function OralCategoryPage({
   params,
 }: PageProps) {
   const { category } = await params;
-  const meta = await getOralCategoryMeta(category);
+
+  const [meta, firstPage] = await Promise.all([
+    getCachedOralCategoryMeta(category),
+    getCachedFirstQuestions(category),
+  ]);
 
   const titles: Record<
     string,
@@ -59,8 +75,6 @@ export default async function OralCategoryPage({
     quote:
       "Success belongs to those who prepare before opportunity arrives.",
   };
-
-  const topics = 0;
 
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
@@ -140,6 +154,9 @@ export default async function OralCategoryPage({
         {/* Questions */}
         <QuestionsContainer
           category={category}
+          initialQuestions={firstPage.questions}
+          initialLastDoc={firstPage.lastDoc}
+          initialHasMore={firstPage.hasMore}
         />
 
       </div>
