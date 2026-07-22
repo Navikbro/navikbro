@@ -6,7 +6,10 @@ import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft, Sailboat } from "lucide-react";
 import InsightSwitcher from "@/components/InsightSwitcher";
-import { getOralCategoryMeta } from "@/services/firestore";
+import {
+  getOralCategoryMeta,
+  getOralFilters,
+} from "@/services/firestore";
 import { getCachedFirstQuestions } from "@/lib/oral-cache";
 
 const getCachedOralCategoryMeta = unstable_cache(
@@ -30,8 +33,9 @@ export default async function OralCategoryPage({
 }: PageProps) {
   const { category } = await params;
 
-  const [meta, firstPage] = await Promise.all([
+  const [meta, filters, firstPage] = await Promise.all([
     getCachedOralCategoryMeta(category),
+    getOralFilters(category),
     getCachedFirstQuestions(category),
   ]);
 
@@ -157,6 +161,7 @@ export default async function OralCategoryPage({
           initialQuestions={firstPage.questions}
           initialLastDoc={firstPage.lastDoc}
           initialHasMore={firstPage.hasMore}
+          filters={filters}
         />
 
       </div>

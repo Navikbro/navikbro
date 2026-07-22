@@ -54,6 +54,10 @@ app/
       page.tsx
     orals/
       [category]/
+        topics/
+          loading.tsx
+          page.tsx
+        loading.tsx
         page.tsx
     writtens/
       [category]/
@@ -75,10 +79,12 @@ components/
   FilterBar.tsx
   Header.tsx
   InitialLoader.tsx
+  InsightSwitcher.tsx
   LoadingScreen.tsx
   MarkdownRenderer.tsx
   ProtectedRoute.tsx
   QuestionCard.tsx
+  QuestionsContainer.tsx
   QuestionsList.tsx
   QuestionTable.tsx
   SectionHeading.tsx
@@ -87,6 +93,7 @@ components/
   WrittenFilters.tsx
 lib/
   firebase.ts
+  oral-cache.ts
   orals.ts
   writtens.ts
 public/
@@ -118,6 +125,168 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="app/(protected)/orals/[category]/topics/loading.tsx">
+import LoadingScreen from "@/components/LoadingScreen";
+
+export default function Loading() {
+  return (
+    <LoadingScreen text="Loading Topics..." />
+  );
+}
+</file>
+
+<file path="app/(protected)/orals/[category]/topics/page.tsx">
+import UserGreeting from "@/components/UserGreeting";
+import InsightSwitcher from "@/components/InsightSwitcher";
+
+import Link from "next/link";
+import { ArrowLeft, Sailboat } from "lucide-react";
+
+interface PageProps {
+  params: Promise<{
+    category: string;
+  }>;
+}
+
+export default async function OralTopicsPage({
+  params,
+}: PageProps) {
+  const { category } = await params;
+
+  const titles: Record<
+    string,
+    {
+      title: string;
+      subtitle: string;
+      quote: string;
+    }
+  > = {
+    fn3: {
+      title: "FN3",
+      subtitle: "SAFETY",
+      quote: "Master one topic at a time.",
+    },
+    fn4b: {
+      title: "FN4B",
+      subtitle: "MOTOR",
+      quote: "Strong concepts build confident answers.",
+    },
+    fn5: {
+      title: "FN5",
+      subtitle: "ELECTRICAL",
+      quote: "Revise topics. Remember answers.",
+    },
+    fn6: {
+      title: "FN6",
+      subtitle: "MEP",
+      quote: "Every topic mastered is one step closer to success.",
+    },
+  };
+
+  const page = titles[category.toLowerCase()] ?? {
+    title: category.toUpperCase(),
+    subtitle: "TOPICS",
+    quote: "Study smarter by focusing on one topic at a time.",
+  };
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-5xl px-5 py-8">
+
+        {/* Header */}
+
+        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+          {/* Top */}
+
+          <div className="flex items-center justify-between">
+
+            <Link
+              href={`/orals/${category}`}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+
+            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+              <Sailboat
+                size={30}
+                strokeWidth={2}
+                className="text-black"
+              />
+            </div>
+
+          </div>
+
+          {/* Greeting */}
+
+          <div className="mt-7">
+            <UserGreeting />
+          </div>
+
+          {/* Quote */}
+
+          <div className="mt-6 border-l-4 border-black pl-4">
+            <p className="text-sm italic leading-6 text-gray-600">
+              {page.quote}
+            </p>
+          </div>
+
+          {/* Badge */}
+
+          <div className="mt-6">
+            <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
+              {page.title}
+            </span>
+          </div>
+
+          {/* Title */}
+
+          <div className="mt-5">
+            <h1 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">
+              {page.subtitle}
+            </h1>
+          </div>
+
+          {/* Stats */}
+
+          <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
+
+            <span>0 Topics</span>
+
+            <span>•</span>
+
+            <span>0 Questions</span>
+
+          </div>
+
+        </div>
+
+        {/* View Switcher */}
+
+        <InsightSwitcher
+          category={category}
+          current="topics"
+        />
+
+        {/* Search */}
+
+        <div className="mb-6">
+          {/* Search bar goes here */}
+        </div>
+
+        {/* Topics Grid */}
+
+        <div>
+          {/* Topic cards go here */}
+        </div>
+
+      </div>
+    </main>
+  );
+}
+</file>
 
 <file path="app/(protected)/layout.tsx">
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -447,6 +616,60 @@ export default function FilterBar({
 }
 </file>
 
+<file path="components/InsightSwitcher.tsx">
+"use client";
+
+import Link from "next/link";
+
+interface Props {
+  category: string;
+  current: "questions" | "topics";
+}
+
+export default function InsightSwitcher({
+  category,
+  current,
+}: Props) {
+  return (
+    <div className="mb-4">
+      <div className="flex w-full gap-1 rounded-2xl border border-gray-300 bg-white p-1">
+
+        <Link
+          href={`/orals/${category}`}
+          className={`
+            flex h-10 flex-1 items-center justify-center rounded-xl
+            text-sm font-medium transition-all duration-200 ease-in-out
+            ${
+              current === "questions"
+                ? "pointer-events-none bg-black text-white shadow-sm"
+                : "text-gray-600 hover:bg-gray-100 hover:text-black"
+            }
+          `}
+        >
+          Questions
+        </Link>
+
+        <Link
+          href={`/orals/${category}/topics`}
+          className={`
+            flex h-10 flex-1 items-center justify-center rounded-xl
+            text-sm font-medium transition-all duration-200 ease-in-out
+            ${
+              current === "topics"
+                ? "pointer-events-none bg-black text-white shadow-sm"
+                : "text-gray-600 hover:bg-gray-100 hover:text-black"
+            }
+          `}
+        >
+          Topics
+        </Link>
+
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="components/MarkdownRenderer.tsx">
 "use client";
 
@@ -695,6 +918,21 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 export default app;
+</file>
+
+<file path="lib/oral-cache.ts">
+import { unstable_cache } from "next/cache";
+import { getQuestionsByOrder } from "@/services/firestore";
+
+export const getCachedFirstQuestions = unstable_cache(
+  async (category: string) => {
+    return getQuestionsByOrder(category, 0, 20);
+  },
+  ["oral-first-page"],
+  {
+    revalidate: 300, // 5 minutes
+  }
+);
 </file>
 
 <file path="public/file.svg">
@@ -1144,177 +1382,226 @@ export default function DownloadsPage() {
 }
 </file>
 
-<file path="components/AuthModal.tsx">
+<file path="app/(protected)/orals/[category]/loading.tsx">
+export default function Loading() {
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-5xl px-5 py-8">
+        <div className="h-64 animate-pulse rounded-3xl bg-white" />
+
+        <div className="mt-8 space-y-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-28 animate-pulse rounded-2xl bg-gray-200"
+            />
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="components/QuestionsContainer.tsx">
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { X, Mail } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
+import QuestionsList from "./QuestionsList";
+
 import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase";
+    getQuestionsPaginated,
+    Question,
+} from "@/services/firestore";
+
+import type {
+    QueryDocumentSnapshot,
+    DocumentData,
+} from "firebase/firestore";
+
+import type { OralFilters } from "@/services/firestore";
 
 interface Props {
-  show: boolean;
-  setShow: (show: boolean) => void;
-  redirectPath: string;
+    category: string;
+    initialQuestions: Question[];
+    initialLastDoc: QueryDocumentSnapshot<DocumentData> | null;
+    initialHasMore: boolean;
+    filters: OralFilters;
 }
 
-export default function AuthModal({
-  show,
-  setShow,
-  redirectPath,
+export default function QuestionsContainer({
+    category,
+    initialQuestions,
+    initialLastDoc,
+    initialHasMore,
+    filters,
 }: Props) {
-  const router = useRouter();
+    const [questions, setQuestions] = useState(initialQuestions);
 
-  const [isSignup, setIsSignup] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-  if (!show) return null;
+    const [lastDoc, setLastDoc] =
+        useState(initialLastDoc);
 
-  const redirectUser = () => {
-    setShow(false);
+    const [hasMore, setHasMore] =
+        useState(initialHasMore);
 
-    router.replace("/");
-  };
+    const [loadingMore, setLoadingMore] =
+        useState(false);
 
-  const handleGoogleLogin = async () => {
-    try {
-      setLoading(true);
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-      const provider = new GoogleAuthProvider();
+    const hasMoreRef = useRef(initialHasMore);
 
-      await signInWithPopup(auth, provider);
+    const loadingRef = useRef(false);
 
-      redirectUser();
-    } catch (err) {
-      console.error(err);
-      alert("Google Sign In Failed");
-    } finally {
-      setLoading(false);
+    const loadingMoreRef = useRef(false);
+
+    const lastDocRef = useRef(initialLastDoc);
+
+    useEffect(() => {
+        setQuestions(initialQuestions);
+        setLastDoc(initialLastDoc);
+        setHasMore(initialHasMore);
+
+        lastDocRef.current = initialLastDoc;
+        hasMoreRef.current = initialHasMore;
+    }, [
+        category,
+        initialQuestions,
+        initialLastDoc,
+        initialHasMore,
+    ]);
+
+    async function loadMore() {
+        if (
+            !hasMoreRef.current ||
+            loadingRef.current ||
+            loadingMoreRef.current
+        ) {
+            return;
+        }
+
+        try {
+            setLoadingMore(true);
+            loadingMoreRef.current = true;
+
+            const result = await getQuestionsPaginated(
+                category,
+                lastDocRef.current
+            );
+
+            setQuestions((prev) => {
+                const ids = new Set(prev.map((q) => q.id));
+
+                return [
+                    ...prev,
+                    ...result.questions.filter(
+                        (q) => !ids.has(q.id)
+                    ),
+                ];
+            });
+            setLastDoc(result.lastDoc);
+            lastDocRef.current = result.lastDoc;
+
+            setHasMore(result.hasMore);
+            hasMoreRef.current = result.hasMore;
+        } catch (err) {
+            console.error(err);
+        } finally {
+            loadingMoreRef.current = false;
+            setLoadingMore(false);
+        }
     }
-  };
 
-  const handleEmailAuth = async () => {
-    try {
-      setLoading(true);
+    useEffect(() => {
+        hasMoreRef.current = hasMore;
+    }, [hasMore]);
 
-      if (isSignup) {
-        await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password
+    useEffect(() => {
+        loadingRef.current = loading;
+    }, [loading]);
+
+    useEffect(() => {
+        loadingMoreRef.current = loadingMore;
+    }, [loadingMore]);
+
+    useEffect(() => {
+        lastDocRef.current = lastDoc;
+    }, [lastDoc]);
+
+    useEffect(() => {
+        const element = loadMoreRef.current;
+
+        if (!element) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (
+                    entry.isIntersecting &&
+                    hasMoreRef.current &&
+                    !loadingRef.current &&
+                    !loadingMoreRef.current
+                ) {
+                    loadMore();
+                }
+            },
+            {
+                rootMargin: "300px",
+            }
         );
-      } else {
-        await signInWithEmailAndPassword(
-          auth,
-          email,
-          password
+
+        observer.observe(element);
+
+        return () => observer.disconnect();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="space-y-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                        key={i}
+                        className="h-28 animate-pulse rounded-2xl bg-gray-200"
+                    />
+                ))}
+            </div>
         );
-      }
-
-      setEmail("");
-      setPassword("");
-
-      redirectUser();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
     }
-  };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-5">
-      <div className="w-full max-w-sm rounded-[32px] bg-white p-7 shadow-2xl">
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <h2 className="text-3xl font-bold">
-              {isSignup ? "Create Account" : "Welcome"}
-            </h2>
+    return (
+        <>
+            <QuestionsList
+                category={category}
+                questions={questions}
+                filters={filters}
+            />
 
-            <p className="mt-2 text-sm text-gray-500">
-              Sign in to continue using NAVIK.
-            </p>
-          </div>
+            {/* Infinite Scroll Trigger */}
+            {hasMore && (
+                <div
+                    ref={loadMoreRef}
+                    className="flex justify-center py-8"
+                >
+                    {loadingMore && (
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" />
+                    )}
+                </div>
+            )}
 
-          <button
-            onClick={() => setShow(false)}
-            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100"
-          >
-            <X size={20} />
-          </button>
-        </div>
+            {/* End Message */}
+            {!hasMore && questions.length > 0 && (
+                <div className="py-10 text-center">
+                    <div className="mx-auto mb-4 h-px w-24 bg-gray-300" />
 
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-300 px-4 py-4 font-medium hover:bg-gray-50 disabled:opacity-60"
-        >
-          <img
-            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-            alt="Google"
-            className="h-5 w-5"
-          />
-
-          Continue with Google
-        </button>
-
-        <div className="mb-5 flex items-center gap-4">
-          <div className="h-px flex-1 bg-gray-200" />
-          <span className="text-xs text-gray-400">OR</span>
-          <div className="h-px flex-1 bg-gray-200" />
-        </div>
-
-        <div className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-2xl border border-gray-300 px-4 py-4 outline-none focus:border-black"
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-2xl border border-gray-300 px-4 py-4 outline-none focus:border-black"
-          />
-        </div>
-
-        <button
-          onClick={handleEmailAuth}
-          disabled={loading}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white disabled:opacity-60"
-        >
-          <Mail size={18} />
-
-          {loading
-            ? "Please wait..."
-            : isSignup
-              ? "Create Account"
-              : "Login"}
-        </button>
-
-        <button
-          onClick={() => setIsSignup(!isSignup)}
-          className="mt-5 w-full text-sm text-gray-500 hover:text-black"
-        >
-          {isSignup
-            ? "Already have an account? Login"
-            : "New here? Create account"}
-        </button>
-      </div>
-    </div>
-  );
+                    <p className="text-sm text-gray-500">
+                        You've reached the end.
+                    </p>
+                </div>
+            )}
+        </>
+    );
 }
 </file>
 
@@ -2617,6 +2904,128 @@ export default function WrittenUploadPage() {
 }
 </file>
 
+<file path="components/AuthModal.tsx">
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
+import { auth } from "@/lib/firebase";
+
+import { X, Sailboat } from "lucide-react";
+
+interface Props {
+  show: boolean;
+  setShow: (show: boolean) => void;
+}
+
+export default function AuthModal({
+  show,
+  setShow,
+}: Props) {
+
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  if (!show) return null;
+
+  const redirectUser = () => {
+    setShow(false);
+
+    router.replace("/");
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+
+      const provider = new GoogleAuthProvider();
+
+      const result = await signInWithPopup(auth, provider);
+
+      if (result.user) {
+        redirectUser();
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert("Google Sign In Failed");
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-5">
+
+      <div className="w-full max-w-sm rounded-[32px] bg-white p-7 shadow-2xl">
+
+        <div className="mb-8 flex items-start justify-between">
+
+          <div>
+
+            <div className="flex items-center gap-3">
+
+              <Sailboat
+                size={30}
+                strokeWidth={2.2}
+                className="rotate-[-8deg] text-black"
+              />
+
+              <h2 className="text-3xl font-bold tracking-tight text-black">
+                NAVIK
+              </h2>
+
+            </div>
+
+            <p className="mt-3 text-sm text-gray-500">
+              Sign in to continue
+            </p>
+
+          </div>
+
+
+          <button
+            onClick={() => setShow(false)}
+            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100"
+          >
+            <X size={20} />
+          </button>
+
+        </div>
+
+
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-300 px-4 py-4 font-medium hover:bg-gray-50 disabled:opacity-60"
+        >
+
+          <img
+            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+            alt="Google"
+            className="h-5 w-5"
+          />
+
+
+          {loading
+            ? "Signing in..."
+            : "Continue with Google"}
+
+        </button>
+
+
+      </div>
+
+    </div>
+  );
+}
+</file>
+
 <file path="components/WrittenFilters.tsx">
 "use client";
 
@@ -2753,6 +3162,85 @@ export default function WrittenFilters({
 }
 </file>
 
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+
+import { AuthProvider } from "@/app/context/AuthContext";
+import InitialLoader from "@/components/InitialLoader";
+export const metadata: Metadata = {
+  title: "NAVIK",
+  description: "Sail Towards COC",
+
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0A2540",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider>
+          <InitialLoader>
+            {children}
+          </InitialLoader>
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+</file>
+
 <file path="components/CategoryCard.tsx">
 "use client";
 
@@ -2770,7 +3258,7 @@ interface CategoryCardProps {
   topics?: number;
   updatedAt?: Date | null;
 
-  onRequireLogin: (path: string) => void;
+  onRequireLogin: () => void;
 }
 
 export default function CategoryCard({
@@ -2790,7 +3278,7 @@ export default function CategoryCard({
     if (user) {
       router.push(href);
     } else {
-      onRequireLogin(href);
+      onRequireLogin();
     }
   };
 
@@ -2843,9 +3331,9 @@ export default function CategoryCard({
           Updated •{" "}
           {updatedAt
             ? updatedAt.toLocaleDateString("en-IN", {
-                month: "short",
-                year: "numeric",
-              })
+              month: "short",
+              year: "numeric",
+            })
             : "-"}
         </p>
       </div>
@@ -2864,34 +3352,41 @@ interface Props {
 }
 
 export default function LoadingScreen({
-  text = "Loading Questions..."
+  text = "Loading Questions...",
 }: Props) {
   return (
-    <div className="fixed inset-0 z-50 bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#f5f5f5]">
 
       <div className="flex flex-col items-center">
 
-        {/* WAVES */}
-        <div className="relative w-64 h-24 flex items-end justify-center overflow-hidden mb-2">
+        {/* WAVES + SHIP */}
+        <div className="relative mb-2 flex h-24 w-64 items-end justify-center overflow-hidden">
 
-          <div className="absolute bottom-0 w-[300px] h-6 bg-black/10 rounded-[100%] animate-wave1" />
+          {/* Wave 1 */}
+          <div className="absolute bottom-0 h-6 w-[300px] rounded-[100%] bg-black/10 animate-wave1" />
 
-          <div className="absolute bottom-2 w-[260px] h-5 bg-black/5 rounded-[100%] animate-wave2" />
+          {/* Wave 2 */}
+          <div className="absolute bottom-2 h-5 w-[260px] rounded-[100%] bg-black/5 animate-wave2" />
 
 
           {/* SHIP */}
           <div className="relative animate-float">
-            <Sailboat
-              size={60}
-              strokeWidth={2}
-              className="text-black -rotate-5 animate-float"
-            />
+
+            <div className="animate-ship">
+              <Sailboat
+                size={60}
+                strokeWidth={2}
+                className="text-black"
+              />
+            </div>
+
           </div>
 
         </div>
 
 
-        <p className="text-gray-500 mt-2 text-sm tracking-wide text-center px-5">
+        {/* TEXT */}
+        <p className="mt-2 px-5 text-center text-sm tracking-wide text-gray-500">
           {text}
         </p>
 
@@ -2903,194 +3398,179 @@ export default function LoadingScreen({
 }
 </file>
 
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "exceljs": "^4.4.0",
-    "firebase": "^12.15.0",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
-</file>
+<file path="app/(protected)/admin/page.tsx">
+"use client";
 
-<file path="app/(protected)/orals/[category]/page.tsx">
-import QuestionsList from "@/components/QuestionsList";
-import { getQuestions } from "@/services/firestore";
-import UserGreeting from "@/components/UserGreeting";
-
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Sailboat } from "lucide-react";
 
-interface PageProps {
-  params: Promise<{
+import { useAuth } from "@/app/context/AuthContext";
+import { isUserAdmin } from "@/services/admin";
+import {
+    getPendingAnswers,
+    approveAnswer,
+    rejectAnswer,
+} from "@/services/firestore";
+
+import AdminAnswerCard from "@/components/AdminAnswerCard";
+
+interface PendingAnswer {
+    id: string;
+    questionId: string;
     category: string;
-  }>;
+    userName: string;
+    answer: string;
 }
 
-export default async function OralCategoryPage({
-  params,
-}: PageProps) {
-  const { category } = await params;
+export default function AdminPage() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
 
-  const questions = await getQuestions(category);
-  
-  const titles: Record<
-    string,
-    {
-      title: string;
-      subtitle: string;
-      quote: string;
+    const [checking, setChecking] = useState(true);
+    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
+
+    useEffect(() => {
+        async function init() {
+            if (loading) return;
+
+            if (!user) {
+                router.replace("/");
+                return;
+            }
+
+            const admin = await isUserAdmin(user.uid);
+
+            if (!admin) {
+                router.replace("/");
+                return;
+            }
+
+            const pending = await getPendingAnswers();
+
+            setAnswers(pending as PendingAnswer[]);
+            setChecking(false);
+        }
+
+        init();
+    }, [user, loading, router]);
+
+    async function handleApprove(id: string) {
+        await approveAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
     }
-  > = {
-    fn3: {
-      title: "FN3",
-      subtitle: "SAFETY",
-      quote:
-        "Today's revision is tomorrow's Promotion.",
-    },
-    fn4b: {
-      title: "FN4B",
-      subtitle: "MOTOR",
-      quote:
-        "Knowledge grows one question at a time.",
-    },
-    fn5: {
-      title: "FN5",
-      subtitle: "ELECTRICAL",
-      quote:
-        "Consistency beats intensity in exam preparation.",
-    },
-    fn6: {
-      title: "FN6",
-      subtitle: "MEP",
-      quote:
-        "Small improvements every day lead to big results.",
-    },
-  };
 
-  const page = titles[category.toLowerCase()] ?? {
-    title: category.toUpperCase(),
-    subtitle: "ORAL QUESTIONS",
-    quote:
-      "Success belongs to those who prepare before opportunity arrives.",
-  };
+    async function handleReject(id: string) {
+        await rejectAnswer(id);
 
-  // Count Topics
-  const topics = new Set(
-    questions.map((q: any) => q.topic).filter(Boolean)
-  ).size;
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
 
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-5xl px-5 py-8">
-
-        {/* HEADER */}
-        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-
-          {/* Top Row */}
-          <div className="flex items-center justify-between">
-
-            <Link
-              href="/"
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
-            >
-              <ArrowLeft size={20} />
-            </Link>
-
-            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
-              <Sailboat
-                size={30}
-                strokeWidth={2}
-                className="text-black"
-              />
+    if (checking) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                Checking permissions...
             </div>
+        );
+    }
 
-          </div>
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
 
-          {/* Greeting */}
-          <div className="mt-7">
-            <UserGreeting />
-          </div>
+                <h1 className="text-4xl font-bold">
+                    Admin Dashboard
+                </h1>
 
-          {/* Quote */}
-          <div className="mt-6 border-l-4 border-black pl-4">
+                <p className="mt-2 text-gray-500">
+                    Manage uploads and community answers.
+                </p>
 
-            <p className="text-sm italic leading-6 text-gray-600">
-              {page.quote}
-            </p>
+                <div className="mt-8 flex flex-wrap gap-4">
 
-          </div>
+                    <Link
+                        href="/admin/orals"
+                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
+                    >
+                        Upload Oral Questions
+                    </Link>
 
-          {/* Badge */}
-          <div className="mt-6">
+                    <Link
+                        href="/admin/writtens"
+                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
+                    >
+                        Upload Written Questions
+                    </Link>
 
-            <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
-              {page.title}
-            </span>
+                    <Link
+                        href="/admin/downloads"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-lg font-semibold">
+                            Download Questions
+                        </h2>
 
-          </div>
+                        <p className="mt-2 text-sm text-gray-500">
+                            Download the latest Oral and Written question banks.
+                        </p>
+                    </Link>
 
-          {/* Category */}
-          <div className="mt-5">
+                    <Link
+                        href="/admin/manage"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-l font-semibold">
+                            MANAGE QUESTIONS ALL
+                        </h2>
 
-            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
-              {page.subtitle}
-            </h1>
+                        <p className="mt-2 text-sm text-gray-500">
+                            View, edit and delete written questions.
+                        </p>
+                    </Link>
 
-          </div>
+                </div>
 
-          {/* Stats */}
-          <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
 
-            <span>{questions.length} Questions</span>
 
-            <span>•</span>
+                <div className="mt-12">
 
-            <span>{topics} Topics</span>
+                    <h2 className="text-2xl font-bold">
+                        Pending Community Answers
+                    </h2>
 
-          </div>
+                    <div className="mt-6 space-y-6">
 
-        </div>
+                        {answers.length === 0 && (
+                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
+                                No pending answers.
+                            </div>
+                        )}
 
-        {/* Questions */}
-        <QuestionsList
-          category={category}
-          questions={questions}
-        />
+                        {answers.map((answer) => (
+                            <AdminAnswerCard
+                                key={answer.id}
+                                id={answer.id}
+                                questionId={answer.questionId}
+                                category={answer.category}
+                                userName={answer.userName}
+                                answer={answer.answer}
+                                onApprove={handleApprove}
+                                onReject={handleReject}
+                            />
+                        ))}
 
-      </div>
-    </main>
-  );
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    );
 }
 </file>
 
@@ -3104,12 +3584,14 @@ export default async function OralCategoryPage({
   --foreground: #171717;
 }
 
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -3118,11 +3600,44 @@ export default async function OralCategoryPage({
   }
 }
 
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+/* ------------------------------
+   GLOBAL MOBILE COMPACT SCALE
+------------------------------ */
+
+html {
+  font-size: 16px;
+}
+
+
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+
+@media (max-width: 380px) {
+  html {
+    font-size: 13px;
+  }
+}
+
+
+/* ------------------------------
+   LOADING SCREEN ANIMATIONS
+------------------------------ */
+
+
+/* Wave 1 */
+
 @keyframes wave1 {
   0%, 100% {
     transform: translateX(-20px);
@@ -3133,6 +3648,13 @@ body {
   }
 }
 
+
+.animate-wave1 {
+  animation: wave1 5s ease-in-out infinite;
+}
+
+
+/* Wave 2 */
 
 @keyframes wave2 {
   0%, 100% {
@@ -3145,89 +3667,139 @@ body {
 }
 
 
+.animate-wave2 {
+  animation: wave2 4s ease-in-out infinite;
+}
+
+
+/* Ship floating */
+
 @keyframes float {
-  0%,100% {
+  0%, 100% {
     transform: translateY(0px);
   }
 
   50% {
-    transform: translateY(-6px);
+    transform: translateY(-8px);
   }
-}
-
-
-.animate-wave1 {
-  animation: wave1 3s ease-in-out infinite;
-}
-
-
-.animate-wave2 {
-  animation: wave2 2.5s ease-in-out infinite;
 }
 
 
 .animate-float {
-  animation: float 3s ease-in-out infinite;
+  animation: float 5s ease-in-out infinite;
 }
 
-/* ------------------------------
-   GLOBAL MOBILE COMPACT SCALE
------------------------------- */
 
-html {
-  font-size: 16px;
-}
+/* Ship rocking */
 
-/* Phones */
-@media (max-width: 640px) {
-  html {
-    font-size: 14px;
+@keyframes ship {
+  0% {
+    transform: rotate(-5deg);
+  }
+
+  50% {
+    transform: rotate(3deg);
+  }
+
+  100% {
+    transform: rotate(-5deg);
   }
 }
 
-/* Very small phones */
-@media (max-width: 380px) {
-  html {
-    font-size: 13px;
-  }
+
+.animate-ship {
+  animation: ship 9s ease-in-out infinite;
+  transform-origin: center;
 }
 </file>
 
-<file path="app/layout.tsx">
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
+<file path="components/Header.tsx">
+"use client";
 
-import { AuthProvider } from "@/app/context/AuthContext";
-import InitialLoader from "@/components/InitialLoader";
-export const metadata: Metadata = {
-  title: "NAVIK",
-  description: "Sail Towards COC",
+import { Sailboat, User, LogOut } from "lucide-react";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useAuth } from "@/app/context/AuthContext";
 
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-icon.png",
-  },
-};
+interface HeaderProps {
+  setShowAuth: (show: boolean) => void;
+}
 
-export const viewport: Viewport = {
-  themeColor: "#0A2540",
-};
+export default function Header({ setShowAuth }: HeaderProps) {
+  const { user } = useAuth();
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  const shortEmail = user?.email
+    ? user.email.length > 14
+      ? user.email.slice(0, 14) + "..."
+      : user.email
+    : "";
+
   return (
-    <html lang="en">
-      <body>
-        <AuthProvider>
-          <InitialLoader>
-            {children}
-          </InitialLoader>
-        </AuthProvider>
-      </body>
-    </html>
+    <div className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm">
+
+      <div className="flex items-center justify-between">
+
+        {/* LEFT SIDE (LOGO + TEXT) */}
+        <div className="flex items-center gap-.8 min-w-0">
+
+          <div className="w-12 h-12 flex items-center justify-center rotate-[-8deg] flex-shrink-0">
+            <Sailboat size={30} />
+          </div>
+
+          <div className="leading-tight min-w-0">
+            <h1 className="text-xl font-bold tracking-tight truncate">
+              NAVIK
+            </h1>
+            <p className="text-xs text-gray-500 truncate">
+              Sail towards COC
+            </p>
+          </div>
+
+        </div>
+
+        {/* RIGHT SIDE */}
+        {user ? (
+          <div className="flex items-center gap-3 flex-shrink-0">
+
+            {/* EMAIL BOX (COMPACT) */}
+            <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
+              <p className="text-[9px] text-gray-500 leading-none">
+                Signed in
+              </p>
+
+              <p className="text-[11px] font-medium truncate">
+                {shortEmail}
+              </p>
+            </div>
+
+            {/* LOGOUT */}
+            <button
+              onClick={handleLogout}
+              className="w-10 h-9 rounded-2xl bg-black text-white flex items-center justify-center"
+            >
+              <LogOut size={16} />
+            </button>
+
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAuth(true)}
+            className="bg-black text-white px-4 py-2 rounded-xl flex items-center gap-1 text-sm font-medium"
+          >
+            <User size={16} />
+            Login
+          </button>
+        )}
+
+      </div>
+    </div>
   );
 }
 </file>
@@ -3733,7 +4305,6 @@ import * as XLSX from "xlsx";
 
 import {
     bulkUploadQuestions,
-    getOralQuestionCount,
 } from "@/services/firestore";
 
 interface ExcelQuestion {
@@ -3750,11 +4321,13 @@ interface ExcelQuestion {
 export default function BulkUploadPage() {
     const [rows, setRows] = useState<ExcelQuestion[]>([]);
     const [uploading, setUploading] = useState(false);
-    const [checkingCount, setCheckingCount] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState({
+        uploaded: 0,
+        total: 0,
+    });
+
 
     const [showConfirm, setShowConfirm] = useState(false);
-
-    const [existingCount, setExistingCount] = useState(0);
 
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     function handleFile(file: File) {
@@ -3762,7 +4335,7 @@ export default function BulkUploadPage() {
 
         reader.onload = (e) => {
             const workbook = XLSX.read(e.target?.result, {
-                type: "binary",
+                type: "array",
             });
 
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -3772,14 +4345,16 @@ export default function BulkUploadPage() {
                 raw: false,
             });
 
-            console.table(json);
-            console.log("First Row:", json[0]);
-
             setRows(json);
             setValidationErrors([]);
+
+            setUploadProgress({
+                uploaded: 0,
+                total: 0,
+            });
         };
 
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
     }
 
     function validateExcel(rows: ExcelQuestion[]) {
@@ -3839,7 +4414,7 @@ export default function BulkUploadPage() {
         return errors;
     }
 
-    async function handleUpload() {
+    function handleUpload() {
 
         if (!rows.length) {
             alert("Please upload an Excel file.");
@@ -3853,50 +4428,23 @@ export default function BulkUploadPage() {
             return;
         }
 
-        setCheckingCount(true);
-
-        try {
-
-            const categories = [
-                ...new Set(
-                    rows.map((row) =>
-                        row.Category.trim().toLowerCase()
-                    )
-                ),
-            ];
-
-            let count = 0;
-
-            for (const category of categories) {
-
-                const existing =
-                    await getOralQuestionCount(category);
-
-                count += existing;
-
-            }
-
-            setExistingCount(count);
-
-            setShowConfirm(true);
-
-        }
-        finally {
-
-            setCheckingCount(false);
-
-        }
-
-
+        setShowConfirm(true);
     }
-
     async function confirmUpload() {
 
         try {
 
             setUploading(true);
 
-            await bulkUploadQuestions(rows);
+            await bulkUploadQuestions(
+                rows,
+                (uploaded, total) => {
+                    setUploadProgress({
+                        uploaded,
+                        total,
+                    });
+                }
+            );
 
             alert(
                 `${rows.length} questions uploaded successfully.`
@@ -4021,21 +4569,53 @@ export default function BulkUploadPage() {
 
                             <button
                                 onClick={handleUpload}
-                                disabled={uploading || checkingCount}
+                                disabled={uploading}
                                 className="rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
                             >
                                 {uploading
-                                    ? "Uploading..."
-                                    : checkingCount
-                                        ? "Checking Existing Questions..."
-                                        : `Upload ${rows.length} Questions`}
-                            </button>
+                                    ? `Uploading... ${uploadProgress.uploaded.toLocaleString()} / ${uploadProgress.total.toLocaleString()}`
+                                    : `Upload ${rows.length} Questions`
+                                }
+                                
+                                </button>
+                                
 
                         </div>
 
+                        {uploading && uploadProgress.total > 0 && (
+                            <div className="mt-5">
+
+                                <div className="mb-2 text-sm text-gray-600">
+                                    Uploading{" "}
+                                    {uploadProgress.uploaded.toLocaleString()}
+                                    {" / "}
+                                    {uploadProgress.total.toLocaleString()}
+                                </div>
+
+                                <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+
+                                    <div
+                                        className="h-full bg-black transition-all"
+                                        style={{
+                                            width: `${(uploadProgress.uploaded /
+                                                uploadProgress.total) *
+                                                100
+                                                }%`,
+                                        }}
+                                    />
+
+                                </div>
+
+                            </div>
+                        )}
+
                         <div className="mt-8 space-y-5">
 
-                            {rows.map((row, index) => (
+                            <p className="text-gray-500">
+                                Showing first {Math.min(100, rows.length)} of {rows.length} questions
+                            </p>
+
+                            {rows.slice(0, 100).map((row, index) => (
                                 <div
                                     key={index}
                                     className="rounded-2xl border p-5"
@@ -4094,16 +4674,6 @@ export default function BulkUploadPage() {
                             </h2>
 
 
-                            <p className="mt-4 text-gray-600">
-
-                                Existing Questions:
-                                <b className="ml-2">
-                                    {existingCount}
-                                </b>
-
-                            </p>
-
-
                             <p className="mt-2 text-gray-600">
 
                                 New Upload:
@@ -4137,8 +4707,9 @@ export default function BulkUploadPage() {
                                 </button>
 
                                 <button
+                                    disabled={uploading}
                                     onClick={confirmUpload}
-                                    className="rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700"
+                                    className="rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                                 >
                                     ⬆️ Upload Questions
                                 </button>
@@ -4156,179 +4727,441 @@ export default function BulkUploadPage() {
 }
 </file>
 
-<file path="app/(protected)/admin/page.tsx">
+<file path="app/(protected)/orals/[category]/page.tsx">
+import UserGreeting from "@/components/UserGreeting";
+import QuestionsContainer from "@/components/QuestionsContainer";
+import { unstable_cache } from "next/cache";
+import Link from "next/link";
+import { ArrowLeft, Sailboat } from "lucide-react";
+import InsightSwitcher from "@/components/InsightSwitcher";
+import {
+  getOralCategoryMeta,
+  getOralFilters,
+} from "@/services/firestore";
+import { getCachedFirstQuestions } from "@/lib/oral-cache";
+
+const getCachedOralCategoryMeta = unstable_cache(
+  async (category: string) => {
+    return getOralCategoryMeta(category);
+  },
+  ["oral-category-meta"],
+  {
+    revalidate: 3600, // 1 hour
+  }
+);
+
+interface PageProps {
+  params: Promise<{
+    category: string;
+  }>;
+}
+
+export default async function OralCategoryPage({
+  params,
+}: PageProps) {
+  const { category } = await params;
+
+  const [meta, filters, firstPage] = await Promise.all([
+    getCachedOralCategoryMeta(category),
+    getOralFilters(category),
+    getCachedFirstQuestions(category),
+  ]);
+
+  const titles: Record<
+    string,
+    {
+      title: string;
+      subtitle: string;
+      quote: string;
+    }
+  > = {
+    fn3: {
+      title: "FN3",
+      subtitle: "SAFETY",
+      quote:
+        "Today's revision is tomorrow's Promotion.",
+    },
+    fn4b: {
+      title: "FN4B",
+      subtitle: "MOTOR",
+      quote:
+        "Knowledge grows one question at a time.",
+    },
+    fn5: {
+      title: "FN5",
+      subtitle: "ELECTRICAL",
+      quote:
+        "Consistency beats intensity in exam preparation.",
+    },
+    fn6: {
+      title: "FN6",
+      subtitle: "MEP",
+      quote:
+        "Small improvements every day lead to big results.",
+    },
+  };
+
+  const page = titles[category.toLowerCase()] ?? {
+    title: category.toUpperCase(),
+    subtitle: "ORAL QUESTIONS",
+    quote:
+      "Success belongs to those who prepare before opportunity arrives.",
+  };
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-5xl px-5 py-8">
+
+        {/* HEADER */}
+        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+          {/* Top Row */}
+          <div className="flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+
+            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+              <Sailboat
+                size={30}
+                strokeWidth={2}
+                className="text-black"
+              />
+            </div>
+
+          </div>
+
+          {/* Greeting */}
+          <div className="mt-7">
+            <UserGreeting />
+          </div>
+
+          {/* Quote */}
+          <div className="mt-6 border-l-4 border-black pl-4">
+
+            <p className="text-sm italic leading-6 text-gray-600">
+              {page.quote}
+            </p>
+
+          </div>
+
+          {/* Badge */}
+          <div className="mt-6">
+
+            <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
+              {page.title}
+            </span>
+
+          </div>
+
+          {/* Category */}
+          <div className="mt-5">
+
+            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
+              {page.subtitle}
+            </h1>
+
+          </div>
+
+          {/* Stats */}
+          <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
+            <span>{meta.questionCount} Questions</span>
+
+            <span>•</span>
+
+            <span>{meta.topicCount} Topics</span>
+          </div>
+
+        </div>
+
+        <InsightSwitcher
+          category={category}
+          current="questions"
+        />
+
+        {/* Questions */}
+        <QuestionsContainer
+          category={category}
+          initialQuestions={firstPage.questions}
+          initialLastDoc={firstPage.lastDoc}
+          initialHasMore={firstPage.hasMore}
+          filters={{
+            topics: [],
+            surveyors: [],
+            mmds: [],
+            classes: [],
+          }}
+        />
+
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="app/page.tsx">
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 
-import { useAuth } from "@/app/context/AuthContext";
-import { isUserAdmin } from "@/services/admin";
+import Header from "@/components/Header";
+import AuthModal from "@/components/AuthModal";
+import CategoryCard from "@/components/CategoryCard";
+import SectionHeading from "@/components/SectionHeading";
+import { getOralStats } from "@/lib/orals";
+import { getWrittenStats } from "@/lib/writtens";
+
 import {
-    getPendingAnswers,
-    approveAnswer,
-    rejectAnswer,
-} from "@/services/firestore";
+  ShieldCheck,
+  Cog,
+  Folder,
+  ShipWheel,
+  Zap,
+  BookOpen,
+  Wrench,
+  ChartColumn,
+  Anchor,
+  FileText,
+} from "lucide-react";
 
-import AdminAnswerCard from "@/components/AdminAnswerCard";
+export default function HomePage() {
+  const [showAuth, setShowAuth] = useState(false);
 
-interface PendingAnswer {
-    id: string;
-    questionId: string;
-    category: string;
-    userName: string;
-    answer: string;
-}
+  const [oralStats, setOralStats] = useState<
+    Record<
+      string,
+      {
+        questions: number;
+        topics: number;
+        updatedAt: Date | null;
+      }
+    >
+  >({});
 
-export default function AdminPage() {
-    const { user, loading } = useAuth();
-    const router = useRouter();
+  const [writtenStats, setWrittenStats] = useState<
+    Record<
+      string,
+      {
+        questions: number;
+        topics: number;
+        updatedAt: Date | null;
+      }
+    >
+  >({});
 
-    const [checking, setChecking] = useState(true);
-    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
+  const requireLogin = () => {
+    setShowAuth(true);
+  };
 
-    useEffect(() => {
-        async function init() {
-            if (loading) return;
+  useEffect(() => {
+    async function loadStats() {
+      const categories = ["fn3", "fn4b", "fn5", "fn6"];
 
-            if (!user) {
-                router.replace("/");
-                return;
-            }
+      const results = await Promise.all(
+        categories.map(async (category) => ({
+          category,
+          stats: await getOralStats(category),
+        }))
+      );
 
-            const admin = await isUserAdmin(user.uid);
-
-            if (!admin) {
-                router.replace("/");
-                return;
-            }
-
-            const pending = await getPendingAnswers();
-
-            setAnswers(pending as PendingAnswer[]);
-            setChecking(false);
+      const statsMap: Record<
+        string,
+        {
+          questions: number;
+          topics: number;
+          updatedAt: Date | null;
         }
+      > = {};
 
-        init();
-    }, [user, loading, router]);
+      results.forEach(({ category, stats }) => {
+        statsMap[category] = stats;
+      });
 
-    async function handleApprove(id: string) {
-        await approveAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
+      setOralStats(statsMap);
     }
 
-    async function handleReject(id: string) {
-        await rejectAnswer(id);
+    loadStats();
+  }, []);
 
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
+  // 👇 PASTE THE NEW useEffect HERE
+
+  useEffect(() => {
+    async function loadWrittenStats() {
+      const categories = [
+        "general",
+        "mep",
+        "motor",
+        "met",
+        "naval",
+        "ssep",
+      ];
+
+      const results = await Promise.all(
+        categories.map(async (category) => ({
+          category,
+          stats: await getWrittenStats(category),
+        }))
+      );
+
+      const statsMap: Record<
+        string,
+        {
+          questions: number;
+          topics: number;
+          updatedAt: Date | null;
+        }
+      > = {};
+
+      results.forEach(({ category, stats }) => {
+        statsMap[category] = stats;
+      });
+
+      setWrittenStats(statsMap);
     }
 
-    if (checking) {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                Checking permissions...
-            </div>
-        );
-    }
+    loadWrittenStats();
+  }, []);
 
-    return (
-        <main className="min-h-screen bg-[#f5f5f5]">
-            <div className="mx-auto max-w-6xl px-6 py-10">
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-5 py-5">
+        <Header setShowAuth={setShowAuth} />
 
-                <h1 className="text-4xl font-bold">
-                    Admin Dashboard
-                </h1>
+        {/* BROWSE BY ORALS */}
+        <section className="mt-10">
+          <SectionHeading title="BROWSE BY ORALS" />
 
-                <p className="mt-2 text-gray-500">
-                    Manage uploads and community answers.
-                </p>
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+            <CategoryCard
+              href="/orals/fn3"
+              title="SAFETY"
+              icon={Folder}
+              badge="FN-3"
+              questions={oralStats.fn3?.questions}
+              topics={oralStats.fn3?.topics}
+              updatedAt={oralStats.fn3?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
 
-                <div className="mt-8 flex flex-wrap gap-4">
+            <CategoryCard
+              href="/orals/fn4b"
+              title="MOTOR"
+              icon={Folder}
+              badge="FN-4B"
+              questions={oralStats.fn4b?.questions}
+              topics={oralStats.fn4b?.topics}
+              updatedAt={oralStats.fn4b?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
 
-                    <Link
-                        href="/admin/orals"
-                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
-                    >
-                        Upload Oral Questions
-                    </Link>
+            <CategoryCard
+              href="/orals/fn6"
+              title="MEP"
+              icon={Folder}
+              badge="FN-6"
+              questions={oralStats.fn6?.questions}
+              topics={oralStats.fn6?.topics}
+              updatedAt={oralStats.fn6?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
 
-                    <Link
-                        href="/admin/writtens"
-                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
-                    >
-                        Upload Written Questions
-                    </Link>
+            <CategoryCard
+              href="/orals/fn5"
+              title="ELECTRICAL"
+              icon={Folder}
+              badge="FN-5"
+              questions={oralStats.fn5?.questions}
+              topics={oralStats.fn5?.topics}
+              updatedAt={oralStats.fn5?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+          </div>
+        </section>
 
-                    <Link
-                        href="/admin/downloads"
-                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
-                    >
-                        <h2 className="text-lg font-semibold">
-                            Download Questions
-                        </h2>
+        {/* BROWSE BY WRITTENS */}
+        <section className="mt-12">
+          <SectionHeading title="BROWSE BY WRITTENS" />
 
-                        <p className="mt-2 text-sm text-gray-500">
-                            Download the latest Oral and Written question banks.
-                        </p>
-                    </Link>
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+            <CategoryCard
+              href="/writtens/general"
+              title="GENERAL"
+              icon={Folder}
+              badge="MEKG"
+              questions={writtenStats.general?.questions}
+              topics={writtenStats.general?.topics}
+              updatedAt={writtenStats.general?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
 
-                    <Link
-                        href="/admin/manage"
-                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
-                    >
-                        <h2 className="text-l font-semibold">
-                            MANAGE QUESTIONS ALL
-                        </h2>
+            <CategoryCard
+              href="/writtens/mep"
+              title="MEP"
+              icon={Folder}
+              badge="MEP"
+              questions={writtenStats.mep?.questions}
+              topics={writtenStats.mep?.topics}
+              updatedAt={writtenStats.mep?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
 
-                        <p className="mt-2 text-sm text-gray-500">
-                            View, edit and delete written questions.
-                        </p>
-                    </Link>
+            <CategoryCard
+              href="/writtens/motor"
+              title="MOTOR"
+              icon={Folder}
+              badge="MEKM"
+              questions={writtenStats.motor?.questions}
+              topics={writtenStats.motor?.topics}
+              updatedAt={writtenStats.motor?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
 
-                </div>
+            <CategoryCard
+              href="/writtens/met"
+              title="ELECTRICAL"
+              icon={Folder}
+              badge="MET"
+              questions={writtenStats.met?.questions}
+              topics={writtenStats.met?.topics}
+              updatedAt={writtenStats.met?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
 
+            <CategoryCard
+              href="/writtens/naval"
+              title="NAVAL"
+              icon={Folder}
+              badge="SHIP-CO"
+              questions={writtenStats.naval?.questions}
+              topics={writtenStats.naval?.topics}
+              updatedAt={writtenStats.naval?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
 
+            <CategoryCard
+              href="/writtens/ssep"
+              title="SAFETY"
+              icon={Folder}
+              badge="SSEP"
+              questions={writtenStats.ssep?.questions}
+              topics={writtenStats.ssep?.topics}
+              updatedAt={writtenStats.ssep?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+          </div>
+        </section>
+      </div>
 
-                <div className="mt-12">
-
-                    <h2 className="text-2xl font-bold">
-                        Pending Community Answers
-                    </h2>
-
-                    <div className="mt-6 space-y-6">
-
-                        {answers.length === 0 && (
-                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
-                                No pending answers.
-                            </div>
-                        )}
-
-                        {answers.map((answer) => (
-                            <AdminAnswerCard
-                                key={answer.id}
-                                id={answer.id}
-                                questionId={answer.questionId}
-                                category={answer.category}
-                                userName={answer.userName}
-                                answer={answer.answer}
-                                onApprove={handleApprove}
-                                onReject={handleReject}
-                            />
-                        ))}
-
-                    </div>
-
-                </div>
-
-            </div>
-        </main>
-    );
+      <AuthModal
+        show={showAuth}
+        setShow={setShowAuth}
+      />
+    </main>
+  );
 }
 </file>
 
@@ -4371,8 +5204,6 @@ export default function WrittensPage() {
       ? params.category.toLowerCase()
       : "general";
 
-  const STORAGE_KEY = `bookmarkedWrittenQuestions-${category}`;
-
   const [questions, setQuestions] = useState<WrittenQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookmarks, setBookmarks] = useState<string[]>([]);
@@ -4380,7 +5211,6 @@ export default function WrittensPage() {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-
   const [selectedClass, setSelectedClass] = useState("All");
   const [selectedYear, setSelectedYear] = useState("All");
   const [selectedMonth, setSelectedMonth] = useState("All");
@@ -4495,7 +5325,6 @@ export default function WrittensPage() {
     selectedMonth,
     selectedTopic,
     showBookmarksOnly,
-    bookmarks,
   ]);
 
   useEffect(() => {
@@ -4507,6 +5336,14 @@ export default function WrittensPage() {
       setBookmarks([]);
     }
   }, [bookmarkStorageKey]);
+
+  useEffect(() => {
+    if (currentIndex >= filteredQuestions.length) {
+      setCurrentIndex(
+        Math.max(filteredQuestions.length - 1, 0)
+      );
+    }
+  }, [filteredQuestions.length, currentIndex]);
 
   const titles: Record<
     string,
@@ -4546,6 +5383,18 @@ export default function WrittensPage() {
   };
 
   const toggleBookmark = (id: string) => {
+    // If we're in Bookmarks Only mode and removing the current bookmark,
+    // move to the next/previous question first.
+    if (
+      showBookmarksOnly &&
+      bookmarks.includes(id) &&
+      filteredQuestions.length > 1
+    ) {
+      if (currentIndex === filteredQuestions.length - 1) {
+        setCurrentIndex(currentIndex - 1);
+      }
+    }
+
     setBookmarks((prev) => {
       const updated = prev.includes(id)
         ? prev.filter((item) => item !== id)
@@ -4721,11 +5570,13 @@ export default function WrittensPage() {
           <div className="mt-8 space-y-6">
             {currentQuestion && (
               <>
-                <WrittenCard
-                  question={currentQuestion}
-                  isBookmarked={bookmarks.includes(currentQuestion.id)}
-                  onBookmark={() => toggleBookmark(currentQuestion.id)}
-                />
+                <div id="question-card">
+                  <WrittenCard
+                    question={currentQuestion}
+                    isBookmarked={bookmarks.includes(currentQuestion.id)}
+                    onBookmark={() => toggleBookmark(currentQuestion.id)}
+                  />
+                </div>
 
                 {/* Navigation */}
                 <div className="mt-6 flex items-center justify-between">
@@ -4776,363 +5627,41 @@ export default function WrittensPage() {
 }
 </file>
 
-<file path="app/page.tsx">
+<file path="components/InitialLoader.tsx">
 "use client";
 
 import { useEffect, useState } from "react";
+import LoadingScreen from "./LoadingScreen";
 
-import Header from "@/components/Header";
-import AuthModal from "@/components/AuthModal";
-import CategoryCard from "@/components/CategoryCard";
-import SectionHeading from "@/components/SectionHeading";
-import { getOralStats } from "@/lib/orals";
-import { getWrittenStats } from "@/lib/writtens";
+export default function InitialLoader({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
 
-import {
-  ShieldCheck,
-  Cog,
-  Folder,
-  ShipWheel,
-  Zap,
-  BookOpen,
-  Wrench,
-  ChartColumn,
-  Anchor,
-  FileText,
-} from "lucide-react";
+  const [loading,setLoading] = useState(true);
 
-export default function HomePage() {
-  const [showAuth, setShowAuth] = useState(false);
-  const [redirectPath, setRedirectPath] = useState("");
+  useEffect(()=>{
 
-  const [oralStats, setOralStats] = useState<
-    Record<
-      string,
-      {
-        questions: number;
-        topics: number;
-        updatedAt: Date | null;
-      }
-    >
-  >({});
+    const timer=setTimeout(()=>{
+      setLoading(false);
+    },2000);
 
-  const [writtenStats, setWrittenStats] = useState<
-    Record<
-      string,
-      {
-        questions: number;
-        topics: number;
-        updatedAt: Date | null;
-      }
-    >
-  >({});
+    return ()=>clearTimeout(timer);
 
-  const requireLogin = (path: string) => {
-    setRedirectPath(path);
-    setShowAuth(true);
-  };
+  },[]);
 
-  useEffect(() => {
-    async function loadStats() {
-      const categories = ["fn3", "fn4b", "fn5", "fn6"];
 
-      const results = await Promise.all(
-        categories.map(async (category) => ({
-          category,
-          stats: await getOralStats(category),
-        }))
-      );
-
-      const statsMap: Record<
-        string,
-        {
-          questions: number;
-          topics: number;
-          updatedAt: Date | null;
-        }
-      > = {};
-
-      results.forEach(({ category, stats }) => {
-        statsMap[category] = stats;
-      });
-
-      console.log("Stats Map:", statsMap);
-
-      setOralStats(statsMap);
-    }
-
-    loadStats();
-  }, []);
-
-  // 👇 PASTE THE NEW useEffect HERE
-
-  useEffect(() => {
-    async function loadWrittenStats() {
-      const categories = [
-        "general",
-        "mep",
-        "motor",
-        "met",
-        "naval",
-        "ssep",
-      ];
-
-      const results = await Promise.all(
-        categories.map(async (category) => ({
-          category,
-          stats: await getWrittenStats(category),
-        }))
-      );
-
-      const statsMap: Record<
-        string,
-        {
-          questions: number;
-          topics: number;
-          updatedAt: Date | null;
-        }
-      > = {};
-
-      results.forEach(({ category, stats }) => {
-        statsMap[category] = stats;
-      });
-
-      console.log("Written Stats:", statsMap);
-
-      setWrittenStats(statsMap);
-    }
-
-    loadWrittenStats();
-  }, []);
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-5 py-5">
-        <Header setShowAuth={setShowAuth} />
-
-        {/* BROWSE BY ORALS */}
-        <section className="mt-10">
-          <SectionHeading title="BROWSE BY ORALS" />
-
-          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
-            <CategoryCard
-              href="/orals/fn3"
-              title="SAFETY"
-              icon={Folder}
-              badge="FN-3"
-              questions={oralStats.fn3?.questions}
-              topics={oralStats.fn3?.topics}
-              updatedAt={oralStats.fn3?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/orals/fn4b"
-              title="MOTOR"
-              icon={Folder}
-              badge="FN-4B"
-              questions={oralStats.fn4b?.questions}
-              topics={oralStats.fn4b?.topics}
-              updatedAt={oralStats.fn4b?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/orals/fn6"
-              title="MEP"
-              icon={Folder}
-              badge="FN-6"
-              questions={oralStats.fn6?.questions}
-              topics={oralStats.fn6?.topics}
-              updatedAt={oralStats.fn6?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/orals/fn5"
-              title="ELECTRICAL"
-              icon={Folder}
-              badge="FN-5"
-              questions={oralStats.fn5?.questions}
-              topics={oralStats.fn5?.topics}
-              updatedAt={oralStats.fn5?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-          </div>
-        </section>
-
-        {/* BROWSE BY WRITTENS */}
-        <section className="mt-12">
-          <SectionHeading title="BROWSE BY WRITTENS" />
-
-          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
-            <CategoryCard
-              href="/writtens/general"
-              title="GENERAL"
-              icon={Folder}
-              badge="MEKG"
-              questions={writtenStats.general?.questions}
-              topics={writtenStats.general?.topics}
-              updatedAt={writtenStats.general?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/mep"
-              title="MEP"
-              icon={Folder}
-              badge="MEP"
-              questions={writtenStats.mep?.questions}
-              topics={writtenStats.mep?.topics}
-              updatedAt={writtenStats.mep?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/motor"
-              title="MOTOR"
-              icon={Folder}
-              badge="MEKM"
-              questions={writtenStats.motor?.questions}
-              topics={writtenStats.motor?.topics}
-              updatedAt={writtenStats.motor?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/met"
-              title="ELECTRICAL"
-              icon={Folder}
-              badge="MET"
-              questions={writtenStats.met?.questions}
-              topics={writtenStats.met?.topics}
-              updatedAt={writtenStats.met?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/naval"
-              title="NAVAL"
-              icon={Folder}
-              badge="SHIP-CO"
-              questions={writtenStats.naval?.questions}
-              topics={writtenStats.naval?.topics}
-              updatedAt={writtenStats.naval?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/writtens/ssep"
-              title="SAFETY"
-              icon={Folder}
-              badge="SSEP"
-              questions={writtenStats.ssep?.questions}
-              topics={writtenStats.ssep?.topics}
-              updatedAt={writtenStats.ssep?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-          </div>
-        </section>
-      </div>
-
-      <AuthModal
-        show={showAuth}
-        setShow={setShowAuth}
-        redirectPath={redirectPath}
+  if(loading){
+    return (
+      <LoadingScreen 
+        text="Setting your course..."
       />
-    </main>
-  );
-}
-</file>
+    );
+  }
 
-<file path="components/Header.tsx">
-"use client";
 
-import { Sailboat, User, LogOut } from "lucide-react";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useAuth } from "@/app/context/AuthContext";
-
-interface HeaderProps {
-  setShowAuth: (show: boolean) => void;
-}
-
-export default function Header({ setShowAuth }: HeaderProps) {
-  const { user } = useAuth();
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-  const shortEmail = user?.email
-    ? user.email.length > 14
-      ? user.email.slice(0, 14) + "..."
-      : user.email
-    : "";
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm">
-
-      <div className="flex items-center justify-between">
-
-        {/* LEFT SIDE (LOGO + TEXT) */}
-        <div className="flex items-center gap-.8 min-w-0">
-
-          <div className="w-12 h-12 flex items-center justify-center rotate-[-8deg] flex-shrink-0">
-            <Sailboat size={30} />
-          </div>
-
-          <div className="leading-tight min-w-0">
-            <h1 className="text-xl font-bold tracking-tight truncate">
-              NAVIK
-            </h1>
-            <p className="text-xs text-gray-500 truncate">
-              Sail towards COC
-            </p>
-          </div>
-
-        </div>
-
-        {/* RIGHT SIDE */}
-        {user ? (
-          <div className="flex items-center gap-3 flex-shrink-0">
-
-            {/* EMAIL BOX (COMPACT) */}
-            <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
-              <p className="text-[9px] text-gray-500 leading-none">
-                Signed in
-              </p>
-
-              <p className="text-[11px] font-medium truncate">
-                {shortEmail}
-              </p>
-            </div>
-
-            {/* LOGOUT */}
-            <button
-              onClick={handleLogout}
-              className="w-10 h-9 rounded-2xl bg-black text-white flex items-center justify-center"
-            >
-              <LogOut size={16} />
-            </button>
-
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowAuth(true)}
-            className="bg-black text-white px-4 py-2 rounded-xl flex items-center gap-1 text-sm font-medium"
-          >
-            <User size={16} />
-            Login
-          </button>
-        )}
-
-      </div>
-    </div>
-  );
+  return children;
 }
 </file>
 
@@ -5143,6 +5672,7 @@ import {
     deleteDoc,
     doc,
     getDocs,
+    getDoc,
     orderBy,
     query,
     serverTimestamp,
@@ -5150,10 +5680,16 @@ import {
     updateDoc,
     where,
     writeBatch,
+    limit,
+    startAfter,
+    QueryDocumentSnapshot,
+    DocumentData,
 } from "firebase/firestore";
 
 
 import { db } from "@/lib/firebase";
+
+let uploadRunning = false;
 
 const questionCache = new Map<string, Question[]>();
 
@@ -5184,6 +5720,13 @@ export interface Question {
     order: number;
     isActive: boolean;
 }
+
+export interface PaginatedQuestions {
+    questions: Question[];
+    lastDoc: QueryDocumentSnapshot<DocumentData> | null;
+    hasMore: boolean;
+}
+
 export interface CommunityAnswer {
     id: string;
     category: string;
@@ -5238,6 +5781,68 @@ export async function getQuestions(
     questionCache.set(key, result);
 
     return result;
+}
+
+export async function getQuestionsPaginated(
+    category: string,
+    lastDoc: QueryDocumentSnapshot<DocumentData> | null = null,
+    pageSize = 20
+): Promise<PaginatedQuestions> {
+
+    let q;
+
+    if (lastDoc) {
+        q = query(
+            collection(
+                db,
+                "orals",
+                category.toLowerCase(),
+                "questions"
+            ),
+            orderBy("order"),
+            startAfter(lastDoc),
+            limit(pageSize)
+        );
+    } else {
+        q = query(
+            collection(
+                db,
+                "orals",
+                category.toLowerCase(),
+                "questions"
+            ),
+            orderBy("order"),
+            limit(pageSize)
+        );
+    }
+
+    const snapshot = await getDocs(q);
+
+    const questions = snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        return {
+            id: doc.id,
+            question: data.question,
+            answer: data.answer,
+            topic: data.topic,
+            mmd: data.mmd,
+            surveyor: data.surveyor,
+            class: data.class ?? "",
+            examDate: data.examDate ?? "",
+            order: data.order,
+            isActive: data.isActive,
+        };
+    });
+
+    return {
+        questions,
+        lastDoc:
+            snapshot.docs.length > 0
+                ? snapshot.docs[snapshot.docs.length - 1]
+                : null,
+        hasMore: snapshot.docs.length === pageSize,
+    };
 }
 
 export async function submitCommunityAnswer(data: {
@@ -5300,14 +5905,12 @@ export async function rejectAnswer(id: string) {
     await deleteDoc(doc(db, "communityAnswers", id));
 }
 
-async function deleteExistingOralQuestions(
-    category: string
-) {
+async function deleteExistingOralQuestions(category: string) {
 
     const questionsRef = collection(
         db,
         "orals",
-        category,
+        category.toLowerCase(),
         "questions"
     );
 
@@ -5317,19 +5920,53 @@ async function deleteExistingOralQuestions(
     );
 
 
-    const deleteBatch = writeBatch(db);
+    if (snapshot.empty) {
+        console.log(
+            `No existing questions in ${category}`
+        );
+        return;
+    }
 
 
-    snapshot.docs.forEach((questionDoc) => {
+    const docs = snapshot.docs;
 
-        deleteBatch.delete(
-            questionDoc.ref
+
+    const CHUNK_SIZE = 500;
+
+
+    for (
+        let i = 0;
+        i < docs.length;
+        i += CHUNK_SIZE
+    ) {
+
+
+        const batch = writeBatch(db);
+
+
+        docs
+            .slice(i, i + CHUNK_SIZE)
+            .forEach((docSnap) => {
+
+                batch.delete(
+                    docSnap.ref
+                );
+
+            });
+
+
+        await batch.commit();
+
+
+        console.log(
+            `Deleted ${Math.min(
+                i + CHUNK_SIZE,
+                docs.length
+            )} / ${docs.length} from ${category}`
         );
 
-    });
+    }
 
-
-    await deleteBatch.commit();
 }
 
 export async function getOralQuestionCount(
@@ -5366,6 +6003,77 @@ export async function getAllOralQuestionCounts() {
     }
 
     return counts;
+}
+
+export interface OralCategoryMeta {
+    questionCount: number;
+    topicCount: number;
+}
+
+export interface OralFilters {
+    topics: string[];
+    surveyors: string[];
+    mmds: string[];
+    classes: string[];
+}
+
+export async function getOralCategoryMeta(
+    category: string
+): Promise<OralCategoryMeta> {
+    const snapshot = await getDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase()
+        )
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            questionCount: 0,
+            topicCount: 0,
+        };
+    }
+
+    const data = snapshot.data();
+
+    return {
+        questionCount: data.questionCount ?? 0,
+        topicCount: data.topicCount ?? 0,
+    };
+}
+
+export async function getOralFilters(
+    category: string
+): Promise<OralFilters> {
+
+    const snapshot = await getDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "meta",
+            "filters"
+        )
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            topics: [],
+            surveyors: [],
+            mmds: [],
+            classes: [],
+        };
+    }
+
+    const data = snapshot.data();
+
+    return {
+        topics: data.topics ?? [],
+        surveyors: data.surveyors ?? [],
+        mmds: data.mmds ?? [],
+        classes: data.classes ?? [],
+    };
 }
 
 export async function getOralQuestionsForExport(
@@ -5406,131 +6114,312 @@ export async function getOralQuestionsForExport(
 /* ===========================
    BULK EXCEL UPLOAD
 =========================== */
+export async function bulkUploadQuestions(
+    rows: any[],
+    onProgress?: (uploaded: number, total: number) => void
+) {
 
-export async function bulkUploadQuestions(rows: any[]) {
-
-    const batch = writeBatch(db);
-
-    const orderCounter: Record<string, number> = {};
-
-    const topicCounter: Record<string, Set<string>> = {};
-
-    const categories = new Set<string>();
-
-    rows.forEach((rawRow, index) => {
-        // Remove hidden spaces from Excel column names
-        const row: Record<string, any> = {};
-
-        Object.keys(rawRow).forEach((key) => {
-            row[key.trim()] = rawRow[key];
-        });
-
-        console.log("Uploading Row", index + 1, row);
-
-        let category = String(row.Category ?? "")
-            .trim()
-            .toLowerCase();
-
-
-        const categoryMap: Record<string, string> = {
-            safety: "fn3",
-            fn3: "fn3",
-
-            motor: "fn4b",
-            fn4b: "fn4b",
-
-            electrical: "fn5",
-            fn5: "fn5",
-
-            mep: "fn6",
-            fn6: "fn6",
-        };
-
-
-        category = categoryMap[category] ?? category;
-
-        if (!category) {
-            throw new Error(
-                `Row ${index + 1}: Category is missing.`
-            );
-        }
-
-        categories.add(category);
-
-        if (!orderCounter[category]) {
-            orderCounter[category] = 1;
-        }
-
-        if (!topicCounter[category]) {
-            topicCounter[category] = new Set();
-        }
-
-        const topic = String(row.Topic ?? "").trim();
-
-        if (topic) {
-            topicCounter[category].add(topic);
-        }
-
-        const ref = doc(
-            collection(db, "orals", category, "questions")
-        );
-
-        batch.set(ref, {
-            question: String(row.Question ?? "").trim(),
-            answer: String(row.Answer ?? "").trim(),
-
-            topic: String(row.Topic ?? "").trim(),
-
-            mmd: String(row.MMD ?? "").trim(),
-
-            surveyor: String(row.Surveyor ?? "").trim(),
-
-            class: String(row.Class ?? "").trim(),
-
-            examDate: String(row.Date ?? "").trim(),
-
-            order: orderCounter[category]++,
-
-            isActive: true,
-
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        });
-    });
-
-    for (const category of categories) {
-
-        await deleteExistingOralQuestions(
-            category
-        );
-
+    if (uploadRunning) {
+        throw new Error("Upload already running");
     }
 
-    await batch.commit();
+    uploadRunning = true;
 
-    // Update category metadata
-    for (const category of Object.keys(orderCounter)) {
-        await setDoc(
-            doc(db, "orals", category),
-            {
-                questionCount:
-                    orderCounter[category] - 1,
+    try {
 
-                topicCount:
-                    topicCounter[category].size,
+        const orderCounter: Record<string, number> = {};
+        const topicCounter: Record<string, Set<string>> = {};
+        const mmdCounter: Record<string, Set<string>> = {};
+        const surveyorCounter: Record<string, Set<string>> = {};
+        const classCounter: Record<string, Set<string>> = {};
 
-                updatedAt:
-                    serverTimestamp(),
-            },
-            {
-                merge: true,
+        const categories = new Set<string>();
+
+        const uploadData: {
+            category: string;
+            data: any;
+        }[] = [];
+
+
+        for (const [index, rawRow] of rows.entries()) {
+
+            const row: Record<string, any> = {};
+
+            Object.keys(rawRow).forEach((key) => {
+                row[key.trim()] = rawRow[key];
+            });
+
+
+            let category = String(row.Category ?? "")
+                .trim()
+                .toLowerCase();
+
+
+            const categoryMap: Record<string, string> = {
+                safety: "fn3",
+                fn3: "fn3",
+
+                motor: "fn4b",
+                fn4b: "fn4b",
+
+                electrical: "fn5",
+                fn5: "fn5",
+
+                mep: "fn6",
+                fn6: "fn6",
+            };
+
+
+            category = categoryMap[category] ?? category;
+
+
+            if (!category) {
+                throw new Error(
+                    `Row ${index + 1}: Category missing`
+                );
             }
-        );
+
+
+            categories.add(category);
+
+
+            if (!orderCounter[category]) {
+                orderCounter[category] = 1;
+            }
+
+
+            if (!topicCounter[category]) {
+                topicCounter[category] = new Set();
+            }
+
+            if (!mmdCounter[category]) {
+                mmdCounter[category] = new Set();
+            }
+
+            if (!surveyorCounter[category]) {
+                surveyorCounter[category] = new Set();
+            }
+
+            if (!classCounter[category]) {
+                classCounter[category] = new Set();
+            }
+
+
+            topicCounter[category].add(
+                String(row.Topic ?? "").trim()
+            );
+
+            mmdCounter[category].add(
+                String(row.MMD ?? "").trim()
+            );
+
+            surveyorCounter[category].add(
+                String(row.Surveyor ?? "").trim()
+            );
+
+            classCounter[category].add(
+                String(row.Class ?? "").trim()
+            );
+
+
+            uploadData.push({
+
+                category,
+
+                data: {
+
+                    question:
+                        String(row.Question ?? "").trim(),
+
+                    answer:
+                        String(row.Answer ?? "").trim(),
+
+                    topic:
+                        String(row.Topic ?? "").trim(),
+
+                    mmd:
+                        String(row.MMD ?? "").trim(),
+
+                    surveyor:
+                        String(row.Surveyor ?? "").trim(),
+
+                    class:
+                        String(row.Class ?? "").trim(),
+
+                    examDate:
+                        String(row.Date ?? "").trim(),
+
+
+                    order:
+                        orderCounter[category]++,
+
+
+                    isActive: true,
+
+
+                    createdAt:
+                        serverTimestamp(),
+
+
+                    updatedAt:
+                        serverTimestamp(),
+
+                },
+
+            });
+
+        }
+
+
+        console.log("Deleting existing questions...");
+
+
+        for (const category of categories) {
+
+            await deleteExistingOralQuestions(category);
+
+        }
+
+
+        console.log("Uploading new questions...");
+
+
+        const CHUNK_SIZE = 500;
+
+
+        for (
+            let i = 0;
+            i < uploadData.length;
+            i += CHUNK_SIZE
+        ) {
+
+
+            const batch = writeBatch(db);
+
+
+            uploadData
+                .slice(i, i + CHUNK_SIZE)
+                .forEach((item) => {
+
+
+                    const ref = doc(
+                        collection(
+                            db,
+                            "orals",
+                            item.category,
+                            "questions"
+                        )
+                    );
+
+
+                    batch.set(
+                        ref,
+                        item.data
+                    );
+
+
+                });
+
+
+            await batch.commit();
+
+
+
+            const uploaded = Math.min(
+                i + CHUNK_SIZE,
+                uploadData.length
+            );
+
+
+            onProgress?.(
+                uploaded,
+                uploadData.length
+            );
+
+
+            console.log(
+                `Uploaded ${uploaded} / ${uploadData.length}`
+            );
+
+        }
+
+
+
+        console.log("Updating metadata...");
+
+
+        for (const category of Object.keys(orderCounter)) {
+
+            // Category metadata
+            await setDoc(
+                doc(
+                    db,
+                    "orals",
+                    category
+                ),
+                {
+                    questionCount: orderCounter[category] - 1,
+                    topicCount: topicCounter[category].size,
+                    updatedAt: serverTimestamp(),
+                },
+                {
+                    merge: true,
+                }
+            );
+
+            await setDoc(
+                doc(
+                    db,
+                    "orals",
+                    category,
+                    "meta",
+                    "filters"
+                ),
+                {
+                    topics: [...topicCounter[category]].sort(),
+                    mmds: [...mmdCounter[category]].sort(),
+                    surveyors: [...surveyorCounter[category]].sort(),
+                    classes: [...classCounter[category]].sort(),
+                    updatedAt: serverTimestamp(),
+                }
+            );
+
+            // Filters metadata
+            await setDoc(
+                doc(
+                    db,
+                    "orals",
+                    category,
+                    "meta",
+                    "filters"
+                ),
+                {
+                    topics: [...topicCounter[category]].sort(),
+                    surveyors: [...surveyorCounter[category]].sort(),
+                    mmds: [...mmdCounter[category]].sort(),
+                    classes: [...classCounter[category]].sort(),
+                    updatedAt: serverTimestamp(),
+                }
+            );
+
+            clearQuestionCache(category);
+        }
+
+
+
+
+
+        console.log("Upload complete.");
+
+
+    } finally {
+
+        uploadRunning = false;
+
     }
-    for (const category of Object.keys(orderCounter)) {
-        clearQuestionCache(category);
-    }
+
 }
+
 
 export async function updateQuestion(
     category: string,
@@ -5540,6 +6429,7 @@ export async function updateQuestion(
         answer: string;
     }
 ) {
+
     await updateDoc(
         doc(
             db,
@@ -5660,412 +6550,58 @@ export async function deleteQuestionsBatch(
 
     clearQuestionCache(category);
 }
-</file>
 
-<file path="components/InitialLoader.tsx">
-"use client";
+export interface OrderPaginationResult {
+    questions: Question[];
+    lastOrder: number | null;
+    hasMore: boolean;
+}
 
-import { useEffect, useState } from "react";
-import LoadingScreen from "./LoadingScreen";
+export async function getQuestionsByOrder(
+    category: string,
+    lastOrder = 0,
+    pageSize = 20
+): Promise<OrderPaginationResult> {
 
-export default function InitialLoader({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-
-  const [loading,setLoading] = useState(true);
-
-  useEffect(()=>{
-
-    const timer=setTimeout(()=>{
-      setLoading(false);
-    },2000);
-
-    return ()=>clearTimeout(timer);
-
-  },[]);
-
-
-  if(loading){
-    return (
-      <LoadingScreen 
-        text="Compiling confidence... Almost there!"
-      />
+    const q = query(
+        collection(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "questions"
+        ),
+        where("order", ">", lastOrder),
+        orderBy("order"),
+        limit(pageSize)
     );
-  }
 
+    const snapshot = await getDocs(q);
 
-  return children;
-}
-</file>
+    const questions = snapshot.docs.map((doc) => {
+        const data = doc.data();
 
-<file path="components/QuestionsList.tsx">
-"use client"
-
-import { useEffect, useMemo, useState } from "react";
-
-import {
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
-} from "lucide-react";
-
-import QuestionCard from "./QuestionCard";
-
-interface Question {
-  id: string;
-  question: string;
-  answer: string;
-  mmd: string;
-  surveyor: string;
-  topic: string;
-
-  class: string;
-
-  examDate: string;
-
-  order: number;
-  isActive: boolean;
-}
-
-interface Props {
-  category: string;
-  questions: Question[];
-}
-
-export default function QuestionsList({
-  category,
-  questions,
-}: Props) {
-  const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-
-  const [bookmarks, setBookmarks] = useState<string[]>([]);
-  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
-
-  const DEFAULT_MMD = "Chennai";
-
-  const [selectedMmd, setSelectedMmd] = useState(DEFAULT_MMD);
-  const [selectedSurveyor, setSelectedSurveyor] = useState("All");
-  const [selectedTopic, setSelectedTopic] = useState("All");
-  const [selectedClass, setSelectedClass] = useState("All");
-
-  const mmds = useMemo(
-    () => [...new Set(questions.map((q) => q.mmd).filter(Boolean))],
-    [questions]
-  );
-
-  const surveyors = useMemo(
-    () => [...new Set(questions.map((q) => q.surveyor).filter(Boolean))],
-    [questions]
-  );
-
-  const topics = useMemo(
-    () => [...new Set(questions.map((q) => q.topic).filter(Boolean))],
-    [questions]
-  );
-
-  const classes = useMemo(
-    () => [...new Set(questions.map((q) => q.class).filter(Boolean))],
-    [questions]
-  );
-
-  const showMmd = selectedMmd !== "All";
-  const showSurveyor = selectedSurveyor !== "All";
-  const showTopic = selectedTopic !== "All";
-
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((q) => {
-      if (!q.isActive) return false;
-      if (showBookmarksOnly && !bookmarks.includes(q.id))
-        return false;
-
-      if (
-        selectedMmd !== "All" &&
-        q.mmd !== selectedMmd
-      )
-        return false;
-
-      if (
-        selectedSurveyor !== "All" &&
-        q.surveyor !== selectedSurveyor
-      )
-        return false;
-
-      if (
-        selectedTopic !== "All" &&
-        q.topic !== selectedTopic
-      )
-        return false;
-
-      if (
-        selectedClass !== "All" &&
-        q.class !== selectedClass
-      )
-        return false;
-
-      if (
-        search.trim() &&
-        !(
-          q.question
-            .toLowerCase()
-            .includes(search.toLowerCase()) ||
-          q.answer
-            .toLowerCase()
-            .includes(search.toLowerCase()) ||
-          q.topic
-            .toLowerCase()
-            .includes(search.toLowerCase()) ||
-          q.mmd
-            .toLowerCase()
-            .includes(search.toLowerCase()) ||
-          q.surveyor
-            .toLowerCase()
-            .includes(search.toLowerCase())
-        )
-      ) {
-        return false;
-      }
-
-      return true;
+        return {
+            id: doc.id,
+            question: data.question,
+            answer: data.answer,
+            topic: data.topic,
+            mmd: data.mmd,
+            surveyor: data.surveyor,
+            class: data.class ?? "",
+            examDate: data.examDate ?? "",
+            order: data.order,
+            isActive: data.isActive,
+        };
     });
-  }, [
-    questions,
-    search,
-    selectedMmd,
-    selectedSurveyor,
-    selectedTopic,
-    selectedClass,
-    bookmarks,
-    showBookmarksOnly,
-  ]);
 
-  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
-
-  const clearFilters = () => {
-    setSearch("");
-    setSelectedMmd(DEFAULT_MMD);
-    setSelectedSurveyor("All");
-    setSelectedTopic("All");
-    setSelectedClass("All");
-  };
-
-  useEffect(() => {
-    const saved = localStorage.getItem("bookmarkedQuestions");
-
-    if (saved) {
-      setBookmarks(JSON.parse(saved));
-    }
-  }, []);
-
-  const toggleBookmark = (id: string) => {
-    setBookmarks((prev) => {
-      const updated = prev.includes(id)
-        ? prev.filter((item) => item !== id)
-        : [...prev, id];
-
-      localStorage.setItem(
-        "bookmarkedQuestions",
-        JSON.stringify(updated)
-      );
-
-      return updated;
-    });
-  };
-
-  return (
-    <>
-      {/* SEARCH */}
-      <div className="mt-8">
-        <input
-          type="text"
-          placeholder="🔍 Search Questions..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
-        />
-      </div>
-
-      {/* FILTER BUTTON */}
-      <div className="mt-4 grid grid-cols-2 gap-3">
-
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
-        >
-          <div className="flex items-center gap-3">
-            <SlidersHorizontal size={18} />
-            <span className="font-semibold">Filters</span>
-          </div>
-
-          {showFilters ? (
-            <ChevronUp size={18} />
-          ) : (
-            <ChevronDown size={18} />
-          )}
-        </button>
-
-        <button
-          onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-          className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
-            ? "border-black bg-black text-white"
-            : "border-gray-200 bg-white hover:border-black"
-            }`}
-        >
-          🔖 Bookmarks ({bookmarks.length})
-        </button>
-
-      </div>
-
-      {/* FILTERS */}
-      {
-        showFilters && (
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-
-            <div className="grid gap-4 md:grid-cols-4">
-
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">Class</option>
-
-                {classes.map((questionClass) => (
-                  <option key={questionClass} value={questionClass}>
-                    {questionClass}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedMmd}
-                onChange={(e) => setSelectedMmd(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">All MMDs</option>
-
-                {mmds.map((mmd) => (
-                  <option key={mmd} value={mmd}>
-                    {mmd}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedSurveyor}
-                onChange={(e) => setSelectedSurveyor(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">All Surveyors</option>
-
-                {surveyors.map((surveyor) => (
-                  <option key={surveyor} value={surveyor}>
-                    {surveyor}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">All Topics</option>
-
-                {topics.map((topic) => (
-                  <option key={topic} value={topic}>
-                    {topic}
-                  </option>
-                ))}
-              </select>
-
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={clearFilters}
-                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
-              >
-                Clear Filters
-              </button>
-            </div>
-
-          </div>
-        )
-      }
-
-
-
-
-      {/* HEADING */}
-      <div className="mt-8 mb-6 flex items-center justify-between gap-4">
-
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
-          Questions
-        </h2>
-
-        <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
-          <span className="text-gray-500">Current:</span>{" "}
-          <span className="font-bold text-black">
-            <span className="font-bold text-black">
-              {filteredQuestions.length}
-            </span>
-          </span>
-
-          <span className="mx-2 text-gray-300">|</span>
-
-        </div>
-
-      </div>
-
-      {/* QUESTIONS */}
-      <div className="space-y-4">
-
-        {filteredQuestions.map((q) => {
-
-
-          return (
-            <QuestionCard
-              key={q.id}
-              questionId={q.id}
-              category={category}
-              question={q.question}
-              answer={q.answer}
-              mmd={q.mmd}
-              surveyor={q.surveyor}
-              topic={q.topic}
-              examDate={q.examDate}
-              showMmd={showMmd}
-              showSurveyor={showSurveyor}
-              showTopic={showTopic}
-              isBookmarked={bookmarks.includes(q.id)}
-              onBookmark={() => toggleBookmark(q.id)}
-              isOpen={openQuestion === q.id}
-              onToggle={() => {
-                const currentScroll = window.scrollY;
-
-                setOpenQuestion(
-                  openQuestion === q.id ? null : q.id
-                );
-
-                requestAnimationFrame(() => {
-                  requestAnimationFrame(() => {
-                    window.scrollTo({
-                      top: currentScroll,
-                      behavior: "instant",
-                    });
-                  });
-                });
-              }}
-            />
-          );
-        })}
-      </div>
-
-    </>
-  )
+    return {
+        questions,
+        lastOrder:
+            questions.length > 0
+                ? questions[questions.length - 1].order
+                : null,
+        hasMore: questions.length === pageSize,
+    };
 }
 </file>
 
@@ -6375,6 +6911,362 @@ export async function deleteWrittenQuestion(
             id
         )
     );
+}
+</file>
+
+<file path="components/QuestionsList.tsx">
+"use client"
+
+import { useEffect, useMemo, useState } from "react";
+import type { OralFilters } from "@/services/firestore";
+import {
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
+
+import QuestionCard from "./QuestionCard";
+
+interface Question {
+  id: string;
+  question: string;
+  answer: string;
+  mmd: string;
+  surveyor: string;
+  topic: string;
+
+  class: string;
+
+  examDate: string;
+
+  order: number;
+  isActive: boolean;
+}
+
+interface Props {
+  category: string;
+  questions: Question[];
+  filters: OralFilters;
+}
+
+export default function QuestionsList({
+  category,
+  questions,
+  filters,
+}: Props) {
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+
+  const DEFAULT_MMD = "All";
+
+  const [selectedMmd, setSelectedMmd] =
+    useState(DEFAULT_MMD);
+  const [selectedSurveyor, setSelectedSurveyor] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+  const [selectedClass, setSelectedClass] = useState("All");
+
+  const topics = filters.topics;
+  const surveyors = filters.surveyors;
+  const mmds = filters.mmds;
+  const classes = filters.classes;
+
+  const showMmd = selectedMmd !== "All";
+  const showSurveyor = selectedSurveyor !== "All";
+  const showTopic = selectedTopic !== "All";
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      if (q.isActive === false) return false;
+      if (showBookmarksOnly && !bookmarks.includes(q.id))
+        return false;
+
+      if (
+        selectedMmd !== "All" &&
+        q.mmd !== selectedMmd
+      )
+        return false;
+
+      if (
+        selectedSurveyor !== "All" &&
+        q.surveyor !== selectedSurveyor
+      )
+        return false;
+
+      if (
+        selectedTopic !== "All" &&
+        q.topic !== selectedTopic
+      )
+        return false;
+
+      if (
+        selectedClass !== "All" &&
+        q.class !== selectedClass
+      )
+        return false;
+
+      if (
+        search.trim() &&
+        !(
+          q.question
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          (q.answer ?? "").toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.topic
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.mmd
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.surveyor
+            .toLowerCase()
+            .includes(search.toLowerCase())
+        )
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    questions,
+    search,
+    selectedMmd,
+    selectedSurveyor,
+    selectedTopic,
+    selectedClass,
+    bookmarks,
+    showBookmarksOnly,
+  ]);
+
+  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedMmd(DEFAULT_MMD);
+    setSelectedSurveyor("All");
+    setSelectedTopic("All");
+    setSelectedClass("All");
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem("bookmarkedQuestions");
+
+    if (saved) {
+      setBookmarks(JSON.parse(saved));
+    }
+  }, []);
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        "bookmarkedQuestions",
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
+  };
+
+  return (
+    <>
+      {/* SEARCH */}
+      <div className="mt-8">
+        <input
+          type="text"
+          placeholder="🔍 Search Questions..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+        />
+      </div>
+
+      {/* FILTER BUTTON */}
+      <div className="mt-4 grid grid-cols-2 gap-3">
+
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+        >
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal size={18} />
+            <span className="font-semibold">Filters</span>
+          </div>
+
+          {showFilters ? (
+            <ChevronUp size={18} />
+          ) : (
+            <ChevronDown size={18} />
+          )}
+        </button>
+
+        <button
+          onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+          className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
+            ? "border-black bg-black text-white"
+            : "border-gray-200 bg-white hover:border-black"
+            }`}
+        >
+          🔖 Bookmarks ({bookmarks.length})
+        </button>
+
+      </div>
+
+      {/* FILTERS */}
+      {
+        showFilters && (
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+
+            <div className="grid gap-4 md:grid-cols-4">
+
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">Class</option>
+
+                {classes.map((questionClass) => (
+                  <option key={questionClass} value={questionClass}>
+                    {questionClass}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedMmd}
+                onChange={(e) => setSelectedMmd(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All MMDs</option>
+
+                {mmds.map((mmd) => (
+                  <option key={mmd} value={mmd}>
+                    {mmd}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedSurveyor}
+                onChange={(e) => setSelectedSurveyor(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Surveyors</option>
+
+                {surveyors.map((surveyor) => (
+                  <option key={surveyor} value={surveyor}>
+                    {surveyor}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedTopic}
+                onChange={(e) => setSelectedTopic(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Topics</option>
+
+                {topics.map((topic) => (
+                  <option key={topic} value={topic}>
+                    {topic}
+                  </option>
+                ))}
+              </select>
+
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={clearFilters}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
+
+          </div>
+        )
+      }
+
+
+
+
+      {/* HEADING */}
+      <div className="mt-8 mb-6 flex items-center justify-between gap-4">
+
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+          Questions
+        </h2>
+
+        <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+          <span className="text-gray-500">Current:</span>{" "}
+          <span className="font-bold text-black">
+            <span className="font-bold text-black">
+              {filteredQuestions.length}
+            </span>
+          </span>
+
+          <span className="mx-2 text-gray-300">|</span>
+
+        </div>
+
+      </div>
+
+      {/* QUESTIONS */}
+      <div className="space-y-4">
+
+        {filteredQuestions.map((q) => {
+
+
+          return (
+            <QuestionCard
+              key={q.id}
+              questionId={q.id}
+              category={category}
+              question={q.question}
+              answer={q.answer}
+              mmd={q.mmd}
+              surveyor={q.surveyor}
+              topic={q.topic}
+              examDate={q.examDate}
+              showMmd={showMmd}
+              showSurveyor={showSurveyor}
+              showTopic={showTopic}
+              isBookmarked={bookmarks.includes(q.id)}
+              onBookmark={() => toggleBookmark(q.id)}
+              isOpen={openQuestion === q.id}
+              onToggle={() => {
+                const currentScroll = window.scrollY;
+
+                setOpenQuestion(
+                  openQuestion === q.id ? null : q.id
+                );
+
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    window.scrollTo({
+                      top: currentScroll,
+                      behavior: "instant",
+                    });
+                  });
+                });
+              }}
+            />
+          );
+        })}
+      </div>
+
+    </>
+  )
 }
 </file>
 

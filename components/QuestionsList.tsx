@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react";
-
+import type { OralFilters } from "@/services/firestore";
 import {
   ChevronDown,
   ChevronUp,
@@ -29,11 +29,13 @@ interface Question {
 interface Props {
   category: string;
   questions: Question[];
+  filters: OralFilters;
 }
 
 export default function QuestionsList({
   category,
   questions,
+  filters,
 }: Props) {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -49,25 +51,10 @@ export default function QuestionsList({
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [selectedClass, setSelectedClass] = useState("All");
 
-  const mmds = useMemo(
-    () => [...new Set(questions.map((q) => q.mmd).filter(Boolean))],
-    [questions]
-  );
-
-  const surveyors = useMemo(
-    () => [...new Set(questions.map((q) => q.surveyor).filter(Boolean))],
-    [questions]
-  );
-
-  const topics = useMemo(
-    () => [...new Set(questions.map((q) => q.topic).filter(Boolean))],
-    [questions]
-  );
-
-  const classes = useMemo(
-    () => [...new Set(questions.map((q) => q.class).filter(Boolean))],
-    [questions]
-  );
+  const topics = filters.topics;
+  const surveyors = filters.surveyors;
+  const mmds = filters.mmds;
+  const classes = filters.classes;
 
   const showMmd = selectedMmd !== "All";
   const showSurveyor = selectedSurveyor !== "All";

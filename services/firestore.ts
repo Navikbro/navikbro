@@ -344,6 +344,13 @@ export interface OralCategoryMeta {
     topicCount: number;
 }
 
+export interface OralFilters {
+    topics: string[];
+    surveyors: string[];
+    mmds: string[];
+    classes: string[];
+}
+
 export async function getOralCategoryMeta(
     category: string
 ): Promise<OralCategoryMeta> {
@@ -367,6 +374,39 @@ export async function getOralCategoryMeta(
     return {
         questionCount: data.questionCount ?? 0,
         topicCount: data.topicCount ?? 0,
+    };
+}
+
+export async function getOralFilters(
+    category: string
+): Promise<OralFilters> {
+
+    const snapshot = await getDoc(
+        doc(
+            db,
+            "orals",
+            category.toLowerCase(),
+            "meta",
+            "filters"
+        )
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            topics: [],
+            surveyors: [],
+            mmds: [],
+            classes: [],
+        };
+    }
+
+    const data = snapshot.data();
+
+    return {
+        topics: data.topics ?? [],
+        surveyors: data.surveyors ?? [],
+        mmds: data.mmds ?? [],
+        classes: data.classes ?? [],
     };
 }
 
@@ -423,6 +463,9 @@ export async function bulkUploadQuestions(
 
         const orderCounter: Record<string, number> = {};
         const topicCounter: Record<string, Set<string>> = {};
+        const mmdCounter: Record<string, Set<string>> = {};
+        const surveyorCounter: Record<string, Set<string>> = {};
+        const classCounter: Record<string, Set<string>> = {};
 
         const categories = new Set<string>();
 
@@ -483,9 +526,33 @@ export async function bulkUploadQuestions(
                 topicCounter[category] = new Set();
             }
 
+            if (!mmdCounter[category]) {
+                mmdCounter[category] = new Set();
+            }
+
+            if (!surveyorCounter[category]) {
+                surveyorCounter[category] = new Set();
+            }
+
+            if (!classCounter[category]) {
+                classCounter[category] = new Set();
+            }
+
 
             topicCounter[category].add(
                 String(row.Topic ?? "").trim()
+            );
+
+            mmdCounter[category].add(
+                String(row.MMD ?? "").trim()
+            );
+
+            surveyorCounter[category].add(
+                String(row.Surveyor ?? "").trim()
+            );
+
+            classCounter[category].add(
+                String(row.Class ?? "").trim()
             );
 
 
@@ -615,44 +682,65 @@ export async function bulkUploadQuestions(
         console.log("Updating metadata...");
 
 
-        for (
-            const category of Object.keys(orderCounter)
-        ) {
+        for (const category of Object.keys(orderCounter)) {
 
-
+            // Category metadata
             await setDoc(
-
                 doc(
                     db,
                     "orals",
                     category
                 ),
-
                 {
-
-                    questionCount:
-                        orderCounter[category] - 1,
-
-
-                    topicCount:
-                        topicCounter[category].size,
-
-
-                    updatedAt:
-                        serverTimestamp(),
-
+                    questionCount: orderCounter[category] - 1,
+                    topicCount: topicCounter[category].size,
+                    updatedAt: serverTimestamp(),
                 },
-
                 {
                     merge: true,
                 }
-
             );
 
+            await setDoc(
+                doc(
+                    db,
+                    "orals",
+                    category,
+                    "meta",
+                    "filters"
+                ),
+                {
+                    topics: [...topicCounter[category]].sort(),
+                    mmds: [...mmdCounter[category]].sort(),
+                    surveyors: [...surveyorCounter[category]].sort(),
+                    classes: [...classCounter[category]].sort(),
+                    updatedAt: serverTimestamp(),
+                }
+            );
+
+            // Filters metadata
+            await setDoc(
+                doc(
+                    db,
+                    "orals",
+                    category,
+                    "meta",
+                    "filters"
+                ),
+                {
+                    topics: [...topicCounter[category]].sort(),
+                    surveyors: [...surveyorCounter[category]].sort(),
+                    mmds: [...mmdCounter[category]].sort(),
+                    classes: [...classCounter[category]].sort(),
+                    updatedAt: serverTimestamp(),
+                }
+            );
 
             clearQuestionCache(category);
-
         }
+
+
+
 
 
         console.log("Upload complete.");
