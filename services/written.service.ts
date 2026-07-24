@@ -269,22 +269,9 @@ export async function bulkUploadWrittenQuestions(
         );
 
         await setDoc(
-            doc(db, "orals", category),
-            {
-                questionCount: orderCounter[category] - 1,
-                topicCount: topicCounter[category].size,
-                updatedAt: serverTimestamp(),
-            },
-            {
-                merge: true,
-            }
-        );
-
-        // NEW
-        await setDoc(
             doc(db, "metadata", "homeStats"),
             {
-                oral: {
+                written: {
                     [category]: {
                         questionCount: orderCounter[category] - 1,
                         topicCount: topicCounter[category].size,

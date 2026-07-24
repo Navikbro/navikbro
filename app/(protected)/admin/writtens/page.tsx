@@ -172,6 +172,13 @@ export default function WrittenUploadPage() {
                 rows
             );
 
+            // Refresh homepage cache
+            const res = await fetch("/api/revalidate-home", {
+                method: "POST",
+            });
+
+            console.log("Revalidate status:", res.status);
+            console.log(await res.json());
 
             alert(
                 `${rows.length} questions uploaded successfully.`

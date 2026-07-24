@@ -10,8 +10,6 @@ import SectionHeading from "@/components/SectionHeading";
 import { Folder } from "lucide-react";
 
 interface Stats {
-  questions: number;
-  topics: number;
   updatedAt: Date | null;
 }
 
@@ -47,8 +45,6 @@ export default function HomeClient({
               title="SAFETY"
               icon={Folder}
               badge="FN-3"
-              questions={oralStats.fn3?.questions}
-              topics={oralStats.fn3?.topics}
               updatedAt={oralStats.fn3?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -58,8 +54,6 @@ export default function HomeClient({
               title="MOTOR"
               icon={Folder}
               badge="FN-4B"
-              questions={oralStats.fn4b?.questions}
-              topics={oralStats.fn4b?.topics}
               updatedAt={oralStats.fn4b?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -69,8 +63,6 @@ export default function HomeClient({
               title="MEP"
               icon={Folder}
               badge="FN-6"
-              questions={oralStats.fn6?.questions}
-              topics={oralStats.fn6?.topics}
               updatedAt={oralStats.fn6?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -80,8 +72,6 @@ export default function HomeClient({
               title="ELECTRICAL"
               icon={Folder}
               badge="FN-5"
-              questions={oralStats.fn5?.questions}
-              topics={oralStats.fn5?.topics}
               updatedAt={oralStats.fn5?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -98,11 +88,9 @@ export default function HomeClient({
 
             <CategoryCard
               href="/writtens/general"
-              title="GENERAL"
+              title="MEKG"
               icon={Folder}
-              badge="MEKG"
-              questions={writtenStats.general?.questions}
-              topics={writtenStats.general?.topics}
+              badge="GENERAL"
               updatedAt={writtenStats.general?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -112,52 +100,42 @@ export default function HomeClient({
               title="MEP"
               icon={Folder}
               badge="MEP"
-              questions={writtenStats.mep?.questions}
-              topics={writtenStats.mep?.topics}
               updatedAt={writtenStats.mep?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/writtens/motor"
-              title="MOTOR"
+              title="MEKM"
               icon={Folder}
-              badge="MEKM"
-              questions={writtenStats.motor?.questions}
-              topics={writtenStats.motor?.topics}
+              badge="MOTOR"
               updatedAt={writtenStats.motor?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/writtens/met"
-              title="ELECTRICAL"
+              title="MET"
               icon={Folder}
-              badge="MET"
-              questions={writtenStats.met?.questions}
-              topics={writtenStats.met?.topics}
+              badge="ELECTRICAL"
               updatedAt={writtenStats.met?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/writtens/naval"
-              title="NAVAL"
+              title="SHIP-CO"
               icon={Folder}
-              badge="SHIP-CO"
-              questions={writtenStats.naval?.questions}
-              topics={writtenStats.naval?.topics}
+              badge="NAVAL"
               updatedAt={writtenStats.naval?.updatedAt}
               onRequireLogin={requireLogin}
             />
 
             <CategoryCard
               href="/writtens/ssep"
-              title="SAFETY"
+              title="SSEP"
               icon={Folder}
-              badge="SSEP"
-              questions={writtenStats.ssep?.questions}
-              topics={writtenStats.ssep?.topics}
+              badge="SAFETY"
               updatedAt={writtenStats.ssep?.updatedAt}
               onRequireLogin={requireLogin}
             />

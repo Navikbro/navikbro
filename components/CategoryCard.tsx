@@ -9,9 +9,6 @@ interface CategoryCardProps {
   title: string;
   icon: LucideIcon;
   badge?: string;
-
-  questions?: number;
-  topics?: number;
   updatedAt?: Date | string | null;
 
   onRequireLogin: () => void;
@@ -22,8 +19,6 @@ export default function CategoryCard({
   title,
   icon: Icon,
   badge,
-  questions = 0,
-  topics = 0,
   updatedAt = null,
   onRequireLogin,
 }: CategoryCardProps) {
@@ -63,21 +58,7 @@ export default function CategoryCard({
       <h3 className="mt-4 text-[15px] font-bold leading-tight text-gray-900 md:text-[17px] lg:text-[18px]">
         {title}
       </h3>
-
-      {/* Breathing Space */}
-      <div className="mt-5" />
-
-      {/* Stats */}
-      <div className="space-y-1">
-        <p className="text-[12px] font-medium text-gray-800 md:text-[13px]">
-          {questions.toLocaleString()} Questions
-        </p>
-
-        <p className="text-[12px] font-medium text-gray-800 md:text-[13px]">
-          {topics.toLocaleString()} Topics
-        </p>
-      </div>
-
+      
       {/* Push Footer Down */}
       <div className="flex-1" />
 
