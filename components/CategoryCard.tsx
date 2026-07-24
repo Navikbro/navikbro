@@ -12,7 +12,7 @@ interface CategoryCardProps {
 
   questions?: number;
   topics?: number;
-  updatedAt?: Date | null;
+  updatedAt?: Date | string | null;
 
   onRequireLogin: () => void;
 }
@@ -86,7 +86,7 @@ export default function CategoryCard({
         <p className="text-[10px] text-gray-400 md:text-[11px]">
           Updated •{" "}
           {updatedAt
-            ? updatedAt.toLocaleDateString("en-IN", {
+            ? new Date(updatedAt).toLocaleDateString("en-IN", {
               month: "short",
               year: "numeric",
             })

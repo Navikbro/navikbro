@@ -1,5 +1,4 @@
 
-
 import {
     addDoc,
     collection,
@@ -306,16 +305,23 @@ async function deleteExistingOralQuestions(category: string) {
 export async function getOralQuestionCount(
     category: string
 ) {
-    const snapshot = await getDocs(
-        collection(
+
+    const snapshot = await getDoc(
+        doc(
             db,
             "orals",
-            category.toLowerCase(),
-            "questions"
+            category.toLowerCase()
         )
     );
 
-    return snapshot.size;
+
+    if (!snapshot.exists()) {
+        return 0;
+    }
+
+
+    return snapshot.data().questionCount ?? 0;
+
 }
 
 export async function getAllOralQuestionCounts() {
@@ -702,19 +708,18 @@ export async function bulkUploadQuestions(
             );
 
             await setDoc(
-                doc(
-                    db,
-                    "orals",
-                    category,
-                    "meta",
-                    "filters"
-                ),
+                doc(db, "metadata", "homeStats"),
                 {
-                    topics: [...topicCounter[category]].sort(),
-                    mmds: [...mmdCounter[category]].sort(),
-                    surveyors: [...surveyorCounter[category]].sort(),
-                    classes: [...classCounter[category]].sort(),
-                    updatedAt: serverTimestamp(),
+                    oral: {
+                        [category]: {
+                            questionCount: orderCounter[category] - 1,
+                            topicCount: topicCounter[category].size,
+                            updatedAt: serverTimestamp(),
+                        },
+                    },
+                },
+                {
+                    merge: true,
                 }
             );
 

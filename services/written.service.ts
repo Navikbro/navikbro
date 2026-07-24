@@ -11,6 +11,8 @@ import {
     updateDoc,
 } from "firebase/firestore";
 
+import { getDoc } from "firebase/firestore";
+
 import { db } from "@/lib/firebase";
 
 export interface WrittenQuestion {
@@ -88,18 +90,21 @@ export async function getWrittenQuestionCount(
     category: string
 ) {
 
-    const snapshot =
-        await getDocs(
-            collection(
-                db,
-                "writtens",
-                category,
-                "questions"
-            )
-        );
+    const snapshot = await getDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase()
+        )
+    );
 
 
-    return snapshot.size;
+    if (!snapshot.exists()) {
+        return 0;
+    }
+
+
+    return snapshot.data().questionCount ?? 0;
 
 }
 
@@ -263,8 +268,40 @@ export async function bulkUploadWrittenQuestions(
             }
         );
 
+        await setDoc(
+            doc(db, "orals", category),
+            {
+                questionCount: orderCounter[category] - 1,
+                topicCount: topicCounter[category].size,
+                updatedAt: serverTimestamp(),
+            },
+            {
+                merge: true,
+            }
+        );
+
+        // NEW
+        await setDoc(
+            doc(db, "metadata", "homeStats"),
+            {
+                oral: {
+                    [category]: {
+                        questionCount: orderCounter[category] - 1,
+                        topicCount: topicCounter[category].size,
+                        updatedAt: serverTimestamp(),
+                    },
+                },
+            },
+            {
+                merge: true,
+            }
+        );
+
     }
 }
+
+
+
 export async function updateWrittenQuestion(
     category: string,
     id: string,
