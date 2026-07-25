@@ -1,4 +1,4 @@
-import WrittensClient from "../[category]/WrittensClient.tsx";
+import WrittensClient from "../[category]/WrittensClient";
 import { getCachedWrittenQuestions } from "@/lib/written-cache";
 
 export default async function WrittenPage({
@@ -14,16 +14,6 @@ export default async function WrittenPage({
 
   const questions = await getCachedWrittenQuestions(
     normalizedCategory
-  );
-
-  console.log(
-    "SERVER QUESTIONS COUNT:",
-    questions.length
-  );
-
-  console.log(
-    "SERVER FIRST QUESTION:",
-    questions[0]
   );
 
   return (
