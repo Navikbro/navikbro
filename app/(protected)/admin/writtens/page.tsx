@@ -3,8 +3,7 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
 
-import { bulkUploadWrittenQuestions } from "@/services/written.service";
-import { getWrittenQuestionCount } from "@/services/written.service";
+import { uploadWrittenBatch } from "@/services/writtenBatch.service";
 interface ExcelQuestion {
     Class: string;
     Category: string;
@@ -20,8 +19,6 @@ export default function WrittenUploadPage() {
     const [fileName, setFileName] = useState("");
     const [uploading, setUploading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
-    const [existingCount, setExistingCount] = useState(0);
-    const [pendingUpload, setPendingUpload] = useState(false);
 
     function handleFile(file: File) {
         setFileName(file.name);
@@ -49,7 +46,6 @@ export default function WrittenUploadPage() {
                     }
                 );
 
-            console.log(json[0].Question);
 
             setRows(json);
         };
@@ -77,35 +73,6 @@ export default function WrittenUploadPage() {
             return;
         }
 
-
-        const categories = [
-            ...new Set(
-                rows.map(
-                    (row) =>
-                        row.Category
-                            .trim()
-                            .toLowerCase()
-                )
-            ),
-        ];
-
-
-        let count = 0;
-
-
-        for (const category of categories) {
-
-            const existing =
-                await getWrittenQuestionCount(
-                    category
-                );
-
-            count += existing;
-
-        }
-
-
-        setExistingCount(count);
         setShowConfirm(true);
     }
 
@@ -168,9 +135,7 @@ export default function WrittenUploadPage() {
 
             setUploading(true);
 
-            await bulkUploadWrittenQuestions(
-                rows
-            );
+            await uploadWrittenBatch(rows, fileName);
 
             // Refresh homepage cache
             const res = await fetch("/api/revalidate-home", {
@@ -181,9 +146,8 @@ export default function WrittenUploadPage() {
             console.log(await res.json());
 
             alert(
-                `${rows.length} questions uploaded successfully.`
+                `${rows.length} questions uploaded as "${fileName}".`
             );
-
 
             setRows([]);
             setFileName("");
@@ -197,14 +161,12 @@ export default function WrittenUploadPage() {
             ).value = "";
 
 
-        } catch (error) {
-
+        } catch (error: any) {
             console.error(error);
 
-            alert(
-                "Upload failed."
-            );
+            alert(error.message);
 
+            console.log(error);
         }
         finally {
 
@@ -386,18 +348,8 @@ export default function WrittenUploadPage() {
                         <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
 
                             <h2 className="text-2xl font-bold">
-                                Replace Question Bank?
+                                Upload New Batch?
                             </h2>
-
-
-                            <p className="mt-4 text-gray-600">
-
-                                Existing Questions:
-                                <b className="ml-2">
-                                    {existingCount}
-                                </b>
-
-                            </p>
 
 
                             <p className="mt-2 text-gray-600">
@@ -413,8 +365,7 @@ export default function WrittenUploadPage() {
                             <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-600">
 
                                 Warning:
-                                Existing questions for this category
-                                will be permanently replaced.
+                                A new batch will be created for this category.
 
                             </p>
 
@@ -436,7 +387,7 @@ export default function WrittenUploadPage() {
                                     onClick={confirmUpload}
                                     className="rounded-xl bg-blue-600 px-5 py-2 text-white"
                                 >
-                                    Replace
+                                    Upload Batch
                                 </button>
 
 

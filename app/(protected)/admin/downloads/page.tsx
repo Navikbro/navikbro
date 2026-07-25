@@ -185,13 +185,13 @@ export default function DownloadsPage() {
             `${category}.xlsx`,
             rows,
             (row) => [
-                row.Class,
-                row.Category,
-                row.Topic,
-                row.Year,
-                row.Month,
-                row.Question,
-                row.Answer,
+                row.class,
+                row.category,
+                row.topic,
+                row.year,
+                row.month,
+                row.question,
+                row.answer,
             ]
         );
 

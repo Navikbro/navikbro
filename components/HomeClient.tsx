@@ -34,50 +34,6 @@ export default function HomeClient({
 
         <Header setShowAuth={setShowAuth} />
 
-        {/* BROWSE BY ORALS */}
-        <section className="mt-10">
-          <SectionHeading title="BROWSE BY ORALS" />
-
-          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
-
-            <CategoryCard
-              href="/orals/fn3"
-              title="SAFETY"
-              icon={Folder}
-              badge="FN-3"
-              updatedAt={oralStats.fn3?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/orals/fn4b"
-              title="MOTOR"
-              icon={Folder}
-              badge="FN-4B"
-              updatedAt={oralStats.fn4b?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/orals/fn6"
-              title="MEP"
-              icon={Folder}
-              badge="FN-6"
-              updatedAt={oralStats.fn6?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-            <CategoryCard
-              href="/orals/fn5"
-              title="ELECTRICAL"
-              icon={Folder}
-              badge="FN-5"
-              updatedAt={oralStats.fn5?.updatedAt}
-              onRequireLogin={requireLogin}
-            />
-
-          </div>
-        </section>
 
         {/* BROWSE BY WRITTENS */}
         <section className="mt-12">
@@ -142,6 +98,52 @@ export default function HomeClient({
 
           </div>
         </section>
+
+        {/* BROWSE BY ORALS */}
+        <section className="mt-10">
+          <SectionHeading title="BROWSE BY ORALS" />
+
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+
+            <CategoryCard
+              href="/orals/fn3"
+              title="SAFETY"
+              icon={Folder}
+              badge="FN-3"
+              updatedAt={oralStats.fn3?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/orals/fn4b"
+              title="MOTOR"
+              icon={Folder}
+              badge="FN-4B"
+              updatedAt={oralStats.fn4b?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/orals/fn6"
+              title="MEP"
+              icon={Folder}
+              badge="FN-6"
+              updatedAt={oralStats.fn6?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+            <CategoryCard
+              href="/orals/fn5"
+              title="ELECTRICAL"
+              icon={Folder}
+              badge="FN-5"
+              updatedAt={oralStats.fn5?.updatedAt}
+              onRequireLogin={requireLogin}
+            />
+
+          </div>
+        </section>
+
 
       </div>
 

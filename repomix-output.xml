@@ -1,0 +1,538 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: app/page.tsx, services/written.service.ts, services/writtenBatch.service.ts
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+app/
+  page.tsx
+services/
+  written.service.ts
+  writtenBatch.service.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="services/writtenBatch.service.ts">
+import {
+    doc,
+    getDoc,
+    runTransaction,
+    serverTimestamp,
+    setDoc,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+async function getNextBatchNumber(category: string) {
+    const counterRef = doc(
+        db,
+        "written_batches_metadata",
+        "counters"
+    );
+
+    return await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(counterRef);
+
+        if (!snapshot.exists()) {
+            throw new Error("Batch counter document not found.");
+        }
+
+        const data = snapshot.data();
+
+        const current = data[category] ?? 0;
+        const next = current + 1;
+
+        transaction.update(counterRef, {
+            [category]: next,
+        });
+
+        return next;
+    });
+}
+
+export async function uploadWrittenBatch(
+    rows: any[],
+    sourceFile: string
+) {
+
+    try {
+        if (!rows.length) return;
+
+        const category = String(rows[0].Category)
+            .trim()
+            .toLowerCase();
+
+        const batchNumber = await getNextBatchNumber(category);
+
+        const batchId = `${category}_batch_${String(batchNumber).padStart(3, "0")}`;
+
+        const questions = rows.map((row: any, index: number) => ({
+            id: crypto.randomUUID(),
+            class: String(row.Class).trim(),
+            category: category,
+            topic: String(row.Topic).trim(),
+            year: Number(row.Year),
+            month: String(row.Month).trim(),
+            question: String(row.Question).trim(),
+            answer: String(row.Answer).trim(),
+            order: index + 1,
+            isActive: true,
+        }));
+
+        const topicCount = new Set(
+            questions.map((q) => q.topic)
+        ).size;
+
+        console.log("Creating batch:", batchId);
+        console.log("Category:", category);
+        console.log("Questions:", questions.length);
+
+        const batchRef = doc(
+            db,
+            "written_batches",
+            batchId
+        );
+
+        console.log("Writing document:", batchRef.path);
+
+        await setDoc(
+            batchRef,
+            {
+                batchId,
+                batchNumber,
+                category,
+                sourceFile,
+                questionCount: questions.length,
+                topicCount,
+                questions,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            }
+        );
+
+        console.log(
+            "Batch created successfully:",
+            batchId
+        );
+
+    } catch (error) {
+        console.error(
+            "BATCH CREATION ERROR:",
+            error
+        );
+
+        throw error;
+    }
+
+}
+</file>
+
+<file path="app/page.tsx">
+import HomeClient from "@/components/HomeClient";
+import { getHomeStats } from "@/lib/home-cache";
+
+export default async function HomePage() {
+  const { oralStats, writtenStats } = await getHomeStats();
+
+  return (
+    <HomeClient
+      oralStats={oralStats}
+      writtenStats={writtenStats}
+    />
+  );
+}
+</file>
+
+<file path="services/written.service.ts">
+import {
+    collection,
+    doc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    setDoc,
+    writeBatch,
+    deleteDoc,
+    updateDoc,
+} from "firebase/firestore";
+
+import { getDoc } from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+export interface WrittenQuestion {
+    id: string;
+    class: string;
+    category: string;
+    topic: string;
+    year: number;
+    month: string;
+    question: string;
+    answer: string;
+    order: number;
+    isActive: boolean;
+}
+
+export async function getWrittenQuestions(
+    category: string
+): Promise<WrittenQuestion[]> {
+
+    const snapshot = await getDocs(
+        collection(
+            db,
+            "written_batches"
+        )
+    );
+
+
+    const questions: WrittenQuestion[] = [];
+
+
+    snapshot.docs.forEach((batchDoc) => {
+
+        const data = batchDoc.data();
+
+
+        if (
+            data.category?.toLowerCase() !==
+            category.toLowerCase()
+        ) {
+            return;
+        }
+
+
+        const batchQuestions =
+            data.questions ?? [];
+
+
+        batchQuestions.forEach(
+            (question: WrittenQuestion) => {
+
+                if (
+                    question.isActive !== false
+                ) {
+                    questions.push(question);
+                }
+
+            }
+        );
+
+    });
+
+
+    return questions.sort(
+        (a, b) =>
+            (a.order ?? 0) -
+            (b.order ?? 0)
+    );
+}
+
+async function deleteExistingWrittenQuestions(
+    category: string
+) {
+    const questionsRef = collection(
+        db,
+        "writtens",
+        category,
+        "questions"
+    );
+
+    const snapshot = await getDocs(
+        questionsRef
+    );
+
+    const deleteBatch = writeBatch(db);
+
+    snapshot.docs.forEach((questionDoc) => {
+        deleteBatch.delete(questionDoc.ref);
+    });
+
+    await deleteBatch.commit();
+}
+
+export async function getWrittenQuestionCount(
+    category: string
+) {
+
+    const snapshot = await getDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase()
+        )
+    );
+
+
+    if (!snapshot.exists()) {
+        return 0;
+    }
+
+
+    return snapshot.data().questionCount ?? 0;
+
+}
+
+export async function getAllWrittenQuestionCounts() {
+
+    const categories = [
+        "general",
+        "motor",
+        "mep",
+        "ssep",
+        "naval",
+        "met",
+    ];
+
+    const counts: Record<string, number> = {};
+
+    for (const category of categories) {
+
+        counts[category.toUpperCase()] =
+            await getWrittenQuestionCount(category);
+
+    }
+
+    return counts;
+
+}
+
+export async function getWrittenQuestionsForExport(
+    category: string
+) {
+    const snapshot = await getDocs(
+        query(
+            collection(
+                db,
+                "writtens",
+                category.toLowerCase(),
+                "questions"
+            ),
+            orderBy("order")
+        )
+    );
+
+    return snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+
+        return {
+            id: doc.id,
+
+            question: data.question ?? "",
+            answer: data.answer ?? "",
+
+            topic: data.topic ?? "",
+            class: data.class ?? "",
+
+            month: data.month ?? "",
+            year: data.year ?? undefined,
+        };
+    });
+}
+
+export async function bulkUploadWrittenQuestions(
+    rows: any[]
+) {
+    const batch = writeBatch(db);
+
+    const orderCounter: Record<string, number> = {};
+    const topicCounter: Record<string, Set<string>> = {};
+
+    const categories = new Set<string>();
+
+    rows.forEach((rawRow, index) => {
+        const row: Record<string, any> = {};
+
+        Object.keys(rawRow).forEach((key) => {
+            row[key.trim()] = rawRow[key];
+        });
+
+        const category = String(rows[0].Category)
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "_");
+
+        if (!category) {
+            throw new Error(
+                `Row ${index + 1}: Category missing`
+            );
+        }
+        categories.add(category);
+
+        if (!orderCounter[category]) {
+            orderCounter[category] = 1;
+        }
+
+        if (!topicCounter[category]) {
+            topicCounter[category] = new Set();
+        }
+
+        const topic = String(row.Topic ?? "").trim();
+
+        if (topic) {
+            topicCounter[category].add(topic);
+        }
+
+        const ref = doc(
+            collection(
+                db,
+                "writtens",
+                category,
+                "questions"
+            )
+        );
+
+        const answer = String(row.Answer).trim();
+
+        batch.set(ref, {
+            class: String(row.Class).trim(),
+
+            category: String(row.Category).trim(),
+
+            topic: String(row.Topic).trim(),
+
+            year: Number(row.Year),
+
+            month: String(row.Month).trim(),
+
+            question: String(row.Question).trim(),
+
+            answer,
+
+            order: orderCounter[category]++,
+
+            isActive: true,
+
+            createdAt: serverTimestamp(),
+
+            updatedAt: serverTimestamp(),
+        });
+    });
+
+    for (const category of categories) {
+
+        await deleteExistingWrittenQuestions(
+            category
+        );
+
+    }
+
+    await batch.commit();
+
+    for (const category of Object.keys(orderCounter)) {
+
+        await setDoc(
+            doc(db, "writtens", category),
+            {
+                questionCount: orderCounter[category] - 1,
+                topicCount: topicCounter[category].size,
+                updatedAt: serverTimestamp(),
+            },
+            {
+                merge: true,
+            }
+        );
+
+        await setDoc(
+            doc(db, "metadata", "homeStats"),
+            {
+                written: {
+                    [category]: {
+                        questionCount: orderCounter[category] - 1,
+                        topicCount: topicCounter[category].size,
+                        updatedAt: serverTimestamp(),
+                    },
+                },
+            },
+            {
+                merge: true,
+            }
+        );
+
+    }
+}
+
+
+
+export async function updateWrittenQuestion(
+    category: string,
+    id: string,
+    data: Partial<WrittenQuestion>
+) {
+
+    console.log("Type:", typeof data.answer);
+    console.log("Raw:", data.answer);
+    console.log("JSON:", JSON.stringify(data.answer));
+
+    await updateDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        ),
+        {
+            ...data,
+            updatedAt: serverTimestamp(),
+        }
+    );
+}
+
+export async function deleteWrittenQuestion(
+    category: string,
+    id: string
+) {
+    await deleteDoc(
+        doc(
+            db,
+            "writtens",
+            category.toLowerCase(),
+            "questions",
+            id
+        )
+    );
+}
+</file>
+
+</files>

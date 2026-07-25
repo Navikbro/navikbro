@@ -1,17 +1,11 @@
 import {
     collection,
-    doc,
     getDocs,
-    orderBy,
     query,
+    where,
     serverTimestamp,
-    setDoc,
-    writeBatch,
-    deleteDoc,
     updateDoc,
 } from "firebase/firestore";
-
-import { getDoc } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 
@@ -31,81 +25,81 @@ export interface WrittenQuestion {
 export async function getWrittenQuestions(
     category: string
 ): Promise<WrittenQuestion[]> {
-    const q = query(
-        collection(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions"
-        ),
-        orderBy("order")
-    );
-
-    const snapshot = await getDocs(q);
-
-    const result = snapshot.docs.map((doc) => {
-        const data = doc.data();
-
-        return {
-            id: doc.id,
-            class: data.class ?? "",
-            category: data.category ?? "",
-            topic: data.topic ?? "",
-            year: data.year ?? 0,
-            month: data.month ?? "",
-            question: data.question ?? "",
-            answer: data.answer ?? "",
-            order: data.order ?? 0,
-            isActive: data.isActive ?? true,
-        };
-    });
-
-    return result;
-}
-
-async function deleteExistingWrittenQuestions(
-    category: string
-) {
-    const questionsRef = collection(
-        db,
-        "writtens",
-        category,
-        "questions"
-    );
 
     const snapshot = await getDocs(
-        questionsRef
-    );
-
-    const deleteBatch = writeBatch(db);
-
-    snapshot.docs.forEach((questionDoc) => {
-        deleteBatch.delete(questionDoc.ref);
-    });
-
-    await deleteBatch.commit();
-}
-
-export async function getWrittenQuestionCount(
-    category: string
-) {
-
-    const snapshot = await getDoc(
-        doc(
-            db,
-            "writtens",
-            category.toLowerCase()
+        query(
+            collection(db, "written_batches"),
+            where("category", "==", category.toLowerCase())
         )
     );
 
 
-    if (!snapshot.exists()) {
-        return 0;
-    }
+    const questions: WrittenQuestion[] = [];
 
 
-    return snapshot.data().questionCount ?? 0;
+    snapshot.docs.forEach((batchDoc) => {
 
+        const data = batchDoc.data();
+
+
+        if (
+            data.category?.toLowerCase() !==
+            category.toLowerCase()
+        ) {
+            return;
+        }
+
+
+        const batchQuestions =
+            data.questions ?? [];
+
+
+        batchQuestions.forEach(
+            (question: WrittenQuestion) => {
+
+                if (
+                    question.isActive !== false
+                ) {
+                    questions.push(question);
+                }
+
+            }
+        );
+
+    });
+
+
+    return questions.sort(
+        (a, b) =>
+            (a.order ?? 0) -
+            (b.order ?? 0)
+    );
+}
+export async function getWrittenQuestionCount(
+    category: string
+): Promise<number> {
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "written_batches"),
+            where("category", "==", category.toLowerCase())
+        )
+    );
+
+    let total = 0;
+
+    snapshot.docs.forEach((batchDoc) => {
+        const data = batchDoc.data();
+
+        if (
+            data.category?.toLowerCase() ===
+            category.toLowerCase()
+        ) {
+            total += data.questionCount ?? 0;
+        }
+    });
+
+    return total;
 }
 
 export async function getAllWrittenQuestionCounts() {
@@ -129,165 +123,51 @@ export async function getAllWrittenQuestionCounts() {
     }
 
     return counts;
-
 }
+
 
 export async function getWrittenQuestionsForExport(
     category: string
 ) {
     const snapshot = await getDocs(
         query(
-            collection(
-                db,
-                "writtens",
-                category.toLowerCase(),
-                "questions"
-            ),
-            orderBy("order")
+            collection(db, "written_batches"),
+            where("category", "==", category.toLowerCase())
         )
     );
 
-    return snapshot.docs.map((doc) => {
-        const data = doc.data();
+    const questions: any[] = [];
+
+    snapshot.docs.forEach((batchDoc) => {
+        const data = batchDoc.data();
 
 
-        return {
-            id: doc.id,
-
-            question: data.question ?? "",
-            answer: data.answer ?? "",
-
-            topic: data.topic ?? "",
-            class: data.class ?? "",
-
-            month: data.month ?? "",
-            year: data.year ?? undefined,
-        };
-    });
-}
-
-export async function bulkUploadWrittenQuestions(
-    rows: any[]
-) {
-    const batch = writeBatch(db);
-
-    const orderCounter: Record<string, number> = {};
-    const topicCounter: Record<string, Set<string>> = {};
-
-    const categories = new Set<string>();
-
-    rows.forEach((rawRow, index) => {
-        const row: Record<string, any> = {};
-
-        Object.keys(rawRow).forEach((key) => {
-            row[key.trim()] = rawRow[key];
-        });
-
-        const category = String(row.Category)
-            .trim()
-            .toLowerCase();
-
-        if (!category) {
-            throw new Error(
-                `Row ${index + 1}: Category missing`
-            );
-        }
-        categories.add(category);
-
-        if (!orderCounter[category]) {
-            orderCounter[category] = 1;
+        if (
+            data.category?.toLowerCase() !==
+            category.toLowerCase()
+        ) {
+            return;
         }
 
-        if (!topicCounter[category]) {
-            topicCounter[category] = new Set();
-        }
-
-        const topic = String(row.Topic ?? "").trim();
-
-        if (topic) {
-            topicCounter[category].add(topic);
-        }
-
-        const ref = doc(
-            collection(
-                db,
-                "writtens",
-                category,
-                "questions"
-            )
-        );
-
-        const answer = String(row.Answer).trim();
-
-        batch.set(ref, {
-            class: String(row.Class).trim(),
-
-            category: String(row.Category).trim(),
-
-            topic: String(row.Topic).trim(),
-
-            year: Number(row.Year),
-
-            month: String(row.Month).trim(),
-
-            question: String(row.Question).trim(),
-
-            answer,
-
-            order: orderCounter[category]++,
-
-            isActive: true,
-
-            createdAt: serverTimestamp(),
-
-            updatedAt: serverTimestamp(),
+        (data.questions ?? []).forEach((question: any) => {
+            questions.push({
+                id: question.id,
+                question: question.question ?? "",
+                answer: question.answer ?? "",
+                topic: question.topic ?? "",
+                class: question.class ?? "",
+                month: question.month ?? "",
+                year: question.year,
+                order: question.order ?? 0,
+            });
         });
     });
 
-    for (const category of categories) {
 
-        await deleteExistingWrittenQuestions(
-            category
-        );
-
-    }
-
-    await batch.commit();
-
-    for (const category of Object.keys(orderCounter)) {
-
-        await setDoc(
-            doc(db, "writtens", category),
-            {
-                questionCount: orderCounter[category] - 1,
-                topicCount: topicCounter[category].size,
-                updatedAt: serverTimestamp(),
-            },
-            {
-                merge: true,
-            }
-        );
-
-        await setDoc(
-            doc(db, "metadata", "homeStats"),
-            {
-                written: {
-                    [category]: {
-                        questionCount: orderCounter[category] - 1,
-                        topicCount: topicCounter[category].size,
-                        updatedAt: serverTimestamp(),
-                    },
-                },
-            },
-            {
-                merge: true,
-            }
-        );
-
-    }
+    return questions.sort(
+        (a, b) => a.order - b.order
+    );
 }
-
-
 
 export async function updateWrittenQuestion(
     category: string,
@@ -295,36 +175,90 @@ export async function updateWrittenQuestion(
     data: Partial<WrittenQuestion>
 ) {
 
-    console.log("Type:", typeof data.answer);
-    console.log("Raw:", data.answer);
-    console.log("JSON:", JSON.stringify(data.answer));
-
-    await updateDoc(
-        doc(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions",
-            id
-        ),
-        {
-            ...data,
-            updatedAt: serverTimestamp(),
-        }
+    const snapshot = await getDocs(
+        query(
+            collection(db, "written_batches"),
+            where("category", "==", category.toLowerCase())
+        )
     );
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        if (
+            batchData.category?.toLowerCase() !==
+            category.toLowerCase()
+        ) {
+            continue;
+        }
+
+        const questions = [...(batchData.questions ?? [])];
+
+        const index = questions.findIndex(
+            (q: WrittenQuestion) => q.id === id
+        );
+
+        if (index === -1) {
+            continue;
+        }
+
+        questions[index] = {
+            ...questions[index],
+            ...data,
+        };
+
+        await updateDoc(batchDoc.ref, {
+            questions,
+            updatedAt: serverTimestamp(),
+        });
+
+        return;
+    }
+
+    throw new Error("Question not found");
 }
 
 export async function deleteWrittenQuestion(
     category: string,
     id: string
 ) {
-    await deleteDoc(
-        doc(
-            db,
-            "writtens",
-            category.toLowerCase(),
-            "questions",
-            id
+    const snapshot = await getDocs(
+        query(
+            collection(db, "written_batches"),
+            where("category", "==", category.toLowerCase())
         )
     );
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        if (
+            batchData.category?.toLowerCase() !==
+            category.toLowerCase()
+        ) {
+            continue;
+        }
+
+        const questions = [...(batchData.questions ?? [])];
+
+        const updatedQuestions = questions.filter(
+            (q: WrittenQuestion) => q.id !== id
+        );
+
+        if (updatedQuestions.length === questions.length) {
+            continue; // Question not found in this batch
+        }
+
+        await updateDoc(batchDoc.ref, {
+            questions: updatedQuestions,
+            questionCount: updatedQuestions.length,
+            updatedAt: serverTimestamp(),
+        });
+
+        return;
+    }
+
+    throw new Error("Question not found");
 }
