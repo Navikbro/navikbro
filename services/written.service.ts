@@ -26,10 +26,18 @@ export async function getWrittenQuestions(
     category: string
 ): Promise<WrittenQuestion[]> {
 
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+
     const snapshot = await getDocs(
         query(
             collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            )
         )
     );
 
@@ -44,7 +52,7 @@ export async function getWrittenQuestions(
 
         if (
             data.category?.toLowerCase() !==
-            category.toLowerCase()
+            normalizedCategory
         ) {
             return;
         }
@@ -75,6 +83,7 @@ export async function getWrittenQuestions(
             (b.order ?? 0)
     );
 }
+
 export async function getWrittenQuestionCount(
     category: string
 ): Promise<number> {
@@ -175,90 +184,131 @@ export async function updateWrittenQuestion(
     data: Partial<WrittenQuestion>
 ) {
 
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+
     const snapshot = await getDocs(
         query(
             collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            )
         )
     );
+
 
     for (const batchDoc of snapshot.docs) {
 
         const batchData = batchDoc.data();
 
-        if (
-            batchData.category?.toLowerCase() !==
-            category.toLowerCase()
-        ) {
-            continue;
-        }
 
-        const questions = [...(batchData.questions ?? [])];
+        const questions =
+            [...(batchData.questions ?? [])];
 
-        const index = questions.findIndex(
-            (q: WrittenQuestion) => q.id === id
-        );
+
+        const index =
+            questions.findIndex(
+                (q: WrittenQuestion) =>
+                    q.id === id
+            );
+
 
         if (index === -1) {
             continue;
         }
+
 
         questions[index] = {
             ...questions[index],
             ...data,
         };
 
-        await updateDoc(batchDoc.ref, {
-            questions,
-            updatedAt: serverTimestamp(),
-        });
+
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions,
+                updatedAt:
+                    serverTimestamp(),
+            }
+        );
+
 
         return;
     }
 
-    throw new Error("Question not found");
+
+    throw new Error(
+        "Question not found"
+    );
 }
 
 export async function deleteWrittenQuestion(
     category: string,
     id: string
 ) {
+
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+
     const snapshot = await getDocs(
         query(
             collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            )
         )
     );
+
 
     for (const batchDoc of snapshot.docs) {
 
         const batchData = batchDoc.data();
 
+
+        const questions =
+            [...(batchData.questions ?? [])];
+
+
+        const updatedQuestions =
+            questions.filter(
+                (q: WrittenQuestion) =>
+                    q.id !== id
+            );
+
+
         if (
-            batchData.category?.toLowerCase() !==
-            category.toLowerCase()
+            updatedQuestions.length ===
+            questions.length
         ) {
             continue;
         }
 
-        const questions = [...(batchData.questions ?? [])];
 
-        const updatedQuestions = questions.filter(
-            (q: WrittenQuestion) => q.id !== id
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions:
+                    updatedQuestions,
+                questionCount:
+                    updatedQuestions.length,
+                updatedAt:
+                    serverTimestamp(),
+            }
         );
 
-        if (updatedQuestions.length === questions.length) {
-            continue; // Question not found in this batch
-        }
-
-        await updateDoc(batchDoc.ref, {
-            questions: updatedQuestions,
-            questionCount: updatedQuestions.length,
-            updatedAt: serverTimestamp(),
-        });
 
         return;
     }
 
-    throw new Error("Question not found");
+
+    throw new Error(
+        "Question not found"
+    );
 }

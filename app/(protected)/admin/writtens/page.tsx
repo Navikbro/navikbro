@@ -47,6 +47,11 @@ export default function WrittenUploadPage() {
                 );
 
 
+            if (json.length === 0) {
+                alert("Excel file contains no questions");
+                return;
+            }
+
             setRows(json);
         };
 
