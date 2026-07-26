@@ -29,7 +29,7 @@ interface Question {
 interface Props {
   category: string;
   questions: Question[];
-  filters: OralFilters;
+  filters?: OralFilters;
 }
 
 export default function QuestionsList({
@@ -51,11 +51,10 @@ export default function QuestionsList({
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [selectedClass, setSelectedClass] = useState("All");
 
-  const topics = filters.topics;
-  const surveyors = filters.surveyors;
-  const mmds = filters.mmds;
-  const classes = filters.classes;
-
+  const topics = filters?.topics ?? [];
+  const surveyors = filters?.surveyors ?? [];
+  const mmds = filters?.mmds ?? [];
+  const classes = filters?.classes ?? [];
   const showMmd = selectedMmd !== "All";
   const showSurveyor = selectedSurveyor !== "All";
   const showTopic = selectedTopic !== "All";

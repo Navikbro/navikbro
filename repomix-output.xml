@@ -1,10 +1,10 @@
-This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
 
 <file_summary>
 This section contains a summary of this file.
 
 <purpose>
-This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+This file contains a packed representation of the entire repository's contents.
 It is designed to be easily consumable by AI systems for analysis, code review,
 or other automated processes.
 </purpose>
@@ -32,8 +32,6 @@ The content is organized as follows:
 <notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
-- Only files matching these patterns are included: app, components, services, lib
-- Files matching these patterns are excluded: node_modules, .next, .git
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
 - Files are sorted by Git change count (files with more changes are at the bottom)
@@ -64,15 +62,19 @@ app/
     writtens/
       [category]/
         page.tsx
+        WrittensClient.tsx
     layout.tsx
   api/
+    orals/
+      batch/
+        route.ts
+    revalidate/
+      written/
+        route.ts
     revalidate-home/
       route.ts
     revalidate-written/
       route.ts
-    written/
-      [category]/
-        route.ts
   context/
     AuthContext.tsx
   favicon.ico
@@ -109,100 +111,449 @@ lib/
   orals.ts
   written-cache.ts
   writtens.ts
+public/
+  templates/
+    oral-template.xlsx
+    written-template.xlsx
+  apple-icon.png
+  icon-192.png
+  icon-512.png
 services/
   admin.ts
   firestore.ts
+  oralBatch.service.ts
   written.service.ts
   writtenBatch.service.ts
+types/
+  question.ts
+.gitignore
+eslint.config.mjs
+next.config.ts
+package.json
+postcss.config.mjs
+README.md
+tsconfig.json
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
 
-<file path="app/api/revalidate-written/route.ts">
+<file path="app/api/orals/batch/route.ts">
 import { NextRequest, NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
+import { getOralBatchPage } from "@/services/oralBatch.service";
 
-export async function POST(request: NextRequest) {
-    try {
-        const { category } = await request.json();
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
 
-        revalidateTag(`written-${category}`, "max");
+  const category = searchParams.get("category");
+  const batch = Number(searchParams.get("batch"));
 
-        return NextResponse.json({
-            success: true,
-        });
+  if (!category || !batch) {
+    return NextResponse.json(
+      { error: "Missing parameters" },
+      { status: 400 }
+    );
+  }
 
-    } catch (error) {
-        console.error(error);
+  console.log("API REQUEST", {
+    category,
+    batch,
+  });
 
-        return NextResponse.json(
-            { success: false },
-            { status: 500 }
-        );
-    }
+  const result = await getOralBatchPage(
+    category,
+    batch
+  );
+
+  console.log("API RESPONSE", result);
+
+  return NextResponse.json(result);
 }
 </file>
 
-<file path="app/api/written/[category]/route.ts">
-import { NextResponse } from "next/server";
-import { getCachedWrittenQuestions } from "@/lib/written-cache";
+<file path="services/oralBatch.service.ts">
+import {
+    collection,
+    doc,
+    getDocs,
+    getDoc,
+    query,
+    runTransaction,
+    serverTimestamp,
+    where,
+    writeBatch,
+} from "firebase/firestore";
 
-export async function GET(
-    request: Request,
-    {
-        params,
-    }: {
-        params: Promise<{ category: string }>;
-    }
+import { db } from "@/lib/firebase";
+
+export const ORAL_BATCH_SIZE = 200;
+
+export interface OralBatchQuestion {
+    id: string;
+    class: string;
+    category: string;
+    examDate: string;
+    topic: string;
+    mmd: string;
+    surveyor: string;
+    question: string;
+    answer: string;
+    order: number;
+    isActive: boolean;
+}
+
+export interface OralBatchDocument {
+    batchId: string;
+    batchNumber: number;
+    category: string;
+    sourceFile: string;
+    questionCount: number;
+    topicCount: number;
+    questions: OralBatchQuestion[];
+    createdAt: unknown;
+    updatedAt: unknown;
+}
+
+async function setBatchCount(
+    category: string,
+    count: number
 ) {
-    try {
+    const counterRef = doc(
+        db,
+        "oral_batches_metadata",
+        "counters"
+    );
 
-        const { category } = await params;
+    await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(counterRef);
 
-        const questions =
-            await getCachedWrittenQuestions(
-                category.toLowerCase()
+        if (!snap.exists()) {
+            throw new Error(
+                "oral_batches_metadata/counters document not found."
             );
+        }
 
-        return NextResponse.json(questions);
-
-    } catch (error) {
-
-        console.error("Failed to load written questions:", error);
-
-        return NextResponse.json(
-            {
-                error: "Failed to load questions",
-            },
-            {
-                status: 500,
-            }
-        );
-
-    }
+        transaction.update(counterRef, {
+            [`${category}.batchCount`]: count,
+            [`${category}.updatedAt`]: serverTimestamp(),
+        });
+    });
 }
-</file>
 
-<file path="lib/written-cache.ts">
-import { unstable_cache } from "next/cache";
-import { getWrittenQuestions } from "@/services/written.service";
-
-export async function getCachedWrittenQuestions(
+export async function deleteExistingBatches(
     category: string
 ) {
-    const cached = unstable_cache(
-        async () => {
-            return getWrittenQuestions(category);
-        },
-        ["written-questions", category],
+    const q = query(
+        collection(db, "oral_batches"),
+        where("category", "==", category.toLowerCase())
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return;
+    }
+
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach((document) => {
+        batch.delete(document.ref);
+    });
+
+    await batch.commit();
+}
+
+export async function uploadOralBatch(
+    rows: any[],
+    sourceFile: string
+) {
+    if (!rows.length) return;
+
+    const categoryMap: Record<string, string> = {
+        safety: "fn3",
+        fn3: "fn3",
+
+        motor: "fn4b",
+        fn4b: "fn4b",
+
+        electrical: "fn5",
+        fn5: "fn5",
+
+        mep: "fn6",
+        fn6: "fn6",
+    };
+
+    const groupedQuestions: Record<
+        string,
+        OralBatchQuestion[]
+    > = {};
+
+    rows
+        .filter((row) => row.Question)
+        .forEach((row) => {
+
+            let category = String(
+                row.Category ?? ""
+            )
+                .trim()
+                .toLowerCase();
+
+            category =
+                categoryMap[category] ?? category;
+
+            if (!groupedQuestions[category]) {
+                groupedQuestions[category] = [];
+            }
+
+            groupedQuestions[category].push({
+                id: crypto.randomUUID(),
+
+                class: String(
+                    row.Class ?? ""
+                ).trim(),
+
+                category,
+
+                examDate: String(
+                    row.Date ?? ""
+                ).trim(),
+
+                topic: String(
+                    row.Topic ?? ""
+                ).trim(),
+
+                mmd: String(
+                    row.MMD ?? ""
+                ).trim(),
+
+                surveyor: String(
+                    row.Surveyor ?? ""
+                ).trim(),
+
+                question: String(
+                    row.Question ?? ""
+                ).trim(),
+
+                answer: String(
+                    row.Answer ?? ""
+                ).trim(),
+
+                order:
+                    groupedQuestions[category]
+                        .length + 1,
+
+                isActive: true,
+            });
+        });
+
+    for (const category of Object.keys(groupedQuestions)) {
+
+        await deleteExistingBatches(category);
+
+        const questions =
+            groupedQuestions[category];
+
+        const firestoreBatch = writeBatch(db);
+
+        const totalBatches = Math.ceil(
+            questions.length / ORAL_BATCH_SIZE
+        );
+
+        for (
+            let batchNumber = 1;
+            batchNumber <= totalBatches;
+            batchNumber++
+        ) {
+
+            const start =
+                (batchNumber - 1) *
+                ORAL_BATCH_SIZE;
+
+            const batchQuestions =
+                questions.slice(
+                    start,
+                    start + ORAL_BATCH_SIZE
+                );
+
+            const batchId =
+                `${category}_batch_${String(
+                    batchNumber
+                ).padStart(3, "0")}`;
+
+            firestoreBatch.set(
+                doc(db, "oral_batches", batchId),
+                {
+                    batchId,
+                    batchNumber,
+                    category,
+                    sourceFile,
+
+                    questionCount: batchQuestions.length,
+
+                    topicCount: new Set(
+                        batchQuestions.map((q) => q.topic)
+                    ).size,
+
+                    questions: batchQuestions,
+
+                    createdAt: serverTimestamp(),
+
+                    updatedAt: serverTimestamp(),
+                }
+            );
+
+            console.log(
+                `Uploaded ${batchId} (${batchQuestions.length} questions)`
+            );
+        }
+
+        await firestoreBatch.commit();
+
+        await setBatchCount(
+            category,
+            totalBatches
+        );
+
+        console.log(
+            `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
+        );
+    }
+}
+
+export async function getOralBatchQuestions(
+    category: string
+): Promise<OralBatchQuestion[]> {
+
+    const q = query(
+        collection(db, "oral_batches"),
+        where(
+            "category",
+            "==",
+            category.toLowerCase()
+        )
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return [];
+    }
+
+    const questions: OralBatchQuestion[] = [];
+
+    snapshot.docs
+        .sort((a, b) => {
+            const first =
+                a.data().batchNumber ?? 0;
+
+            const second =
+                b.data().batchNumber ?? 0;
+
+            return first - second;
+        })
+        .forEach((document) => {
+
+            const data =
+                document.data() as OralBatchDocument;
+
+            if (
+                Array.isArray(data.questions)
+            ) {
+                questions.push(
+                    ...data.questions
+                );
+            }
+
+        });
+
+    questions.sort(
+        (a, b) => a.order - b.order
+    );
+
+    return questions;
+}
+
+export async function getOralBatchPage(
+    category: string,
+    batchNumber: number
+) {
+
+    const currentBatchId =
+        `${category.toLowerCase()}_batch_${String(batchNumber).padStart(3, "0")}`;
+
+
+    const nextBatchId =
+        `${category.toLowerCase()}_batch_${String(batchNumber + 1).padStart(3, "0")}`;
+
+
+    const currentSnapshot = await getDoc(
+        doc(
+            db,
+            "oral_batches",
+            currentBatchId
+        )
+    );
+
+
+    if (!currentSnapshot.exists()) {
+        return {
+            questions: [],
+            hasMore: false,
+            nextBatch: null,
+        };
+    }
+
+
+    const nextSnapshot = await getDoc(
+        doc(
+            db,
+            "oral_batches",
+            nextBatchId
+        )
+    );
+
+
+    const data =
+        currentSnapshot.data() as OralBatchDocument;
+
+    // ADD HERE
+    console.log(
+        "SERVICE RETURN",
+        category,
+        batchNumber,
         {
-            revalidate: false,
-            tags: [`written-${category}`],
+            questions: data.questions.length,
+            hasMore: nextSnapshot.exists(),
+            nextBatch: nextSnapshot.exists()
+                ? batchNumber + 1
+                : null
         }
     );
 
-    return cached();
+    const result = {
+        questions: data.questions,
+        hasMore: nextSnapshot.exists(),
+        nextBatch: nextSnapshot.exists()
+            ? batchNumber + 1
+            : null,
+    };
+
+    console.log("RETURNING", result);
+
+    return result;
+
+    return {
+        questions: data.questions,
+
+        hasMore:
+            nextSnapshot.exists(),
+
+        nextBatch:
+            nextSnapshot.exists()
+                ? batchNumber + 1
+                : null,
+    };
+
 }
 </file>
 
@@ -368,6 +719,436 @@ export default async function OralTopicsPage({
 }
 </file>
 
+<file path="app/(protected)/writtens/[category]/WrittensClient.tsx">
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Sailboat,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
+
+import WrittenCard from "@/components/WrittenCard";
+import WrittenFilters from "@/components/WrittenFilters";
+import { useAuth } from "@/app/context/AuthContext";
+
+import {
+  WrittenQuestion,
+} from "@/services/written.service";
+
+
+export default function WrittensClient({
+  initialQuestions,
+  category,
+}: {
+  initialQuestions: WrittenQuestion[];
+  category: string;
+}) {
+
+  const { user } = useAuth();
+
+  const name =
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Sailor";
+
+  const questions = initialQuestions;
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedClass, setSelectedClass] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedMonth, setSelectedMonth] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+  const bookmarkStorageKey = `bookmarkedWrittenQuestions_${category}`;
+
+  const years = useMemo(() => {
+    return [...new Set(
+      questions
+        .map((q) => q.year)
+        .filter(Boolean)
+    )].sort((a, b) => b - a);
+
+  }, [questions]);
+
+  const topics = useMemo(() => {
+    return [...new Set(questions.map((q) => q.topic))]
+      .filter(Boolean)
+      .sort();
+  }, [questions]);
+
+  const bookmarkCount = useMemo(() => {
+    return questions.filter((q) =>
+      bookmarks.includes(q.id)
+    ).length;
+  }, [questions, bookmarks]);
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((question) => {
+      if (
+        showBookmarksOnly &&
+        !bookmarks.includes(question.id)
+      )
+        return false;
+
+      const classMatch =
+        selectedClass === "All" ||
+        question.class === selectedClass;
+
+      const yearMatch =
+        selectedYear === "All" ||
+        String(question.year) === selectedYear;
+
+      const monthMatch =
+        selectedMonth === "All" ||
+        question.month === selectedMonth;
+
+      const topicMatch =
+        selectedTopic === "All" ||
+        question.topic === selectedTopic;
+
+      const searchMatch =
+        search.trim() === "" ||
+        question.question
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.answer
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.topic
+          .toLowerCase()
+          .includes(search.toLowerCase());
+
+      return (
+        classMatch &&
+        yearMatch &&
+        monthMatch &&
+        topicMatch &&
+        searchMatch
+      );
+    });
+  }, [
+    questions,
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+    bookmarks,
+    showBookmarksOnly,
+  ]);
+
+  const currentQuestion = filteredQuestions[currentIndex];
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedClass("All");
+    setSelectedYear("All");
+    setSelectedMonth("All");
+    setSelectedTopic("All");
+    setShowBookmarksOnly(false);
+  };
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+    showBookmarksOnly,
+  ]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(bookmarkStorageKey);
+
+      setBookmarks(
+        saved ? JSON.parse(saved) : []
+      );
+
+    } catch {
+      setBookmarks([]);
+    }
+  }, [bookmarkStorageKey]);
+
+  useEffect(() => {
+    if (currentIndex >= filteredQuestions.length) {
+      setCurrentIndex(
+        Math.max(filteredQuestions.length - 1, 0)
+      );
+    }
+  }, [filteredQuestions.length, currentIndex]);
+
+  const titles: Record<
+    string,
+    {
+      badge: string;
+      title: string;
+    }
+  > = {
+    general: {
+      badge: "MEKG",
+      title: "GENERAL WRITTEN",
+    },
+    mep: {
+      badge: "MEP",
+      title: "MEP WRITTEN",
+    },
+    motor: {
+      badge: "MEKM",
+      title: "MOTOR WRITTEN",
+    },
+    met: {
+      badge: "MET",
+      title: "ELECTRICAL WRITTEN",
+    },
+    naval: {
+      badge: "SHIP-CO",
+      title: "NAVAL WRITTEN",
+    },
+    ssep: {
+      badge: "SSEP",
+      title: "SAFETY WRITTEN",
+    },
+  };
+  const page = titles[category] ?? {
+    badge: category.toUpperCase(),
+    title: "Written Questions",
+  };
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        bookmarkStorageKey,
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
+  };
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-5 py-8">
+
+        {/* HEADER CARD */}
+        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+
+            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+              <Sailboat
+                size={30}
+                strokeWidth={2}
+              />
+            </div>
+
+          </div>
+
+          <div className="mt-7">
+
+            <h2 className="text-2xl font-bold">
+              Hi, {name} 👋
+            </h2>
+
+            <p className="text-gray-500">
+              Welcome Back
+            </p>
+
+            <div className="mt-6 border-l-4 border-black pl-4">
+              <p className="text-sm italic text-gray-600">
+                Coffee. Questions. Repeat.
+              </p>
+            </div>
+
+            <div className="mt-6 inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white">
+              {page.badge}
+            </div>
+
+            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
+              {page.title}
+            </h1>
+
+            <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
+              <span>{questions.length} Questions</span>
+              <span>•</span>
+              <span>{topics.length} Topics</span>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* SEARCH */}
+
+        <div className="mt-8">
+          <input
+            type="text"
+            placeholder="🔍 Search Questions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+          />
+        </div>
+
+        {/* FILTER BUTTON */}
+
+        {/* FILTER BUTTONS */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+          >
+            <div className="flex items-center gap-3">
+              <SlidersHorizontal size={18} />
+              <span className="font-semibold">
+                Filters
+              </span>
+            </div>
+
+            {showFilters ? (
+              <ChevronUp size={18} />
+            ) : (
+              <ChevronDown size={18} />
+            )}
+          </button>
+
+          <button
+            onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+            className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
+              ? "border-black bg-black text-white"
+              : "border-gray-200 bg-white hover:border-black"
+              }`}
+          >
+            🔖 Bookmarks ({bookmarkCount})
+          </button>
+
+        </div>
+
+        {/* FILTER PANEL */}
+
+        {showFilters && (
+          <div className="mt-4">
+            <WrittenFilters
+              selectedClass={selectedClass}
+              setSelectedClass={setSelectedClass}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              selectedTopic={selectedTopic}
+              setSelectedTopic={setSelectedTopic}
+              years={years}
+              topics={topics}
+              onClearFilters={clearFilters}
+            />
+          </div>
+        )}
+
+        <div className="mt-8 mb-6 flex items-center justify-between gap-4">
+
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+            Questions
+          </h2>
+
+          <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+            <span className="text-gray-500">Current:</span>{" "}
+            <span className="font-bold text-black">
+              {filteredQuestions.length > 0
+                ? `${currentIndex + 1} / ${filteredQuestions.length}`
+                : "0 / 0"}
+            </span>
+
+            <span className="mx-2 text-gray-300">|</span>
+          </div>
+
+        </div>
+
+        {filteredQuestions.length === 0 ? (
+          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
+            No Questions Found.
+          </div>
+        ) : (
+          <div className="mt-8 space-y-6">
+            {currentQuestion && (
+              <>
+                <div id="question-card">
+                  <WrittenCard
+                    question={currentQuestion}
+                    isBookmarked={bookmarks.includes(currentQuestion.id)}
+                    onBookmark={() => toggleBookmark(currentQuestion.id)}
+                  />
+                </div>
+
+                {/* Navigation */}
+                <div className="mt-6 flex items-center justify-between">
+
+                  <button
+                    onClick={() =>
+                      setCurrentIndex((prev) => prev - 1)
+                    }
+                    disabled={currentIndex === 0}
+                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
+                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                      : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                  >
+                    ◀ Previous
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setCurrentIndex((prev) => prev + 1)
+                    }
+                    disabled={currentIndex === filteredQuestions.length - 1}
+                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
+                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                      : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                  >
+                    Next ▶
+                  </button>
+
+                </div>
+              </>
+            )}
+
+            {filteredQuestions.length === 0 && (
+              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
+                <p className="text-gray-500">
+                  No Questions Found.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </main>
+  );
+}
+</file>
+
 <file path="app/(protected)/layout.tsx">
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -384,6 +1165,58 @@ export default function ProtectedLayout({
 }
 </file>
 
+<file path="app/api/revalidate/written/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+
+export async function POST(
+    request: NextRequest
+) {
+
+    try {
+
+        const { category } = await request.json();
+
+        if (!category) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Category missing",
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
+
+
+        revalidateTag(
+            `written-${category.toLowerCase()}`,
+            "max"
+        );
+
+
+        return NextResponse.json({
+            success: true,
+        });
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        return NextResponse.json(
+            {
+                success: false,
+            },
+            {
+                status: 500,
+            }
+        );
+    }
+}
+</file>
+
 <file path="app/api/revalidate-home/route.ts">
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
@@ -394,6 +1227,31 @@ export async function POST() {
     return NextResponse.json({
         success: true,
     });
+}
+</file>
+
+<file path="app/api/revalidate-written/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+
+export async function POST(request: NextRequest) {
+    try {
+        const { category } = await request.json();
+
+        revalidateTag(`written-${category}`, "max");
+
+        return NextResponse.json({
+            success: true,
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        return NextResponse.json(
+            { success: false },
+            { status: 500 }
+        );
+    }
 }
 </file>
 
@@ -982,6 +1840,35 @@ export const getHomeStats = unstable_cache(
 );
 </file>
 
+<file path="lib/written-cache.ts">
+import { unstable_cache } from "next/cache";
+import { getWrittenQuestions } from "@/services/written.service";
+
+export async function getCachedWrittenQuestions(
+    category: string
+) {
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+    return unstable_cache(
+        () =>
+            getWrittenQuestions(
+                normalizedCategory
+            ),
+        [
+            "written-questions",
+            normalizedCategory,
+        ],
+        {
+            revalidate: false,
+            tags: [
+                `written-${normalizedCategory}`,
+            ],
+        }
+    )();
+}
+</file>
+
 <file path="services/admin.ts">
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -1053,18 +1940,20 @@ export async function uploadWrittenBatch(
 
         const batchId = `${category}_batch_${String(batchNumber).padStart(3, "0")}`;
 
-        const questions = rows.map((row: any, index: number) => ({
-            id: crypto.randomUUID(),
-            class: String(row.Class).trim(),
-            category: category,
-            topic: String(row.Topic).trim(),
-            year: Number(row.Year),
-            month: String(row.Month).trim(),
-            question: String(row.Question).trim(),
-            answer: String(row.Answer).trim(),
-            order: index + 1,
-            isActive: true,
-        }));
+        const questions = rows
+            .filter(row => row.Question)
+            .map((row, index) => ({
+                id: crypto.randomUUID(),
+                class: String(row.Class).trim(),
+                category,
+                topic: String(row.Topic).trim(),
+                year: Number(row.Year),
+                month: String(row.Month).trim(),
+                question: String(row.Question).trim(),
+                answer: String(row.Answer).trim(),
+                order: index + 1,
+                isActive: true,
+            }));
 
         const topicCount = new Set(
             questions.map((q) => q.topic)
@@ -1111,6 +2000,182 @@ export async function uploadWrittenBatch(
         throw error;
     }
 
+}
+</file>
+
+<file path="types/question.ts">
+export interface Question {
+  id: string;
+  question: string;
+  answer: string;
+  mmd: string;
+  surveyor: string;
+  topic: string;
+  order: number;
+  isActive: boolean;
+  tags: string[];
+}
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  reactCompiler: true,
+};
+
+export default nextConfig;
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+</file>
+
+<file path="README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
 }
 </file>
 
@@ -1343,21 +2408,14 @@ export default function SectionHeading({
 </file>
 
 <file path="lib/oral-cache.ts">
-import { unstable_cache } from "next/cache";
-import {
-  getQuestionsPaginated,
-  PaginatedQuestions,
-} from "@/services/firestore";
+import { getOralBatchPage } from "@/services/oralBatch.service";
 
-export const getCachedFirstQuestions = unstable_cache(
-  async (category: string): Promise<PaginatedQuestions> => {
-    return getQuestionsPaginated(category);
-  },
-  ["oral-first-page"],
-  {
-    revalidate: 300, // 5 minutes
-  }
-);
+export async function getCachedOralBatchPage(
+  category: string,
+  batchNumber: number
+) {
+  return await getOralBatchPage(category, batchNumber);
+}
 </file>
 
 <file path="lib/orals.ts">
@@ -1815,127 +2873,104 @@ import { useEffect, useRef, useState } from "react";
 import QuestionsList from "./QuestionsList";
 
 import {
-  getQuestionsPaginated,
-  Question,
   OralFilters,
 } from "@/services/firestore";
 
-import type {
-  QueryDocumentSnapshot,
-  DocumentData,
-} from "firebase/firestore";
+import {
+  OralBatchQuestion,
+} from "@/services/oralBatch.service";
+
 
 interface Props {
   category: string;
-  initialQuestions: Question[];
-  initialLastDoc: QueryDocumentSnapshot<DocumentData> | null;
-  initialHasMore: boolean;
+  initialQuestions: OralBatchQuestion[];
   filters: OralFilters;
+  initialHasMore: boolean;
+  initialNextBatch: number | null;
 }
 
 export default function QuestionsContainer({
   category,
   initialQuestions,
-  initialLastDoc,
-  initialHasMore,
   filters,
+  initialHasMore,
+  initialNextBatch,
 }: Props) {
-  const [questions, setQuestions] = useState(initialQuestions);
-  const [loading, setLoading] = useState(false);
 
-  const [lastDoc, setLastDoc] = useState(initialLastDoc);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [loadingMore, setLoadingMore] = useState(false);
+
+  const [questions, setQuestions] =
+    useState<OralBatchQuestion[]>(initialQuestions);
+
+  const [nextBatch, setNextBatch] =
+    useState<number | null>(initialNextBatch);
+
+  const [hasMore, setHasMore] =
+    useState(initialHasMore);
+
+  const [loading, setLoading] =
+    useState(false);
+
+
+
+  console.log("QuestionsContainer render", {
+    questions: questions.length,
+    nextBatch,
+    hasMore,
+    loading,
+  });
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const hasMoreRef = useRef(initialHasMore);
   const loadingRef = useRef(false);
-  const loadingMoreRef = useRef(false);
-  const lastDocRef = useRef(initialLastDoc);
-
-  useEffect(() => {
-    setQuestions(initialQuestions);
-    setLastDoc(initialLastDoc);
-    setHasMore(initialHasMore);
-
-    lastDocRef.current = initialLastDoc;
-    hasMoreRef.current = initialHasMore;
-  }, [
-    category,
-    initialQuestions,
-    initialLastDoc,
-    initialHasMore,
-  ]);
 
   async function loadMore() {
-    if (
-      !hasMoreRef.current ||
-      loadingRef.current ||
-      loadingMoreRef.current
-    ) {
-      return;
-    }
+    if (!nextBatch || loadingRef.current) return;
+
+    loadingRef.current = true;
+    setLoading(true);
+
+    const batchToLoad = nextBatch;
 
     try {
-      setLoadingMore(true);
-      loadingMoreRef.current = true;
 
-      const result = await getQuestionsPaginated(
-        category,
-        lastDocRef.current
+      console.log("Loading batch", nextBatch);
+
+      const response = await fetch(
+        `/api/orals/batch?category=${category}&batch=${batchToLoad}`
       );
 
-      setQuestions((prev) => {
-        const ids = new Set(prev.map((q) => q.id));
+      if (!response.ok) {
+        throw new Error("Failed to load batch");
+      }
 
-        return [
-          ...prev,
-          ...result.questions.filter((q) => !ids.has(q.id)),
-        ];
-      });
+      const result = await response.json();
 
-      setLastDoc(result.lastDoc);
-      lastDocRef.current = result.lastDoc;
+      console.log("Result:", result);
+
+      setQuestions(prev => [
+        ...prev,
+        ...result.questions,
+      ]);
 
       setHasMore(result.hasMore);
-      hasMoreRef.current = result.hasMore;
-    } catch (err) {
-      console.error(err);
+      setNextBatch(result.nextBatch);
+
+    } catch (e) {
+      console.error("Load More Error:", e);
     } finally {
-      loadingMoreRef.current = false;
-      setLoadingMore(false);
+      loadingRef.current = false;
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    hasMoreRef.current = hasMore;
-  }, [hasMore]);
-
-  useEffect(() => {
-    loadingRef.current = loading;
-  }, [loading]);
-
-  useEffect(() => {
-    loadingMoreRef.current = loadingMore;
-  }, [loadingMore]);
-
-  useEffect(() => {
-    lastDocRef.current = lastDoc;
-  }, [lastDoc]);
-
-  useEffect(() => {
     const element = loadMoreRef.current;
+
     if (!element) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (
-          entry.isIntersecting &&
-          hasMoreRef.current &&
-          !loadingRef.current &&
-          !loadingMoreRef.current
-        ) {
+        if (entry.isIntersecting && hasMore) {
           loadMore();
         }
       },
@@ -1947,20 +2982,8 @@ export default function QuestionsContainer({
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, []);
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-28 animate-pulse rounded-2xl bg-gray-200"
-          />
-        ))}
-      </div>
-    );
-  }
+  }, [hasMore]);
 
   return (
     <>
@@ -1975,9 +2998,9 @@ export default function QuestionsContainer({
           ref={loadMoreRef}
           className="flex justify-center py-8"
         >
-          {loadingMore && (
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" />
-          )}
+          <p className="text-sm text-gray-400">
+            Loading more...
+          </p>
         </div>
       )}
 
@@ -2113,7 +3136,14 @@ export default function ManageWrittenQuestionsPage() {
         try {
 
             if (type === "written") {
-                await deleteWrittenQuestion(category, id);
+
+                await deleteWrittenQuestion(
+                    category,
+                    id
+                );
+
+                await refreshWrittenCache();
+
             } else {
                 await deleteQuestion(category, id);
             }
@@ -2134,291 +3164,314 @@ export default function ManageWrittenQuestionsPage() {
 
         }
 
-}
-
-async function handleBulkDelete() {
-
-    if (type !== "oral") {
-        alert("Bulk delete available only for Oral questions.");
-        return;
     }
 
-    try {
-        await deleteQuestionsBatch(
-            category,
-            selectedQuestions
-        );
+    async function handleBulkDelete() {
 
-        await loadQuestions();
-
-        setSelectedQuestions([]);
-        setSelectionMode(false);
-        setShowDeleteDialog(false);
-
-        alert("Questions deleted successfully.");
-
-    } catch (error) {
-        console.error(error);
-        alert("Failed to delete questions.");
-    }
-}
-
-async function handleBulkMove() {
-
-    if (type !== "oral") {
-        alert("Bulk move available only for Oral questions.");
-        return;
-    }
-
-    try {
-
-        const questionsToMove = questions.filter((q) =>
-            selectedQuestions.includes(q.id)
-        );
-
-        await moveQuestionsBatch(
-            questionsToMove,
-            category,
-            moveCategory
-        );
-
-        await loadQuestions();
-
-        setSelectedQuestions([]);
-        setSelectionMode(false);
-        setShowMoveDialog(false);
-
-        alert("Questions moved successfully.");
-
-    } catch (error) {
-
-        console.error(error);
-        alert("Failed to move questions.");
-
-    }
-}
-
-function toggleSelection(id: string) {
-    setSelectedQuestions((prev) =>
-        prev.includes(id)
-            ? prev.filter((q) => q !== id)
-            : [...prev, id]
-    );
-}
-
-function startLongPress(id: string) {
-
-    if (type !== "oral") return;
-
-    cancelLongPress();
-
-    longPressTimer.current = setTimeout(() => {
-
-        setSelectionMode(true);
-        setSelectedQuestions([id]);
-
-    }, 500);
-}
-
-function cancelLongPress() {
-    if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-    }
-}
-
-function handleQuestionClick(id: string) {
-    if (selectionMode) {
-        toggleSelection(id);
-        return;
-    }
-
-    setExpandedId((prev) => (prev === id ? null : id));
-}
-
-async function handleSave() {
-
-    if (!editingQuestion) return;
-
-    try {
-
-        if (type === "written") {
-            await updateWrittenQuestion(
-                category,
-                editingQuestion.id,
-                {
-                    question: editedQuestion,
-                    answer: editedAnswer,
-                }
-            );
-        } else {
-            await updateQuestion(
-                category,
-                editingQuestion.id,
-                {
-                    question: editedQuestion,
-                    answer: editedAnswer,
-                }
-            );
+        if (type !== "oral") {
+            alert("Bulk delete available only for Oral questions.");
+            return;
         }
 
-        await loadQuestions();
+        try {
+            await deleteQuestionsBatch(
+                category,
+                selectedQuestions
+            );
 
-        setEditingQuestion(null);
+            await loadQuestions();
 
-        alert("Question updated successfully.");
+            setSelectedQuestions([]);
+            setSelectionMode(false);
+            setShowDeleteDialog(false);
 
-    } catch (error) {
+            alert("Questions deleted successfully.");
 
-        console.error(error);
+        } catch (error) {
+            console.error(error);
+            alert("Failed to delete questions.");
+        }
+    }
 
-        alert("Failed to update question.");
+    async function handleBulkMove() {
+
+        if (type !== "oral") {
+            alert("Bulk move available only for Oral questions.");
+            return;
+        }
+
+        try {
+
+            const questionsToMove = questions.filter((q) =>
+                selectedQuestions.includes(q.id)
+            );
+
+            await moveQuestionsBatch(
+                questionsToMove,
+                category,
+                moveCategory
+            );
+
+            await loadQuestions();
+
+            setSelectedQuestions([]);
+            setSelectionMode(false);
+            setShowMoveDialog(false);
+
+            alert("Questions moved successfully.");
+
+        } catch (error) {
+
+            console.error(error);
+            alert("Failed to move questions.");
+
+        }
+    }
+
+    function toggleSelection(id: string) {
+        setSelectedQuestions((prev) =>
+            prev.includes(id)
+                ? prev.filter((q) => q !== id)
+                : [...prev, id]
+        );
+    }
+
+    function startLongPress(id: string) {
+
+        if (type !== "oral") return;
+
+        cancelLongPress();
+
+        longPressTimer.current = setTimeout(() => {
+
+            setSelectionMode(true);
+            setSelectedQuestions([id]);
+
+        }, 500);
+    }
+
+    function cancelLongPress() {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    }
+
+    function handleQuestionClick(id: string) {
+        if (selectionMode) {
+            toggleSelection(id);
+            return;
+        }
+
+        setExpandedId((prev) => (prev === id ? null : id));
+    }
+
+    async function handleSave() {
+
+        if (!editingQuestion) return;
+
+        try {
+
+            if (type === "written") {
+
+                await updateWrittenQuestion(
+                    category,
+                    editingQuestion.id,
+                    {
+                        question: editedQuestion,
+                        answer: editedAnswer,
+                    }
+                );
+
+                await refreshWrittenCache();
+
+            } else {
+                await updateQuestion(
+                    category,
+                    editingQuestion.id,
+                    {
+                        question: editedQuestion,
+                        answer: editedAnswer,
+                    }
+                );
+            }
+
+            await loadQuestions();
+
+            setEditingQuestion(null);
+
+            alert("Question updated successfully.");
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert("Failed to update question.");
+
+        }
 
     }
 
-}
+    async function refreshWrittenCache() {
+
+        if (type !== "written") return;
+
+
+        const res = await fetch("/api/revalidate/written", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ category }),
+        });
+
+        if (!res.ok) {
+            throw new Error("Cache revalidation failed");
+        }
+
+    }
 
 
 
-return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-        <div className="mx-auto max-w-7xl px-6 py-10">
-            <h1 className="text-4xl font-bold">
-                MANAGE QUESTIONS ALL
-            </h1>
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-5xl px-5 py-8">
+                <h1 className="text-4xl font-bold">
+                    MANAGE QUESTIONS ALL
+                </h1>
 
-            <p className="mt-2 text-gray-500">
-                View, edit and delete written questions.
-            </p>
+                <p className="mt-2 text-gray-500">
+                    View, edit and delete written questions.
+                </p>
 
-            <div className="mt-8 flex flex-col gap-6 md:flex-row">
+                <div className="mt-8 flex flex-col gap-6 md:flex-row">
 
-                <div>
-                    <label className="mb-2 block text-sm font-medium">
-                        Question Type
-                    </label>
+                    <div>
+                        <label className="mb-2 block text-sm font-medium">
+                            Question Type
+                        </label>
 
-                    <select
-                        value={type}
-                        onChange={(e) => {
-                            const value = e.target.value as "written" | "oral";
-                            setType(value);
+                        <select
+                            value={type}
+                            onChange={(e) => {
+                                const value = e.target.value as "written" | "oral";
+                                setType(value);
 
-                            if (value === "written") {
-                                setCategory("general");
-                            } else {
-                                setCategory("FN3");
-                            }
-                        }}
-                        className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
-                    >
-                        <option value="written">Written</option>
-                        <option value="oral">Oral</option>
-                    </select>
+                                if (value === "written") {
+                                    setCategory("general");
+                                } else {
+                                    setCategory("FN3");
+                                }
+                            }}
+                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
+                        >
+                            <option value="written">Written</option>
+                            <option value="oral">Oral</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-medium">
+                            Category
+                        </label>
+
+                        <select
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black"
+                        >
+                            {type === "written" ? (
+                                <>
+                                    <option value="general">General</option>
+                                    <option value="mep">MEP</option>
+                                    <option value="motor">Motor</option>
+                                    <option value="met">MET</option>
+                                    <option value="naval">Naval</option>
+                                    <option value="ssep">SSEP</option>
+                                </>
+                            ) : (
+                                <>
+                                    <option value="FN3">FN3</option>
+                                    <option value="FN4B">FN4B</option>
+                                    <option value="FN5">FN5</option>
+                                    <option value="FN6">FN6</option>
+                                </>
+                            )}
+                        </select>
+                    </div>
+
                 </div>
 
-                <div>
-                    <label className="mb-2 block text-sm font-medium">
-                        Category
-                    </label>
+                {selectionMode && type === "oral" && (
+                    <div className="sticky top-4 z-40 mb-6 rounded-2xl border bg-white p-4 shadow-lg">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
 
-                    <select
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black"
-                    >
-                        {type === "written" ? (
-                            <>
-                                <option value="general">General</option>
-                                <option value="mep">MEP</option>
-                                <option value="motor">Motor</option>
-                                <option value="met">MET</option>
-                                <option value="naval">Naval</option>
-                                <option value="ssep">SSEP</option>
-                            </>
-                        ) : (
-                            <>
-                                <option value="FN3">FN3</option>
-                                <option value="FN4B">FN4B</option>
-                                <option value="FN5">FN5</option>
-                                <option value="FN6">FN6</option>
-                            </>
-                        )}
-                    </select>
-                </div>
+                            <span className="font-semibold text-lg">
+                                {selectedQuestions.length} Selected
+                            </span>
 
-            </div>
+                            <div className="flex gap-3">
 
-            {selectionMode && type === "oral" && (
-                <div className="sticky top-4 z-40 mb-6 rounded-2xl border bg-white p-4 shadow-lg">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
+                                <button
+                                    onClick={() => {
+                                        const categories = ["FN3", "FN4B", "FN5", "FN6"];
+                                        setMoveCategory(
+                                            categories.find(
+                                                (c) => c !== category.toUpperCase()
+                                            ) || "FN3"
+                                        );
+                                        setShowMoveDialog(true);
+                                    }}
+                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white"
+                                >
+                                    Move
+                                </button>
 
-                        <span className="font-semibold text-lg">
-                            {selectedQuestions.length} Selected
-                        </span>
+                                <button
+                                    onClick={() => setShowDeleteDialog(true)}
+                                    className="rounded-xl bg-red-600 px-5 py-2 text-white"
+                                >
+                                    Delete
+                                </button>
 
-                        <div className="flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        setSelectionMode(false);
+                                        setSelectedQuestions([]);
+                                    }}
+                                    className="rounded-xl border px-5 py-2"
+                                >
+                                    Cancel
+                                </button>
 
-                            <button
-                                onClick={() => {
-                                    const categories = ["FN3", "FN4B", "FN5", "FN6"];
-                                    setMoveCategory(
-                                        categories.find(
-                                            (c) => c !== category.toUpperCase()
-                                        ) || "FN3"
-                                    );
-                                    setShowMoveDialog(true);
-                                }}
-                                className="rounded-xl bg-blue-600 px-5 py-2 text-white"
-                            >
-                                Move
-                            </button>
-
-                            <button
-                                onClick={() => setShowDeleteDialog(true)}
-                                className="rounded-xl bg-red-600 px-5 py-2 text-white"
-                            >
-                                Delete
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    setSelectionMode(false);
-                                    setSelectedQuestions([]);
-                                }}
-                                className="rounded-xl border px-5 py-2"
-                            >
-                                Cancel
-                            </button>
+                            </div>
 
                         </div>
-
                     </div>
-                </div>
-            )}
+                )}
 
-            <div className="mt-8">
+                <div className="mt-8">
 
-                {loading ? (
+                    {loading ? (
 
-                    <div className="rounded-2xl bg-white p-6 shadow-sm">
-                        Loading...
-                    </div>
+                        <div className="rounded-2xl bg-white p-6 shadow-sm">
+                            Loading...
+                        </div>
 
-                ) : questions.length === 0 ? (
+                    ) : questions.length === 0 ? (
 
-                    <div className="rounded-2xl bg-white p-6 shadow-sm">
-                        No questions found.
-                    </div>
+                        <div className="rounded-2xl bg-white p-6 shadow-sm">
+                            No questions found.
+                        </div>
 
-                ) : (
+                    ) : (
 
-                    <div className="space-y-6">
+                        <div className="space-y-6">
 
-                        {questions.map((question) => (
-                            <div
-                                key={question.id}
-                                className="
+                            {questions.map((question) => (
+                                <div
+                                    key={question.id}
+                                    className="
             rounded-2xl
             border
             bg-white
@@ -2427,265 +3480,265 @@ return (
             transition
             hover:shadow-md
         "
-                            >
-                                <div className="mb-4 flex flex-wrap gap-2">
-                                    <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
-                                        {question.class}
-                                    </span>
+                                >
+                                    <div className="mb-4 flex flex-wrap gap-2">
+                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
+                                            {question.class}
+                                        </span>
 
-                                    <span className="rounded-full bg-gray-200 px-3 py-1 text-sm">
-                                        {question.topic}
-                                    </span>
+                                        <span className="rounded-full bg-gray-200 px-3 py-1 text-sm">
+                                            {question.topic}
+                                        </span>
 
-                                    {type === "written" ? (
+                                        {type === "written" ? (
+                                            <>
+                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                                    {question.month}
+                                                </span>
+
+                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                                    {question.year}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                                    {question.examDate}
+                                                </span>
+
+                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                                    {question.mmd}
+                                                </span>
+
+                                                <span className="rounded-full bg-purple-100 px-3 py-1 text-sm">
+                                                    {question.surveyor}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={() => handleQuestionClick(question.id)}
+                                        onMouseDown={() => startLongPress(question.id)}
+                                        onMouseUp={cancelLongPress}
+                                        onMouseLeave={cancelLongPress}
+                                        onTouchStart={() => startLongPress(question.id)}
+                                        onTouchEnd={cancelLongPress}
+                                        className={`w-full text-left transition ${selectionMode &&
+                                            selectedQuestions.includes(question.id)
+                                            ? "rounded-xl bg-blue-50"
+                                            : ""
+                                            }`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            {selectionMode && type === "oral" && (
+                                                <span className="mt-1 text-lg">
+                                                    {selectedQuestions.includes(question.id)
+                                                        ? "✅"
+                                                        : "⭕"}
+                                                </span>
+                                            )}
+
+                                            <h2 className="text-lg font-semibold whitespace-pre-wrap">
+                                                {question.question}
+                                            </h2>
+                                        </div>
+
+                                        <p className="mt-2 text-sm text-gray-500">
+                                            {expandedId === question.id
+                                                ? "Click to collapse"
+                                                : "Click to view answer"}
+                                        </p>
+                                    </button>
+
+                                    {expandedId === question.id && (
                                         <>
-                                            <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
-                                                {question.month}
-                                            </span>
+                                            <div className="mt-5 border-t pt-5">
+                                                <MarkdownRenderer
+                                                    content={question.answer}
+                                                />
+                                            </div>
 
-                                            <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
-                                                {question.year}
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
-                                                {question.examDate}
-                                            </span>
+                                            {/* Existing Buttons */}
+                                            <div className="mt-6 flex justify-end gap-3">
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingQuestion(question);
+                                                        setEditedQuestion(question.question);
+                                                        setEditedAnswer(question.answer);
+                                                    }}
+                                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+                                                >
+                                                    Edit
+                                                </button>
 
-                                            <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
-                                                {question.mmd}
-                                            </span>
-
-                                            <span className="rounded-full bg-purple-100 px-3 py-1 text-sm">
-                                                {question.surveyor}
-                                            </span>
+                                                <button
+                                                    onClick={() => handleDelete(question.id)}
+                                                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
                                         </>
                                     )}
                                 </div>
-
-                                <button
-                                    onClick={() => handleQuestionClick(question.id)}
-                                    onMouseDown={() => startLongPress(question.id)}
-                                    onMouseUp={cancelLongPress}
-                                    onMouseLeave={cancelLongPress}
-                                    onTouchStart={() => startLongPress(question.id)}
-                                    onTouchEnd={cancelLongPress}
-                                    className={`w-full text-left transition ${selectionMode &&
-                                        selectedQuestions.includes(question.id)
-                                        ? "rounded-xl bg-blue-50"
-                                        : ""
-                                        }`}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        {selectionMode && type === "oral" && (
-                                            <span className="mt-1 text-lg">
-                                                {selectedQuestions.includes(question.id)
-                                                    ? "✅"
-                                                    : "⭕"}
-                                            </span>
-                                        )}
-
-                                        <h2 className="text-lg font-semibold whitespace-pre-wrap">
-                                            {question.question}
-                                        </h2>
-                                    </div>
-
-                                    <p className="mt-2 text-sm text-gray-500">
-                                        {expandedId === question.id
-                                            ? "Click to collapse"
-                                            : "Click to view answer"}
-                                    </p>
-                                </button>
-
-                                {expandedId === question.id && (
-                                    <>
-                                        <div className="mt-5 border-t pt-5">
-                                            <MarkdownRenderer
-                                                content={question.answer}
-                                            />
-                                        </div>
-
-                                        {/* Existing Buttons */}
-                                        <div className="mt-6 flex justify-end gap-3">
-                                            <button
-                                                onClick={() => {
-                                                    setEditingQuestion(question);
-                                                    setEditedQuestion(question.question);
-                                                    setEditedAnswer(question.answer);
-                                                }}
-                                                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-                                            >
-                                                Edit
-                                            </button>
-
-                                            <button
-                                                onClick={() => handleDelete(question.id)}
-                                                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        ))}
-
-                    </div>
-                )}
-
-            </div>
-
-            {editingQuestion && (
-
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-
-                    <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
-
-                        <h2 className="text-2xl font-bold">
-                            Edit {type === "oral" ? "Oral" : "Written"} Question
-                        </h2>
-
-                        <textarea
-                            value={editedQuestion}
-                            onChange={(e) =>
-                                setEditedQuestion(e.target.value)
-                            }
-                            rows={6}
-                            className="mt-6 w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
-                        />
-
-                        <div className="mt-6">
-
-                            <label className="mb-2 block text-sm font-semibold">
-                                Answer
-                            </label>
-
-                            <textarea
-                                value={editedAnswer}
-                                onChange={(e) =>
-                                    setEditedAnswer(e.target.value)
-                                }
-                                rows={12}
-                                className="w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
-                            />
+                            ))}
 
                         </div>
+                    )}
+
+                </div>
+
+                {editingQuestion && (
+
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+
+                        <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
+
+                            <h2 className="text-2xl font-bold">
+                                Edit {type === "oral" ? "Oral" : "Written"} Question
+                            </h2>
+
+                            <textarea
+                                value={editedQuestion}
+                                onChange={(e) =>
+                                    setEditedQuestion(e.target.value)
+                                }
+                                rows={6}
+                                className="mt-6 w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
+                            />
+
+                            <div className="mt-6">
+
+                                <label className="mb-2 block text-sm font-semibold">
+                                    Answer
+                                </label>
+
+                                <textarea
+                                    value={editedAnswer}
+                                    onChange={(e) =>
+                                        setEditedAnswer(e.target.value)
+                                    }
+                                    rows={12}
+                                    className="w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
+                                />
+
+                            </div>
+
+                            <div className="mt-8 flex justify-end gap-3">
+
+                                <button
+                                    onClick={() =>
+                                        setEditingQuestion(null)
+                                    }
+                                    className="rounded-xl border px-5 py-2"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    onClick={handleSave}
+                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white transition hover:bg-blue-700"
+                                >
+                                    Save
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                )
+                }
+            </div>
+
+            {showMoveDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+
+                        <h2 className="text-2xl font-bold text-blue-600">
+                            Move Questions
+                        </h2>
+
+                        <p className="mt-4 text-gray-600">
+                            Move <b>{selectedQuestions.length}</b> selected question(s) to:
+                        </p>
+
+                        <select
+                            value={moveCategory}
+                            onChange={(e) => setMoveCategory(e.target.value)}
+                            className="mt-5 w-full rounded-xl border border-gray-300 p-3"
+                        >
+                            <option value="FN3">FN3</option>
+                            <option value="FN4B">FN4B</option>
+                            <option value="FN5">FN5</option>
+                            <option value="FN6">FN6</option>
+                        </select>
 
                         <div className="mt-8 flex justify-end gap-3">
 
                             <button
-                                onClick={() =>
-                                    setEditingQuestion(null)
-                                }
+                                onClick={() => setShowMoveDialog(false)}
                                 className="rounded-xl border px-5 py-2"
                             >
                                 Cancel
                             </button>
 
                             <button
-                                onClick={handleSave}
-                                className="rounded-xl bg-blue-600 px-5 py-2 text-white transition hover:bg-blue-700"
+                                onClick={handleBulkMove}
+                                className="rounded-xl bg-blue-600 px-5 py-2 text-white"
                             >
-                                Save
+                                Move
                             </button>
 
                         </div>
 
                     </div>
-
                 </div>
+            )}
 
-            )
-            }
-        </div>
+            {showDeleteDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
 
-        {showMoveDialog && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
+                        <h2 className="text-2xl font-bold text-red-600">
+                            Delete Questions
+                        </h2>
 
-                    <h2 className="text-2xl font-bold text-blue-600">
-                        Move Questions
-                    </h2>
+                        <p className="mt-4 text-gray-600">
+                            Are you sure you want to delete{" "}
+                            <b>{selectedQuestions.length}</b> selected question(s)?
+                        </p>
 
-                    <p className="mt-4 text-gray-600">
-                        Move <b>{selectedQuestions.length}</b> selected question(s) to:
-                    </p>
+                        <p className="mt-2 text-sm text-red-500">
+                            This action cannot be undone.
+                        </p>
 
-                    <select
-                        value={moveCategory}
-                        onChange={(e) => setMoveCategory(e.target.value)}
-                        className="mt-5 w-full rounded-xl border border-gray-300 p-3"
-                    >
-                        <option value="FN3">FN3</option>
-                        <option value="FN4B">FN4B</option>
-                        <option value="FN5">FN5</option>
-                        <option value="FN6">FN6</option>
-                    </select>
+                        <div className="mt-8 flex justify-end gap-3">
 
-                    <div className="mt-8 flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowDeleteDialog(false)}
+                                className="rounded-xl border px-5 py-2"
+                            >
+                                Cancel
+                            </button>
 
-                        <button
-                            onClick={() => setShowMoveDialog(false)}
-                            className="rounded-xl border px-5 py-2"
-                        >
-                            Cancel
-                        </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                className="rounded-xl bg-red-600 px-5 py-2 text-white"
+                            >
+                                Delete
+                            </button>
 
-                        <button
-                            onClick={handleBulkMove}
-                            className="rounded-xl bg-blue-600 px-5 py-2 text-white"
-                        >
-                            Move
-                        </button>
+                        </div>
 
                     </div>
-
                 </div>
-            </div>
-        )}
+            )}
 
-        {showDeleteDialog && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
-
-                    <h2 className="text-2xl font-bold text-red-600">
-                        Delete Questions
-                    </h2>
-
-                    <p className="mt-4 text-gray-600">
-                        Are you sure you want to delete{" "}
-                        <b>{selectedQuestions.length}</b> selected question(s)?
-                    </p>
-
-                    <p className="mt-2 text-sm text-red-500">
-                        This action cannot be undone.
-                    </p>
-
-                    <div className="mt-8 flex justify-end gap-3">
-
-                        <button
-                            onClick={() => setShowDeleteDialog(false)}
-                            className="rounded-xl border px-5 py-2"
-                        >
-                            Cancel
-                        </button>
-
-                        <button
-                            onClick={handleBulkDelete}
-                            className="rounded-xl bg-red-600 px-5 py-2 text-white"
-                        >
-                            Delete
-                        </button>
-
-                    </div>
-
-                </div>
-            </div>
-        )}
-
-    </main >
-);
+        </main >
+    );
 }
 </file>
 
@@ -2944,6 +3997,143 @@ export default function WrittenFilters({
       </div>
     </div>
   );
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+
+import { AuthProvider } from "@/app/context/AuthContext";
+import InitialLoader from "@/components/InitialLoader";
+export const metadata: Metadata = {
+  title: "NAVIK",
+  description: "Sail Towards COC",
+
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0A2540",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider>
+          <InitialLoader>
+            {children}
+          </InitialLoader>
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="components/LoadingScreen.tsx">
+"use client";
+
+import { Sailboat } from "lucide-react";
+
+interface Props {
+  text?: string;
+}
+
+export default function LoadingScreen({
+  text = "Loading Questions...",
+}: Props) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#f5f5f5]">
+
+      <div className="flex flex-col items-center">
+
+        {/* WAVES + SHIP */}
+        <div className="relative mb-2 flex h-24 w-64 items-end justify-center overflow-hidden">
+
+          {/* Wave 1 */}
+          <div className="absolute bottom-0 h-6 w-[300px] rounded-[100%] bg-black/10 animate-wave1" />
+
+          {/* Wave 2 */}
+          <div className="absolute bottom-2 h-5 w-[260px] rounded-[100%] bg-black/5 animate-wave2" />
+
+
+          {/* SHIP */}
+          <div className="relative animate-float">
+
+            <div className="animate-ship">
+              <Sailboat
+                size={60}
+                strokeWidth={2}
+                className="text-black"
+              />
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* TEXT */}
+        <p className="mt-2 px-5 text-center text-sm tracking-wide text-gray-500">
+          {text}
+        </p>
+
+
+      </div>
+
+    </div>
+  );
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+    
+  }
 }
 </file>
 
@@ -3356,101 +4546,6 @@ export default function WrittenUploadPage() {
             }
         </>
     );
-}
-</file>
-
-<file path="app/layout.tsx">
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
-
-import { AuthProvider } from "@/app/context/AuthContext";
-import InitialLoader from "@/components/InitialLoader";
-export const metadata: Metadata = {
-  title: "NAVIK",
-  description: "Sail Towards COC",
-
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-icon.png",
-  },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#0A2540",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body>
-        <AuthProvider>
-          <InitialLoader>
-            {children}
-          </InitialLoader>
-        </AuthProvider>
-      </body>
-    </html>
-  );
-}
-</file>
-
-<file path="components/LoadingScreen.tsx">
-"use client";
-
-import { Sailboat } from "lucide-react";
-
-interface Props {
-  text?: string;
-}
-
-export default function LoadingScreen({
-  text = "Loading Questions...",
-}: Props) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#f5f5f5]">
-
-      <div className="flex flex-col items-center">
-
-        {/* WAVES + SHIP */}
-        <div className="relative mb-2 flex h-24 w-64 items-end justify-center overflow-hidden">
-
-          {/* Wave 1 */}
-          <div className="absolute bottom-0 h-6 w-[300px] rounded-[100%] bg-black/10 animate-wave1" />
-
-          {/* Wave 2 */}
-          <div className="absolute bottom-2 h-5 w-[260px] rounded-[100%] bg-black/5 animate-wave2" />
-
-
-          {/* SHIP */}
-          <div className="relative animate-float">
-
-            <div className="animate-ship">
-              <Sailboat
-                size={60}
-                strokeWidth={2}
-                className="text-black"
-              />
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* TEXT */}
-        <p className="mt-2 px-5 text-center text-sm tracking-wide text-gray-500">
-          {text}
-        </p>
-
-
-      </div>
-
-    </div>
-  );
 }
 </file>
 
@@ -4349,6 +5444,7 @@ font-semibold
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
+import { uploadOralBatch } from "@/services/oralBatch.service";
 
 import {
     bulkUploadQuestions,
@@ -4493,8 +5589,20 @@ export default function BulkUploadPage() {
                 }
             );
 
+            // ALSO create the batch documents
+            await uploadOralBatch(
+                rows,
+                "Admin Upload"
+            );
+
+            // Refresh homepage cache
+            await fetch("/api/revalidate-home", {
+                method: "POST",
+            });
+
             alert(
-                `${rows.length} questions uploaded successfully.`
+                `${rows.length
+                } questions uploaded successfully.`
             );
 
             setRows([]);
@@ -4527,6 +5635,8 @@ export default function BulkUploadPage() {
         }
 
     }
+
+
     return (
         <main className="min-h-screen bg-[#f5f5f5]">
             <div className="mx-auto max-w-6xl px-6 py-10">
@@ -4620,12 +5730,12 @@ export default function BulkUploadPage() {
                                 className="rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
                             >
                                 {uploading
-                                    ? `Uploading... ${uploadProgress.uploaded.toLocaleString()} / ${uploadProgress.total.toLocaleString()}`
+                                    ? `Uploading...${uploadProgress.uploaded.toLocaleString()} / ${uploadProgress.total.toLocaleString()}`
                                     : `Upload ${rows.length} Questions`
                                 }
-                                
-                                </button>
-                                
+
+                            </button>
+
 
                         </div>
 
@@ -4647,7 +5757,7 @@ export default function BulkUploadPage() {
                                             width: `${(uploadProgress.uploaded /
                                                 uploadProgress.total) *
                                                 100
-                                                }%`,
+                                                }% `,
                                         }}
                                     />
 
@@ -5167,7 +6277,7 @@ import {
   getOralCategoryMeta,
   getOralFilters,
 } from "@/services/firestore";
-import { getCachedFirstQuestions } from "@/lib/oral-cache";
+import { getCachedOralBatchPage } from "@/lib/oral-cache";
 
 const getCachedOralCategoryMeta = unstable_cache(
   async (category: string) => {
@@ -5190,12 +6300,21 @@ export default async function OralCategoryPage({
 }: PageProps) {
   const { category } = await params;
 
-  const [meta, filters, firstPage] = await Promise.all([
-    getCachedOralCategoryMeta(category),
-    getOralFilters(category),
-    getCachedFirstQuestions(category),
+  const normalizedCategory =
+    category.toLowerCase();
+
+  const [meta, filters, batch] = await Promise.all([
+    getCachedOralCategoryMeta(normalizedCategory),
+    getOralFilters(normalizedCategory),
+    getCachedOralBatchPage(
+      normalizedCategory,
+      1
+    )
   ]);
 
+  console.log("FULL BATCH", batch);
+  console.log("NEXT BATCH =", batch.nextBatch);
+  
   const titles: Record<
     string,
     {
@@ -5308,485 +6427,18 @@ export default async function OralCategoryPage({
         </div>
 
         <InsightSwitcher
-          category={category}
+          category={normalizedCategory}
           current="questions"
         />
 
         {/* Questions */}
         <QuestionsContainer
           category={category}
-          initialQuestions={firstPage.questions}
-          initialLastDoc={firstPage.lastDoc}
-          initialHasMore={firstPage.hasMore}
+          initialQuestions={batch.questions}
           filters={filters}
+          initialHasMore={batch.hasMore}
+          initialNextBatch={batch.nextBatch}
         />
-
-      </div>
-    </main>
-  );
-}
-</file>
-
-<file path="app/(protected)/writtens/[category]/page.tsx">
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  Sailboat,
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
-} from "lucide-react";
-
-import WrittenCard from "@/components/WrittenCard";
-import WrittenFilters from "@/components/WrittenFilters";
-import { useAuth } from "@/app/context/AuthContext";
-
-import LoadingScreen from "@/components/LoadingScreen";
-
-import {
-  getWrittenQuestions,
-  WrittenQuestion,
-} from "@/services/written.service";
-
-export default function WrittensPage() {
-  const params = useParams();
-  const { user } = useAuth();
-
-  const name =
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "Sailor";
-
-  const category =
-    typeof params.category === "string"
-      ? params.category.toLowerCase()
-      : "general";
-
-  const [batchName, setBatchName] = useState("");
-  const [questions, setQuestions] = useState<WrittenQuestion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [bookmarks, setBookmarks] = useState<string[]>([]);
-  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
-  const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedClass, setSelectedClass] = useState("All");
-  const [selectedYear, setSelectedYear] = useState("All");
-  const [selectedMonth, setSelectedMonth] = useState("All");
-  const [selectedTopic, setSelectedTopic] = useState("All");
-  const bookmarkStorageKey = `bookmarkedWrittenQuestions_${category}`;
-  useEffect(() => {
-    async function loadQuestions() {
-      try {
-        setLoading(true);
-
-        const response = await fetch(
-          `/api/written/${category}`
-        );
-
-        const data = await response.json();
-
-        setQuestions(data);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadQuestions();
-  }, [category]);
-
-  const years = useMemo(() => {
-    return [...new Set(questions.map((q) => q.year))]
-      .filter(Boolean)
-      .sort((a, b) => b - a);
-  }, [questions]);
-
-  const topics = useMemo(() => {
-    return [...new Set(questions.map((q) => q.topic))]
-      .filter(Boolean)
-      .sort();
-  }, [questions]);
-
-  const bookmarkCount = useMemo(() => {
-    return questions.filter((q) =>
-      bookmarks.includes(q.id)
-    ).length;
-  }, [questions, bookmarks]);
-
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((question) => {
-      if (
-        showBookmarksOnly &&
-        !bookmarks.includes(question.id)
-      )
-        return false;
-
-      const classMatch =
-        selectedClass === "All" ||
-        question.class === selectedClass;
-
-      const yearMatch =
-        selectedYear === "All" ||
-        String(question.year) === selectedYear;
-
-      const monthMatch =
-        selectedMonth === "All" ||
-        question.month === selectedMonth;
-
-      const topicMatch =
-        selectedTopic === "All" ||
-        question.topic === selectedTopic;
-
-      const searchMatch =
-        search.trim() === "" ||
-        question.question
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.answer
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.topic
-          .toLowerCase()
-          .includes(search.toLowerCase());
-
-      return (
-        classMatch &&
-        yearMatch &&
-        monthMatch &&
-        topicMatch &&
-        searchMatch
-      );
-    });
-  }, [
-    questions,
-    search,
-    selectedClass,
-    selectedYear,
-    selectedMonth,
-    selectedTopic,
-    bookmarks,
-    showBookmarksOnly,
-  ]);
-
-  const currentQuestion = filteredQuestions[currentIndex];
-
-  const clearFilters = () => {
-    setSearch("");
-    setSelectedClass("All");
-    setSelectedYear("All");
-    setSelectedMonth("All");
-    setSelectedTopic("All");
-    setShowBookmarksOnly(false);
-  };
-
-  useEffect(() => {
-    setCurrentIndex(0);
-  }, [
-    search,
-    selectedClass,
-    selectedYear,
-    selectedMonth,
-    selectedTopic,
-    showBookmarksOnly,
-  ]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(bookmarkStorageKey);
-
-    if (saved) {
-      setBookmarks(JSON.parse(saved));
-    } else {
-      setBookmarks([]);
-    }
-  }, [bookmarkStorageKey]);
-
-  useEffect(() => {
-    if (currentIndex >= filteredQuestions.length) {
-      setCurrentIndex(
-        Math.max(filteredQuestions.length - 1, 0)
-      );
-    }
-  }, [filteredQuestions.length, currentIndex]);
-
-  const titles: Record<
-    string,
-    {
-      badge: string;
-      title: string;
-    }
-  > = {
-    general: {
-      badge: "MEKG",
-      title: "GENERAL WRITTEN",
-    },
-    mep: {
-      badge: "MEP",
-      title: "MEP WRITTEN",
-    },
-    motor: {
-      badge: "MEKM",
-      title: "MOTOR WRITTEN",
-    },
-    met: {
-      badge: "MET",
-      title: "ELECTRICAL WRITTEN",
-    },
-    naval: {
-      badge: "SHIP-CO",
-      title: "NAVAL WRITTEN",
-    },
-    ssep: {
-      badge: "SSEP",
-      title: "SAFETY WRITTEN",
-    },
-  };
-  const page = titles[category] ?? {
-    badge: category.toUpperCase(),
-    title: "Written Questions",
-  };
-
-  const toggleBookmark = (id: string) => {
-    // If we're in Bookmarks Only mode and removing the current bookmark,
-    // move to the next/previous question first.
-    if (
-      showBookmarksOnly &&
-      bookmarks.includes(id) &&
-      filteredQuestions.length > 1
-    ) {
-      if (currentIndex === filteredQuestions.length - 1) {
-        setCurrentIndex(currentIndex - 1);
-      }
-    }
-
-    setBookmarks((prev) => {
-      const updated = prev.includes(id)
-        ? prev.filter((item) => item !== id)
-        : [...prev, id];
-
-      localStorage.setItem(
-        bookmarkStorageKey,
-        JSON.stringify(updated)
-      );
-
-      return updated;
-    });
-  };
-
-  if (loading) {
-    return (
-      <LoadingScreen
-        text="Loading Questions..."
-      />
-    );
-  }
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-5 py-8">
-
-        {/* HEADER CARD */}
-        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-
-          <div className="flex items-center justify-between">
-
-            <Link
-              href="/"
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
-            >
-              <ArrowLeft size={20} />
-            </Link>
-
-            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
-              <Sailboat
-                size={30}
-                strokeWidth={2}
-              />
-            </div>
-
-          </div>
-
-          <div className="mt-7">
-
-            <h2 className="text-2xl font-bold">
-              Hi, {name} 👋
-            </h2>
-
-            <p className="text-gray-500">
-              Welcome Back
-            </p>
-
-            <div className="mt-6 border-l-4 border-black pl-4">
-              <p className="text-sm italic text-gray-600">
-                Coffee. Questions. Repeat.
-              </p>
-            </div>
-
-            <div className="mt-6 inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white">
-              {page.badge}
-            </div>
-
-            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
-              {page.title}
-            </h1>
-
-            <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
-              <span>{questions.length} Questions</span>
-              <span>•</span>
-              <span>{topics.length} Topics</span>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* SEARCH */}
-
-        <div className="mt-8">
-          <input
-            type="text"
-            placeholder="🔍 Search Questions..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
-          />
-        </div>
-
-        {/* FILTER BUTTON */}
-
-        {/* FILTER BUTTONS */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
-          >
-            <div className="flex items-center gap-3">
-              <SlidersHorizontal size={18} />
-              <span className="font-semibold">
-                Filters
-              </span>
-            </div>
-
-            {showFilters ? (
-              <ChevronUp size={18} />
-            ) : (
-              <ChevronDown size={18} />
-            )}
-          </button>
-
-          <button
-            onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-            className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
-              ? "border-black bg-black text-white"
-              : "border-gray-200 bg-white hover:border-black"
-              }`}
-          >
-            🔖 Bookmarks ({bookmarkCount})
-          </button>
-
-        </div>
-
-        {/* FILTER PANEL */}
-
-        {showFilters && (
-          <div className="mt-4">
-            <WrittenFilters
-              selectedClass={selectedClass}
-              setSelectedClass={setSelectedClass}
-              selectedYear={selectedYear}
-              setSelectedYear={setSelectedYear}
-              selectedMonth={selectedMonth}
-              setSelectedMonth={setSelectedMonth}
-              selectedTopic={selectedTopic}
-              setSelectedTopic={setSelectedTopic}
-              years={years}
-              topics={topics}
-              onClearFilters={clearFilters}
-            />
-          </div>
-        )}
-
-        <div className="mt-8 mb-6 flex items-center justify-between gap-4">
-
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
-            Questions
-          </h2>
-
-          <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
-            <span className="text-gray-500">Current:</span>{" "}
-            <span className="font-bold text-black">
-              {filteredQuestions.length > 0
-                ? `${currentIndex + 1} / ${filteredQuestions.length}`
-                : "0 / 0"}
-            </span>
-
-            <span className="mx-2 text-gray-300">|</span>
-          </div>
-
-        </div>
-
-        {filteredQuestions.length === 0 ? (
-          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
-            No Questions Found.
-          </div>
-        ) : (
-          <div className="mt-8 space-y-6">
-            {currentQuestion && (
-              <>
-                <div id="question-card">
-                  <WrittenCard
-                    question={currentQuestion}
-                    isBookmarked={bookmarks.includes(currentQuestion.id)}
-                    onBookmark={() => toggleBookmark(currentQuestion.id)}
-                  />
-                </div>
-
-                {/* Navigation */}
-                <div className="mt-6 flex items-center justify-between">
-
-                  <button
-                    onClick={() =>
-                      setCurrentIndex((prev) => prev - 1)
-                    }
-                    disabled={currentIndex === 0}
-                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
-                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                      : "bg-black text-white hover:bg-gray-800"
-                      }`}
-                  >
-                    ◀ Previous
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setCurrentIndex((prev) => prev + 1)
-                    }
-                    disabled={currentIndex === filteredQuestions.length - 1}
-                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
-                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                      : "bg-black text-white hover:bg-gray-800"
-                      }`}
-                  >
-                    Next ▶
-                  </button>
-
-                </div>
-              </>
-            )}
-
-            {filteredQuestions.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
-                <p className="text-gray-500">
-                  No Questions Found.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
 
       </div>
     </main>
@@ -5848,6 +6500,34 @@ export default function InitialLoader({
 }
 </file>
 
+<file path="app/(protected)/writtens/[category]/page.tsx">
+import WrittensClient from "../[category]/WrittensClient";
+import { getCachedWrittenQuestions } from "@/lib/written-cache";
+
+export default async function WrittenPage({
+  params,
+}: {
+  params: Promise<{
+    category: string;
+  }>;
+}) {
+  const { category } = await params;
+
+  const normalizedCategory = category.toLowerCase();
+
+  const questions = await getCachedWrittenQuestions(
+    normalizedCategory
+  );
+
+  return (
+    <WrittensClient
+      initialQuestions={questions}
+      category={normalizedCategory}
+    />
+  );
+}
+</file>
+
 <file path="components/QuestionsList.tsx">
 "use client"
 
@@ -5880,7 +6560,7 @@ interface Question {
 interface Props {
   category: string;
   questions: Question[];
-  filters: OralFilters;
+  filters?: OralFilters;
 }
 
 export default function QuestionsList({
@@ -5902,11 +6582,10 @@ export default function QuestionsList({
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [selectedClass, setSelectedClass] = useState("All");
 
-  const topics = filters.topics;
-  const surveyors = filters.surveyors;
-  const mmds = filters.mmds;
-  const classes = filters.classes;
-
+  const topics = filters?.topics ?? [];
+  const surveyors = filters?.surveyors ?? [];
+  const mmds = filters?.mmds ?? [];
+  const classes = filters?.classes ?? [];
   const showMmd = selectedMmd !== "All";
   const showSurveyor = selectedSurveyor !== "All";
   const showTopic = selectedTopic !== "All";
@@ -7374,10 +8053,18 @@ export async function getWrittenQuestions(
     category: string
 ): Promise<WrittenQuestion[]> {
 
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+
     const snapshot = await getDocs(
         query(
             collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            )
         )
     );
 
@@ -7385,22 +8072,19 @@ export async function getWrittenQuestions(
     const questions: WrittenQuestion[] = [];
 
 
-    snapshot.docs.forEach((batchDoc) => {
+    for (const batchDoc of snapshot.docs) {
 
         const data = batchDoc.data();
 
-
         if (
             data.category?.toLowerCase() !==
-            category.toLowerCase()
+            normalizedCategory
         ) {
-            return;
+            continue;
         }
-
 
         const batchQuestions =
             data.questions ?? [];
-
 
         batchQuestions.forEach(
             (question: WrittenQuestion) => {
@@ -7414,8 +8098,7 @@ export async function getWrittenQuestions(
             }
         );
 
-    });
-
+    } // <-- only this
 
     return questions.sort(
         (a, b) =>
@@ -7423,193 +8106,241 @@ export async function getWrittenQuestions(
             (b.order ?? 0)
     );
 }
-export async function getWrittenQuestionCount(
-    category: string
-): Promise<number> {
 
-    const snapshot = await getDocs(
-        query(
-            collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
-        )
-    );
+    export async function getWrittenQuestionCount(
+        category: string
+    ): Promise<number> {
 
-    let total = 0;
+        const normalizedCategory =
+            category.trim().toLowerCase();
 
-    snapshot.docs.forEach((batchDoc) => {
-        const data = batchDoc.data();
+        const snapshot = await getDocs(
+            query(
+                collection(db, "written_batches"),
+                where("category", "==", normalizedCategory)
+            )
+        );
 
-        if (
-            data.category?.toLowerCase() ===
-            category.toLowerCase()
-        ) {
-            total += data.questionCount ?? 0;
-        }
-    });
+        let total = 0;
 
-    return total;
-}
+        snapshot.docs.forEach((batchDoc) => {
+            const data = batchDoc.data();
 
-export async function getAllWrittenQuestionCounts() {
+            if (
+                data.category?.toLowerCase() ===
+                normalizedCategory
+            ) {
+                total += data.questionCount ?? 0;
+            }
+        });
 
-    const categories = [
-        "general",
-        "motor",
-        "mep",
-        "ssep",
-        "naval",
-        "met",
-    ];
-
-    const counts: Record<string, number> = {};
-
-    for (const category of categories) {
-
-        counts[category.toUpperCase()] =
-            await getWrittenQuestionCount(category);
-
+        return total;
     }
 
-    return counts;
-}
+    export async function getAllWrittenQuestionCounts() {
+
+        const categories = [
+            "general",
+            "motor",
+            "mep",
+            "ssep",
+            "naval",
+            "met",
+        ];
+
+        const counts: Record<string, number> = {};
+
+        for (const category of categories) {
+
+            counts[category.toUpperCase()] =
+                await getWrittenQuestionCount(category);
+
+        }
+
+        return counts;
+    }
 
 
-export async function getWrittenQuestionsForExport(
-    category: string
-) {
-    const snapshot = await getDocs(
-        query(
-            collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
-        )
-    );
+    export async function getWrittenQuestionsForExport(
+        category: string
+    ) {
 
-    const questions: any[] = [];
+        const normalizedCategory =
+            category.trim().toLowerCase();
 
-    snapshot.docs.forEach((batchDoc) => {
-        const data = batchDoc.data();
+        const snapshot = await getDocs(
+            query(
+                collection(db, "written_batches"),
+                where("category", "==", normalizedCategory)
+            )
+        );
+
+        const questions: any[] = [];
+
+        snapshot.docs.forEach((batchDoc) => {
+            const data = batchDoc.data();
 
 
-        if (
-            data.category?.toLowerCase() !==
-            category.toLowerCase()
-        ) {
+            if (
+                data.category?.toLowerCase() !==
+                normalizedCategory
+            ) {
+                return;
+            }
+
+            (data.questions ?? []).forEach((question: any) => {
+                questions.push({
+                    id: question.id,
+                    question: question.question ?? "",
+                    answer: question.answer ?? "",
+                    topic: question.topic ?? "",
+                    class: question.class ?? "",
+                    month: question.month ?? "",
+                    year: question.year,
+                    order: question.order ?? 0,
+                });
+            });
+        });
+
+
+        return questions.sort(
+            (a, b) => a.order - b.order
+        );
+    }
+
+    export async function updateWrittenQuestion(
+        category: string,
+        id: string,
+        data: Partial<WrittenQuestion>
+    ) {
+
+        const normalizedCategory =
+            category.trim().toLowerCase();
+
+
+        const snapshot = await getDocs(
+            query(
+                collection(db, "written_batches"),
+                where(
+                    "category",
+                    "==",
+                    normalizedCategory
+                )
+            )
+        );
+
+
+        for (const batchDoc of snapshot.docs) {
+
+            const batchData = batchDoc.data();
+
+
+            const questions = [...(batchData.questions ?? [])];
+
+
+            const index =
+                questions.findIndex(
+                    (q: WrittenQuestion) =>
+                        q.id === id
+                );
+
+
+            if (index === -1) {
+                continue;
+            }
+
+
+            questions[index] = {
+                ...questions[index],
+                ...data,
+            };
+
+
+            await updateDoc(
+                batchDoc.ref,
+                {
+                    questions,
+                    updatedAt:
+                        serverTimestamp(),
+                }
+            );
+
+
             return;
         }
 
-        (data.questions ?? []).forEach((question: any) => {
-            questions.push({
-                id: question.id,
-                question: question.question ?? "",
-                answer: question.answer ?? "",
-                topic: question.topic ?? "",
-                class: question.class ?? "",
-                month: question.month ?? "",
-                year: question.year,
-                order: question.order ?? 0,
-            });
-        });
-    });
 
-
-    return questions.sort(
-        (a, b) => a.order - b.order
-    );
-}
-
-export async function updateWrittenQuestion(
-    category: string,
-    id: string,
-    data: Partial<WrittenQuestion>
-) {
-
-    const snapshot = await getDocs(
-        query(
-            collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
-        )
-    );
-
-    for (const batchDoc of snapshot.docs) {
-
-        const batchData = batchDoc.data();
-
-        if (
-            batchData.category?.toLowerCase() !==
-            category.toLowerCase()
-        ) {
-            continue;
-        }
-
-        const questions = [...(batchData.questions ?? [])];
-
-        const index = questions.findIndex(
-            (q: WrittenQuestion) => q.id === id
+        throw new Error(
+            "Question not found"
         );
-
-        if (index === -1) {
-            continue;
-        }
-
-        questions[index] = {
-            ...questions[index],
-            ...data,
-        };
-
-        await updateDoc(batchDoc.ref, {
-            questions,
-            updatedAt: serverTimestamp(),
-        });
-
-        return;
     }
 
-    throw new Error("Question not found");
-}
+    export async function deleteWrittenQuestion(
+        category: string,
+        id: string
+    ) {
 
-export async function deleteWrittenQuestion(
-    category: string,
-    id: string
-) {
-    const snapshot = await getDocs(
-        query(
-            collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
-        )
-    );
+        const normalizedCategory =
+            category.trim().toLowerCase();
 
-    for (const batchDoc of snapshot.docs) {
 
-        const batchData = batchDoc.data();
-
-        if (
-            batchData.category?.toLowerCase() !==
-            category.toLowerCase()
-        ) {
-            continue;
-        }
-
-        const questions = [...(batchData.questions ?? [])];
-
-        const updatedQuestions = questions.filter(
-            (q: WrittenQuestion) => q.id !== id
+        const snapshot = await getDocs(
+            query(
+                collection(db, "written_batches"),
+                where(
+                    "category",
+                    "==",
+                    normalizedCategory
+                )
+            )
         );
 
-        if (updatedQuestions.length === questions.length) {
-            continue; // Question not found in this batch
+
+        for (const batchDoc of snapshot.docs) {
+
+            const batchData = batchDoc.data();
+
+
+            const questions =
+                [...(batchData.questions ?? [])];
+
+
+            const updatedQuestions =
+                questions.filter(
+                    (q: WrittenQuestion) =>
+                        q.id !== id
+                );
+
+
+            if (
+                updatedQuestions.length ===
+                questions.length
+            ) {
+                continue;
+            }
+
+
+            await updateDoc(
+                batchDoc.ref,
+                {
+                    questions:
+                        updatedQuestions,
+                    questionCount:
+                        updatedQuestions.length,
+                    updatedAt:
+                        serverTimestamp(),
+                }
+            );
+
+
+            return;
         }
 
-        await updateDoc(batchDoc.ref, {
-            questions: updatedQuestions,
-            questionCount: updatedQuestions.length,
-            updatedAt: serverTimestamp(),
-        });
 
-        return;
+        throw new Error(
+            "Question not found"
+        );
     }
-
-    throw new Error("Question not found");
-}
 </file>
 
 </files>

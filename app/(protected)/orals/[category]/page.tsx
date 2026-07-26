@@ -10,7 +10,7 @@ import {
   getOralCategoryMeta,
   getOralFilters,
 } from "@/services/firestore";
-import { getCachedFirstQuestions } from "@/lib/oral-cache";
+import { getCachedOralBatchPage } from "@/lib/oral-cache";
 
 const getCachedOralCategoryMeta = unstable_cache(
   async (category: string) => {
@@ -33,12 +33,21 @@ export default async function OralCategoryPage({
 }: PageProps) {
   const { category } = await params;
 
-  const [meta, filters, firstPage] = await Promise.all([
-    getCachedOralCategoryMeta(category),
-    getOralFilters(category),
-    getCachedFirstQuestions(category),
+  const normalizedCategory =
+    category.toLowerCase();
+
+  const [meta, filters, batch] = await Promise.all([
+    getCachedOralCategoryMeta(normalizedCategory),
+    getOralFilters(normalizedCategory),
+    getCachedOralBatchPage(
+      normalizedCategory,
+      1
+    )
   ]);
 
+  console.log("FULL BATCH", batch);
+  console.log("NEXT BATCH =", batch.nextBatch);
+  
   const titles: Record<
     string,
     {
@@ -151,17 +160,17 @@ export default async function OralCategoryPage({
         </div>
 
         <InsightSwitcher
-          category={category}
+          category={normalizedCategory}
           current="questions"
         />
 
         {/* Questions */}
         <QuestionsContainer
           category={category}
-          initialQuestions={firstPage.questions}
-          initialLastDoc={firstPage.lastDoc}
-          initialHasMore={firstPage.hasMore}
+          initialQuestions={batch.questions}
           filters={filters}
+          initialHasMore={batch.hasMore}
+          initialNextBatch={batch.nextBatch}
         />
 
       </div>

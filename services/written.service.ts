@@ -45,22 +45,19 @@ export async function getWrittenQuestions(
     const questions: WrittenQuestion[] = [];
 
 
-    snapshot.docs.forEach((batchDoc) => {
+    for (const batchDoc of snapshot.docs) {
 
         const data = batchDoc.data();
-
 
         if (
             data.category?.toLowerCase() !==
             normalizedCategory
         ) {
-            return;
+            continue;
         }
-
 
         const batchQuestions =
             data.questions ?? [];
-
 
         batchQuestions.forEach(
             (question: WrittenQuestion) => {
@@ -74,8 +71,7 @@ export async function getWrittenQuestions(
             }
         );
 
-    });
-
+    } // <-- only this
 
     return questions.sort(
         (a, b) =>
@@ -84,231 +80,237 @@ export async function getWrittenQuestions(
     );
 }
 
-export async function getWrittenQuestionCount(
-    category: string
-): Promise<number> {
+    export async function getWrittenQuestionCount(
+        category: string
+    ): Promise<number> {
 
-    const snapshot = await getDocs(
-        query(
-            collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
-        )
-    );
+        const normalizedCategory =
+            category.trim().toLowerCase();
 
-    let total = 0;
+        const snapshot = await getDocs(
+            query(
+                collection(db, "written_batches"),
+                where("category", "==", normalizedCategory)
+            )
+        );
 
-    snapshot.docs.forEach((batchDoc) => {
-        const data = batchDoc.data();
+        let total = 0;
 
-        if (
-            data.category?.toLowerCase() ===
-            category.toLowerCase()
-        ) {
-            total += data.questionCount ?? 0;
-        }
-    });
+        snapshot.docs.forEach((batchDoc) => {
+            const data = batchDoc.data();
 
-    return total;
-}
+            if (
+                data.category?.toLowerCase() ===
+                normalizedCategory
+            ) {
+                total += data.questionCount ?? 0;
+            }
+        });
 
-export async function getAllWrittenQuestionCounts() {
-
-    const categories = [
-        "general",
-        "motor",
-        "mep",
-        "ssep",
-        "naval",
-        "met",
-    ];
-
-    const counts: Record<string, number> = {};
-
-    for (const category of categories) {
-
-        counts[category.toUpperCase()] =
-            await getWrittenQuestionCount(category);
-
+        return total;
     }
 
-    return counts;
-}
+    export async function getAllWrittenQuestionCounts() {
+
+        const categories = [
+            "general",
+            "motor",
+            "mep",
+            "ssep",
+            "naval",
+            "met",
+        ];
+
+        const counts: Record<string, number> = {};
+
+        for (const category of categories) {
+
+            counts[category.toUpperCase()] =
+                await getWrittenQuestionCount(category);
+
+        }
+
+        return counts;
+    }
 
 
-export async function getWrittenQuestionsForExport(
-    category: string
-) {
-    const snapshot = await getDocs(
-        query(
-            collection(db, "written_batches"),
-            where("category", "==", category.toLowerCase())
-        )
-    );
+    export async function getWrittenQuestionsForExport(
+        category: string
+    ) {
 
-    const questions: any[] = [];
+        const normalizedCategory =
+            category.trim().toLowerCase();
 
-    snapshot.docs.forEach((batchDoc) => {
-        const data = batchDoc.data();
+        const snapshot = await getDocs(
+            query(
+                collection(db, "written_batches"),
+                where("category", "==", normalizedCategory)
+            )
+        );
+
+        const questions: any[] = [];
+
+        snapshot.docs.forEach((batchDoc) => {
+            const data = batchDoc.data();
 
 
-        if (
-            data.category?.toLowerCase() !==
-            category.toLowerCase()
-        ) {
+            if (
+                data.category?.toLowerCase() !==
+                normalizedCategory
+            ) {
+                return;
+            }
+
+            (data.questions ?? []).forEach((question: any) => {
+                questions.push({
+                    id: question.id,
+                    question: question.question ?? "",
+                    answer: question.answer ?? "",
+                    topic: question.topic ?? "",
+                    class: question.class ?? "",
+                    month: question.month ?? "",
+                    year: question.year,
+                    order: question.order ?? 0,
+                });
+            });
+        });
+
+
+        return questions.sort(
+            (a, b) => a.order - b.order
+        );
+    }
+
+    export async function updateWrittenQuestion(
+        category: string,
+        id: string,
+        data: Partial<WrittenQuestion>
+    ) {
+
+        const normalizedCategory =
+            category.trim().toLowerCase();
+
+
+        const snapshot = await getDocs(
+            query(
+                collection(db, "written_batches"),
+                where(
+                    "category",
+                    "==",
+                    normalizedCategory
+                )
+            )
+        );
+
+
+        for (const batchDoc of snapshot.docs) {
+
+            const batchData = batchDoc.data();
+
+
+            const questions = [...(batchData.questions ?? [])];
+
+
+            const index =
+                questions.findIndex(
+                    (q: WrittenQuestion) =>
+                        q.id === id
+                );
+
+
+            if (index === -1) {
+                continue;
+            }
+
+
+            questions[index] = {
+                ...questions[index],
+                ...data,
+            };
+
+
+            await updateDoc(
+                batchDoc.ref,
+                {
+                    questions,
+                    updatedAt:
+                        serverTimestamp(),
+                }
+            );
+
+
             return;
         }
 
-        (data.questions ?? []).forEach((question: any) => {
-            questions.push({
-                id: question.id,
-                question: question.question ?? "",
-                answer: question.answer ?? "",
-                topic: question.topic ?? "",
-                class: question.class ?? "",
-                month: question.month ?? "",
-                year: question.year,
-                order: question.order ?? 0,
-            });
-        });
-    });
+
+        throw new Error(
+            "Question not found"
+        );
+    }
+
+    export async function deleteWrittenQuestion(
+        category: string,
+        id: string
+    ) {
+
+        const normalizedCategory =
+            category.trim().toLowerCase();
 
 
-    return questions.sort(
-        (a, b) => a.order - b.order
-    );
-}
-
-export async function updateWrittenQuestion(
-    category: string,
-    id: string,
-    data: Partial<WrittenQuestion>
-) {
-
-    const normalizedCategory =
-        category.trim().toLowerCase();
-
-
-    const snapshot = await getDocs(
-        query(
-            collection(db, "written_batches"),
-            where(
-                "category",
-                "==",
-                normalizedCategory
+        const snapshot = await getDocs(
+            query(
+                collection(db, "written_batches"),
+                where(
+                    "category",
+                    "==",
+                    normalizedCategory
+                )
             )
-        )
-    );
-
-
-    for (const batchDoc of snapshot.docs) {
-
-        const batchData = batchDoc.data();
-
-
-        const questions =
-            [...(batchData.questions ?? [])];
-
-
-        const index =
-            questions.findIndex(
-                (q: WrittenQuestion) =>
-                    q.id === id
-            );
-
-
-        if (index === -1) {
-            continue;
-        }
-
-
-        questions[index] = {
-            ...questions[index],
-            ...data,
-        };
-
-
-        await updateDoc(
-            batchDoc.ref,
-            {
-                questions,
-                updatedAt:
-                    serverTimestamp(),
-            }
         );
 
 
-        return;
-    }
+        for (const batchDoc of snapshot.docs) {
+
+            const batchData = batchDoc.data();
 
 
-    throw new Error(
-        "Question not found"
-    );
-}
-
-export async function deleteWrittenQuestion(
-    category: string,
-    id: string
-) {
-
-    const normalizedCategory =
-        category.trim().toLowerCase();
+            const questions =
+                [...(batchData.questions ?? [])];
 
 
-    const snapshot = await getDocs(
-        query(
-            collection(db, "written_batches"),
-            where(
-                "category",
-                "==",
-                normalizedCategory
-            )
-        )
-    );
+            const updatedQuestions =
+                questions.filter(
+                    (q: WrittenQuestion) =>
+                        q.id !== id
+                );
 
 
-    for (const batchDoc of snapshot.docs) {
+            if (
+                updatedQuestions.length ===
+                questions.length
+            ) {
+                continue;
+            }
 
-        const batchData = batchDoc.data();
 
-
-        const questions =
-            [...(batchData.questions ?? [])];
-
-
-        const updatedQuestions =
-            questions.filter(
-                (q: WrittenQuestion) =>
-                    q.id !== id
+            await updateDoc(
+                batchDoc.ref,
+                {
+                    questions:
+                        updatedQuestions,
+                    questionCount:
+                        updatedQuestions.length,
+                    updatedAt:
+                        serverTimestamp(),
+                }
             );
 
 
-        if (
-            updatedQuestions.length ===
-            questions.length
-        ) {
-            continue;
+            return;
         }
 
 
-        await updateDoc(
-            batchDoc.ref,
-            {
-                questions:
-                    updatedQuestions,
-                questionCount:
-                    updatedQuestions.length,
-                updatedAt:
-                    serverTimestamp(),
-            }
+        throw new Error(
+            "Question not found"
         );
-
-
-        return;
     }
-
-
-    throw new Error(
-        "Question not found"
-    );
-}

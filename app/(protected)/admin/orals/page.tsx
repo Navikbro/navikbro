@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
+import { uploadOralBatch } from "@/services/oralBatch.service";
 
 import {
     bulkUploadQuestions,
@@ -146,8 +147,20 @@ export default function BulkUploadPage() {
                 }
             );
 
+            // ALSO create the batch documents
+            await uploadOralBatch(
+                rows,
+                "Admin Upload"
+            );
+
+            // Refresh homepage cache
+            await fetch("/api/revalidate-home", {
+                method: "POST",
+            });
+
             alert(
-                `${rows.length} questions uploaded successfully.`
+                `${rows.length
+                } questions uploaded successfully.`
             );
 
             setRows([]);
@@ -180,6 +193,8 @@ export default function BulkUploadPage() {
         }
 
     }
+
+
     return (
         <main className="min-h-screen bg-[#f5f5f5]">
             <div className="mx-auto max-w-6xl px-6 py-10">
@@ -273,12 +288,12 @@ export default function BulkUploadPage() {
                                 className="rounded-2xl bg-black px-6 py-3 text-white disabled:opacity-50"
                             >
                                 {uploading
-                                    ? `Uploading... ${uploadProgress.uploaded.toLocaleString()} / ${uploadProgress.total.toLocaleString()}`
+                                    ? `Uploading...${uploadProgress.uploaded.toLocaleString()} / ${uploadProgress.total.toLocaleString()}`
                                     : `Upload ${rows.length} Questions`
                                 }
-                                
-                                </button>
-                                
+
+                            </button>
+
 
                         </div>
 
@@ -300,7 +315,7 @@ export default function BulkUploadPage() {
                                             width: `${(uploadProgress.uploaded /
                                                 uploadProgress.total) *
                                                 100
-                                                }%`,
+                                                }% `,
                                         }}
                                     />
 

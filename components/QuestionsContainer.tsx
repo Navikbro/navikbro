@@ -4,127 +4,104 @@ import { useEffect, useRef, useState } from "react";
 import QuestionsList from "./QuestionsList";
 
 import {
-  getQuestionsPaginated,
-  Question,
   OralFilters,
 } from "@/services/firestore";
 
-import type {
-  QueryDocumentSnapshot,
-  DocumentData,
-} from "firebase/firestore";
+import {
+  OralBatchQuestion,
+} from "@/services/oralBatch.service";
+
 
 interface Props {
   category: string;
-  initialQuestions: Question[];
-  initialLastDoc: QueryDocumentSnapshot<DocumentData> | null;
-  initialHasMore: boolean;
+  initialQuestions: OralBatchQuestion[];
   filters: OralFilters;
+  initialHasMore: boolean;
+  initialNextBatch: number | null;
 }
 
 export default function QuestionsContainer({
   category,
   initialQuestions,
-  initialLastDoc,
-  initialHasMore,
   filters,
+  initialHasMore,
+  initialNextBatch,
 }: Props) {
-  const [questions, setQuestions] = useState(initialQuestions);
-  const [loading, setLoading] = useState(false);
 
-  const [lastDoc, setLastDoc] = useState(initialLastDoc);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [loadingMore, setLoadingMore] = useState(false);
+
+  const [questions, setQuestions] =
+    useState<OralBatchQuestion[]>(initialQuestions);
+
+  const [nextBatch, setNextBatch] =
+    useState<number | null>(initialNextBatch);
+
+  const [hasMore, setHasMore] =
+    useState(initialHasMore);
+
+  const [loading, setLoading] =
+    useState(false);
+
+
+
+  console.log("QuestionsContainer render", {
+    questions: questions.length,
+    nextBatch,
+    hasMore,
+    loading,
+  });
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const hasMoreRef = useRef(initialHasMore);
   const loadingRef = useRef(false);
-  const loadingMoreRef = useRef(false);
-  const lastDocRef = useRef(initialLastDoc);
-
-  useEffect(() => {
-    setQuestions(initialQuestions);
-    setLastDoc(initialLastDoc);
-    setHasMore(initialHasMore);
-
-    lastDocRef.current = initialLastDoc;
-    hasMoreRef.current = initialHasMore;
-  }, [
-    category,
-    initialQuestions,
-    initialLastDoc,
-    initialHasMore,
-  ]);
 
   async function loadMore() {
-    if (
-      !hasMoreRef.current ||
-      loadingRef.current ||
-      loadingMoreRef.current
-    ) {
-      return;
-    }
+    if (!nextBatch || loadingRef.current) return;
+
+    loadingRef.current = true;
+    setLoading(true);
+
+    const batchToLoad = nextBatch;
 
     try {
-      setLoadingMore(true);
-      loadingMoreRef.current = true;
 
-      const result = await getQuestionsPaginated(
-        category,
-        lastDocRef.current
+      console.log("Loading batch", nextBatch);
+
+      const response = await fetch(
+        `/api/orals/batch?category=${category}&batch=${batchToLoad}`
       );
 
-      setQuestions((prev) => {
-        const ids = new Set(prev.map((q) => q.id));
+      if (!response.ok) {
+        throw new Error("Failed to load batch");
+      }
 
-        return [
-          ...prev,
-          ...result.questions.filter((q) => !ids.has(q.id)),
-        ];
-      });
+      const result = await response.json();
 
-      setLastDoc(result.lastDoc);
-      lastDocRef.current = result.lastDoc;
+      console.log("Result:", result);
+
+      setQuestions(prev => [
+        ...prev,
+        ...result.questions,
+      ]);
 
       setHasMore(result.hasMore);
-      hasMoreRef.current = result.hasMore;
-    } catch (err) {
-      console.error(err);
+      setNextBatch(result.nextBatch);
+
+    } catch (e) {
+      console.error("Load More Error:", e);
     } finally {
-      loadingMoreRef.current = false;
-      setLoadingMore(false);
+      loadingRef.current = false;
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    hasMoreRef.current = hasMore;
-  }, [hasMore]);
-
-  useEffect(() => {
-    loadingRef.current = loading;
-  }, [loading]);
-
-  useEffect(() => {
-    loadingMoreRef.current = loadingMore;
-  }, [loadingMore]);
-
-  useEffect(() => {
-    lastDocRef.current = lastDoc;
-  }, [lastDoc]);
-
-  useEffect(() => {
     const element = loadMoreRef.current;
+
     if (!element) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (
-          entry.isIntersecting &&
-          hasMoreRef.current &&
-          !loadingRef.current &&
-          !loadingMoreRef.current
-        ) {
+        if (entry.isIntersecting && hasMore) {
           loadMore();
         }
       },
@@ -136,20 +113,8 @@ export default function QuestionsContainer({
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, []);
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-28 animate-pulse rounded-2xl bg-gray-200"
-          />
-        ))}
-      </div>
-    );
-  }
+  }, [hasMore]);
 
   return (
     <>
@@ -164,9 +129,9 @@ export default function QuestionsContainer({
           ref={loadMoreRef}
           className="flex justify-center py-8"
         >
-          {loadingMore && (
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" />
-          )}
+          <p className="text-sm text-gray-400">
+            Loading more...
+          </p>
         </div>
       )}
 

@@ -1,15 +1,8 @@
-import { unstable_cache } from "next/cache";
-import {
-  getQuestionsPaginated,
-  PaginatedQuestions,
-} from "@/services/firestore";
+import { getOralBatchPage } from "@/services/oralBatch.service";
 
-export const getCachedFirstQuestions = unstable_cache(
-  async (category: string): Promise<PaginatedQuestions> => {
-    return getQuestionsPaginated(category);
-  },
-  ["oral-first-page"],
-  {
-    revalidate: 300, // 5 minutes
-  }
-);
+export async function getCachedOralBatchPage(
+  category: string,
+  batchNumber: number
+) {
+  return await getOralBatchPage(category, batchNumber);
+}

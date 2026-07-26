@@ -51,18 +51,20 @@ export async function uploadWrittenBatch(
 
         const batchId = `${category}_batch_${String(batchNumber).padStart(3, "0")}`;
 
-        const questions = rows.map((row: any, index: number) => ({
-            id: crypto.randomUUID(),
-            class: String(row.Class).trim(),
-            category: category,
-            topic: String(row.Topic).trim(),
-            year: Number(row.Year),
-            month: String(row.Month).trim(),
-            question: String(row.Question).trim(),
-            answer: String(row.Answer).trim(),
-            order: index + 1,
-            isActive: true,
-        }));
+        const questions = rows
+            .filter(row => row.Question)
+            .map((row, index) => ({
+                id: crypto.randomUUID(),
+                class: String(row.Class).trim(),
+                category,
+                topic: String(row.Topic).trim(),
+                year: Number(row.Year),
+                month: String(row.Month).trim(),
+                question: String(row.Question).trim(),
+                answer: String(row.Answer).trim(),
+                order: index + 1,
+                isActive: true,
+            }));
 
         const topicCount = new Set(
             questions.map((q) => q.topic)
