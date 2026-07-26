@@ -14,6 +14,31 @@ import { db } from "@/lib/firebase";
 
 export const ORAL_BATCH_SIZE = 200;
 
+const CATEGORY_MAP: Record<string, string> = {
+    safety: "fn3",
+    fn3: "fn3",
+
+    motor: "fn4b",
+    fn4b: "fn4b",
+
+    electrical: "fn5",
+    fn5: "fn5",
+
+    mep: "fn6",
+    fn6: "fn6",
+};
+
+const clean = (value: unknown): string =>
+    String(value ?? "").trim();
+
+const getBatchId = (
+    category: string,
+    batchNumber: number
+): string =>
+    `${category.toLowerCase()}_batch_${String(
+        batchNumber
+    ).padStart(3, "0")}`;
+
 export interface OralBatchQuestion {
     id: string;
     class: string;
@@ -95,20 +120,6 @@ export async function uploadOralBatch(
 ) {
     if (!rows.length) return;
 
-    const categoryMap: Record<string, string> = {
-        safety: "fn3",
-        fn3: "fn3",
-
-        motor: "fn4b",
-        fn4b: "fn4b",
-
-        electrical: "fn5",
-        fn5: "fn5",
-
-        mep: "fn6",
-        fn6: "fn6",
-    };
-
     const groupedQuestions: Record<
         string,
         OralBatchQuestion[]
@@ -118,14 +129,11 @@ export async function uploadOralBatch(
         .filter((row) => row.Question)
         .forEach((row) => {
 
-            let category = String(
-                row.Category ?? ""
-            )
-                .trim()
+            let category = clean(row.Category)
                 .toLowerCase();
 
             category =
-                categoryMap[category] ?? category;
+                CATEGORY_MAP[category] ?? category;
 
             if (!groupedQuestions[category]) {
                 groupedQuestions[category] = [];
@@ -134,35 +142,20 @@ export async function uploadOralBatch(
             groupedQuestions[category].push({
                 id: crypto.randomUUID(),
 
-                class: String(
-                    row.Class ?? ""
-                ).trim(),
-
+                class: clean(row.Class),
                 category,
 
-                examDate: String(
-                    row.Date ?? ""
-                ).trim(),
+                examDate: clean(row.Date),
 
-                topic: String(
-                    row.Topic ?? ""
-                ).trim(),
+                topic: clean(row.Topic),
 
-                mmd: String(
-                    row.MMD ?? ""
-                ).trim(),
+                mmd: clean(row.MMD),
 
-                surveyor: String(
-                    row.Surveyor ?? ""
-                ).trim(),
+                surveyor: clean(row.Surveyor),
 
-                question: String(
-                    row.Question ?? ""
-                ).trim(),
+                question: clean(row.Question),
 
-                answer: String(
-                    row.Answer ?? ""
-                ).trim(),
+                answer: clean(row.Answer),
 
                 order:
                     groupedQuestions[category]
@@ -201,10 +194,10 @@ export async function uploadOralBatch(
                     start + ORAL_BATCH_SIZE
                 );
 
-            const batchId =
-                `${category}_batch_${String(
-                    batchNumber
-                ).padStart(3, "0")}`;
+            const batchId = getBatchId(
+                category,
+                batchNumber
+            );
 
             firestoreBatch.set(
                 doc(db, "oral_batches", batchId),
@@ -304,12 +297,15 @@ export async function getOralBatchPage(
     batchNumber: number
 ) {
 
-    const currentBatchId =
-        `${category.toLowerCase()}_batch_${String(batchNumber).padStart(3, "0")}`;
+    const currentBatchId = getBatchId(
+        category,
+        batchNumber
+    );
 
-
-    const nextBatchId =
-        `${category.toLowerCase()}_batch_${String(batchNumber + 1).padStart(3, "0")}`;
+    const nextBatchId = getBatchId(
+        category,
+        batchNumber + 1
+    );
 
 
     const currentSnapshot = await getDoc(
@@ -342,41 +338,14 @@ export async function getOralBatchPage(
     const data =
         currentSnapshot.data() as OralBatchDocument;
 
-    // ADD HERE
-    console.log(
-        "SERVICE RETURN",
-        category,
-        batchNumber,
-        {
-            questions: data.questions.length,
-            hasMore: nextSnapshot.exists(),
-            nextBatch: nextSnapshot.exists()
-                ? batchNumber + 1
-                : null
-        }
-    );
-
-    const result = {
-        questions: data.questions,
-        hasMore: nextSnapshot.exists(),
-        nextBatch: nextSnapshot.exists()
-            ? batchNumber + 1
-            : null,
-    };
-
-    console.log("RETURNING", result);
-
+    const hasMore = nextSnapshot.exists();
 
     return {
         questions: data.questions,
-
-        hasMore:
-            nextSnapshot.exists(),
-
-        nextBatch:
-            nextSnapshot.exists()
-                ? batchNumber + 1
-                : null,
+        hasMore,
+        nextBatch: hasMore
+            ? batchNumber + 1
+            : null,
     };
 
 }

@@ -14,11 +14,8 @@ import {
     where,
     writeBatch,
     limit,
-    startAfter,
-    QueryDocumentSnapshot,
-    DocumentData,
-} from "firebase/firestore";
 
+} from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 
@@ -52,12 +49,6 @@ export interface Question {
 
     order: number;
     isActive: boolean;
-}
-
-export interface PaginatedQuestions {
-    questions: Question[];
-    lastDoc: QueryDocumentSnapshot<DocumentData> | null;
-    hasMore: boolean;
 }
 
 export interface CommunityAnswer {
@@ -114,68 +105,6 @@ export async function getQuestions(
     questionCache.set(key, result);
 
     return result;
-}
-
-export async function getQuestionsPaginated(
-    category: string,
-    lastDoc: QueryDocumentSnapshot<DocumentData> | null = null,
-    pageSize = 20
-): Promise<PaginatedQuestions> {
-
-    let q;
-
-    if (lastDoc) {
-        q = query(
-            collection(
-                db,
-                "orals",
-                category.toLowerCase(),
-                "questions"
-            ),
-            orderBy("order"),
-            startAfter(lastDoc),
-            limit(pageSize)
-        );
-    } else {
-        q = query(
-            collection(
-                db,
-                "orals",
-                category.toLowerCase(),
-                "questions"
-            ),
-            orderBy("order"),
-            limit(pageSize)
-        );
-    }
-
-    const snapshot = await getDocs(q);
-
-    const questions = snapshot.docs.map((doc) => {
-        const data = doc.data();
-
-        return {
-            id: doc.id,
-            question: data.question,
-            answer: data.answer,
-            topic: data.topic,
-            mmd: data.mmd,
-            surveyor: data.surveyor,
-            class: data.class ?? "",
-            examDate: data.examDate ?? "",
-            order: data.order,
-            isActive: data.isActive,
-        };
-    });
-
-    return {
-        questions,
-        lastDoc:
-            snapshot.docs.length > 0
-                ? snapshot.docs[snapshot.docs.length - 1]
-                : null,
-        hasMore: snapshot.docs.length === pageSize,
-    };
 }
 
 export async function submitCommunityAnswer(data: {
