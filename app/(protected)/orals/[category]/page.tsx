@@ -12,15 +12,16 @@ import {
 } from "@/services/firestore";
 import { getCachedOralBatchPage } from "@/lib/oral-cache";
 
-const getCachedOralCategoryMeta = unstable_cache(
-  async (category: string) => {
-    return getOralCategoryMeta(category);
-  },
-  ["oral-category-meta"],
-  {
-    revalidate: 3600, // 1 hour
-  }
-);
+const getCachedOralCategoryMeta = (category: string) =>
+  unstable_cache(
+    async () => {
+      return getOralCategoryMeta(category);
+    },
+    ["oral-category-meta", category],
+    {
+      revalidate: 3600,
+    }
+  )();
 
 interface PageProps {
   params: Promise<{
@@ -45,9 +46,8 @@ export default async function OralCategoryPage({
     )
   ]);
 
-  console.log("FULL BATCH", batch);
-  console.log("NEXT BATCH =", batch.nextBatch);
-  
+  console.log("META FROM PAGE", meta);
+
   const titles: Record<
     string,
     {
@@ -166,11 +166,12 @@ export default async function OralCategoryPage({
 
         {/* Questions */}
         <QuestionsContainer
-          category={category}
+          category={normalizedCategory}
           initialQuestions={batch.questions}
           filters={filters}
           initialHasMore={batch.hasMore}
           initialNextBatch={batch.nextBatch}
+          totalQuestions={meta.questionCount}
         />
 
       </div>

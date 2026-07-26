@@ -138,425 +138,6 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
-<file path="app/api/orals/batch/route.ts">
-import { NextRequest, NextResponse } from "next/server";
-import { getOralBatchPage } from "@/services/oralBatch.service";
-
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-
-  const category = searchParams.get("category");
-  const batch = Number(searchParams.get("batch"));
-
-  if (!category || !batch) {
-    return NextResponse.json(
-      { error: "Missing parameters" },
-      { status: 400 }
-    );
-  }
-
-  console.log("API REQUEST", {
-    category,
-    batch,
-  });
-
-  const result = await getOralBatchPage(
-    category,
-    batch
-  );
-
-  console.log("API RESPONSE", result);
-
-  return NextResponse.json(result);
-}
-</file>
-
-<file path="services/oralBatch.service.ts">
-import {
-    collection,
-    doc,
-    getDocs,
-    getDoc,
-    query,
-    runTransaction,
-    serverTimestamp,
-    where,
-    writeBatch,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
-
-export const ORAL_BATCH_SIZE = 200;
-
-export interface OralBatchQuestion {
-    id: string;
-    class: string;
-    category: string;
-    examDate: string;
-    topic: string;
-    mmd: string;
-    surveyor: string;
-    question: string;
-    answer: string;
-    order: number;
-    isActive: boolean;
-}
-
-export interface OralBatchDocument {
-    batchId: string;
-    batchNumber: number;
-    category: string;
-    sourceFile: string;
-    questionCount: number;
-    topicCount: number;
-    questions: OralBatchQuestion[];
-    createdAt: unknown;
-    updatedAt: unknown;
-}
-
-async function setBatchCount(
-    category: string,
-    count: number
-) {
-    const counterRef = doc(
-        db,
-        "oral_batches_metadata",
-        "counters"
-    );
-
-    await runTransaction(db, async (transaction) => {
-        const snap = await transaction.get(counterRef);
-
-        if (!snap.exists()) {
-            throw new Error(
-                "oral_batches_metadata/counters document not found."
-            );
-        }
-
-        transaction.update(counterRef, {
-            [`${category}.batchCount`]: count,
-            [`${category}.updatedAt`]: serverTimestamp(),
-        });
-    });
-}
-
-export async function deleteExistingBatches(
-    category: string
-) {
-    const q = query(
-        collection(db, "oral_batches"),
-        where("category", "==", category.toLowerCase())
-    );
-
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-        return;
-    }
-
-    const batch = writeBatch(db);
-
-    snapshot.docs.forEach((document) => {
-        batch.delete(document.ref);
-    });
-
-    await batch.commit();
-}
-
-export async function uploadOralBatch(
-    rows: any[],
-    sourceFile: string
-) {
-    if (!rows.length) return;
-
-    const categoryMap: Record<string, string> = {
-        safety: "fn3",
-        fn3: "fn3",
-
-        motor: "fn4b",
-        fn4b: "fn4b",
-
-        electrical: "fn5",
-        fn5: "fn5",
-
-        mep: "fn6",
-        fn6: "fn6",
-    };
-
-    const groupedQuestions: Record<
-        string,
-        OralBatchQuestion[]
-    > = {};
-
-    rows
-        .filter((row) => row.Question)
-        .forEach((row) => {
-
-            let category = String(
-                row.Category ?? ""
-            )
-                .trim()
-                .toLowerCase();
-
-            category =
-                categoryMap[category] ?? category;
-
-            if (!groupedQuestions[category]) {
-                groupedQuestions[category] = [];
-            }
-
-            groupedQuestions[category].push({
-                id: crypto.randomUUID(),
-
-                class: String(
-                    row.Class ?? ""
-                ).trim(),
-
-                category,
-
-                examDate: String(
-                    row.Date ?? ""
-                ).trim(),
-
-                topic: String(
-                    row.Topic ?? ""
-                ).trim(),
-
-                mmd: String(
-                    row.MMD ?? ""
-                ).trim(),
-
-                surveyor: String(
-                    row.Surveyor ?? ""
-                ).trim(),
-
-                question: String(
-                    row.Question ?? ""
-                ).trim(),
-
-                answer: String(
-                    row.Answer ?? ""
-                ).trim(),
-
-                order:
-                    groupedQuestions[category]
-                        .length + 1,
-
-                isActive: true,
-            });
-        });
-
-    for (const category of Object.keys(groupedQuestions)) {
-
-        await deleteExistingBatches(category);
-
-        const questions =
-            groupedQuestions[category];
-
-        const firestoreBatch = writeBatch(db);
-
-        const totalBatches = Math.ceil(
-            questions.length / ORAL_BATCH_SIZE
-        );
-
-        for (
-            let batchNumber = 1;
-            batchNumber <= totalBatches;
-            batchNumber++
-        ) {
-
-            const start =
-                (batchNumber - 1) *
-                ORAL_BATCH_SIZE;
-
-            const batchQuestions =
-                questions.slice(
-                    start,
-                    start + ORAL_BATCH_SIZE
-                );
-
-            const batchId =
-                `${category}_batch_${String(
-                    batchNumber
-                ).padStart(3, "0")}`;
-
-            firestoreBatch.set(
-                doc(db, "oral_batches", batchId),
-                {
-                    batchId,
-                    batchNumber,
-                    category,
-                    sourceFile,
-
-                    questionCount: batchQuestions.length,
-
-                    topicCount: new Set(
-                        batchQuestions.map((q) => q.topic)
-                    ).size,
-
-                    questions: batchQuestions,
-
-                    createdAt: serverTimestamp(),
-
-                    updatedAt: serverTimestamp(),
-                }
-            );
-
-            console.log(
-                `Uploaded ${batchId} (${batchQuestions.length} questions)`
-            );
-        }
-
-        await firestoreBatch.commit();
-
-        await setBatchCount(
-            category,
-            totalBatches
-        );
-
-        console.log(
-            `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
-        );
-    }
-}
-
-export async function getOralBatchQuestions(
-    category: string
-): Promise<OralBatchQuestion[]> {
-
-    const q = query(
-        collection(db, "oral_batches"),
-        where(
-            "category",
-            "==",
-            category.toLowerCase()
-        )
-    );
-
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-        return [];
-    }
-
-    const questions: OralBatchQuestion[] = [];
-
-    snapshot.docs
-        .sort((a, b) => {
-            const first =
-                a.data().batchNumber ?? 0;
-
-            const second =
-                b.data().batchNumber ?? 0;
-
-            return first - second;
-        })
-        .forEach((document) => {
-
-            const data =
-                document.data() as OralBatchDocument;
-
-            if (
-                Array.isArray(data.questions)
-            ) {
-                questions.push(
-                    ...data.questions
-                );
-            }
-
-        });
-
-    questions.sort(
-        (a, b) => a.order - b.order
-    );
-
-    return questions;
-}
-
-export async function getOralBatchPage(
-    category: string,
-    batchNumber: number
-) {
-
-    const currentBatchId =
-        `${category.toLowerCase()}_batch_${String(batchNumber).padStart(3, "0")}`;
-
-
-    const nextBatchId =
-        `${category.toLowerCase()}_batch_${String(batchNumber + 1).padStart(3, "0")}`;
-
-
-    const currentSnapshot = await getDoc(
-        doc(
-            db,
-            "oral_batches",
-            currentBatchId
-        )
-    );
-
-
-    if (!currentSnapshot.exists()) {
-        return {
-            questions: [],
-            hasMore: false,
-            nextBatch: null,
-        };
-    }
-
-
-    const nextSnapshot = await getDoc(
-        doc(
-            db,
-            "oral_batches",
-            nextBatchId
-        )
-    );
-
-
-    const data =
-        currentSnapshot.data() as OralBatchDocument;
-
-    // ADD HERE
-    console.log(
-        "SERVICE RETURN",
-        category,
-        batchNumber,
-        {
-            questions: data.questions.length,
-            hasMore: nextSnapshot.exists(),
-            nextBatch: nextSnapshot.exists()
-                ? batchNumber + 1
-                : null
-        }
-    );
-
-    const result = {
-        questions: data.questions,
-        hasMore: nextSnapshot.exists(),
-        nextBatch: nextSnapshot.exists()
-            ? batchNumber + 1
-            : null,
-    };
-
-    console.log("RETURNING", result);
-
-    return result;
-
-    return {
-        questions: data.questions,
-
-        hasMore:
-            nextSnapshot.exists(),
-
-        nextBatch:
-            nextSnapshot.exists()
-                ? batchNumber + 1
-                : null,
-    };
-
-}
-</file>
-
 <file path="app/(protected)/orals/[category]/topics/loading.tsx">
 import LoadingScreen from "@/components/LoadingScreen";
 
@@ -1162,6 +743,39 @@ export default function ProtectedLayout({
       {children}
     </ProtectedRoute>
   );
+}
+</file>
+
+<file path="app/api/orals/batch/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { getOralBatchPage } from "@/services/oralBatch.service";
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+
+  const category = searchParams.get("category");
+  const batch = Number(searchParams.get("batch"));
+
+  if (!category || !batch) {
+    return NextResponse.json(
+      { error: "Missing parameters" },
+      { status: 400 }
+    );
+  }
+
+  console.log("API REQUEST", {
+    category,
+    batch,
+  });
+
+  const result = await getOralBatchPage(
+    category,
+    batch
+  );
+
+  console.log("API RESPONSE", result);
+
+  return NextResponse.json(result);
 }
 </file>
 
@@ -1886,123 +1500,6 @@ export async function isUserAdmin(uid: string) {
 }
 </file>
 
-<file path="services/writtenBatch.service.ts">
-import {
-    doc,
-    getDoc,
-    runTransaction,
-    serverTimestamp,
-    setDoc,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
-
-async function getNextBatchNumber(category: string) {
-    const counterRef = doc(
-        db,
-        "written_batches_metadata",
-        "counters"
-    );
-
-    return await runTransaction(db, async (transaction) => {
-        const snapshot = await transaction.get(counterRef);
-
-        if (!snapshot.exists()) {
-            throw new Error("Batch counter document not found.");
-        }
-
-        const data = snapshot.data();
-
-        const current = data[category] ?? 0;
-        const next = current + 1;
-
-        transaction.update(counterRef, {
-            [category]: next,
-        });
-
-        return next;
-    });
-}
-
-export async function uploadWrittenBatch(
-    rows: any[],
-    sourceFile: string
-) {
-
-    try {
-        if (!rows.length) return;
-
-        const category = String(rows[0].Category)
-            .trim()
-            .toLowerCase();
-
-        const batchNumber = await getNextBatchNumber(category);
-
-        const batchId = `${category}_batch_${String(batchNumber).padStart(3, "0")}`;
-
-        const questions = rows
-            .filter(row => row.Question)
-            .map((row, index) => ({
-                id: crypto.randomUUID(),
-                class: String(row.Class).trim(),
-                category,
-                topic: String(row.Topic).trim(),
-                year: Number(row.Year),
-                month: String(row.Month).trim(),
-                question: String(row.Question).trim(),
-                answer: String(row.Answer).trim(),
-                order: index + 1,
-                isActive: true,
-            }));
-
-        const topicCount = new Set(
-            questions.map((q) => q.topic)
-        ).size;
-
-        console.log("Creating batch:", batchId);
-        console.log("Category:", category);
-        console.log("Questions:", questions.length);
-
-        const batchRef = doc(
-            db,
-            "written_batches",
-            batchId
-        );
-
-        console.log("Writing document:", batchRef.path);
-
-        await setDoc(
-            batchRef,
-            {
-                batchId,
-                batchNumber,
-                category,
-                sourceFile,
-                questionCount: questions.length,
-                topicCount,
-                questions,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-            }
-        );
-
-        console.log(
-            "Batch created successfully:",
-            batchId
-        );
-
-    } catch (error) {
-        console.error(
-            "BATCH CREATION ERROR:",
-            error
-        );
-
-        throw error;
-    }
-
-}
-</file>
-
 <file path="types/question.ts">
 export interface Question {
   id: string;
@@ -2407,17 +1904,6 @@ export default function SectionHeading({
 }
 </file>
 
-<file path="lib/oral-cache.ts">
-import { getOralBatchPage } from "@/services/oralBatch.service";
-
-export async function getCachedOralBatchPage(
-  category: string,
-  batchNumber: number
-) {
-  return await getOralBatchPage(category, batchNumber);
-}
-</file>
-
 <file path="lib/orals.ts">
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -2469,6 +1955,795 @@ export async function getWrittenStats(category: string) {
     topics: data.topicCount ?? 0,
     updatedAt: data.updatedAt?.toDate?.() ?? null,
   };
+}
+</file>
+
+<file path="services/oralBatch.service.ts">
+import {
+    collection,
+    doc,
+    getDocs,
+    getDoc,
+    query,
+    runTransaction,
+    serverTimestamp,
+    updateDoc,
+    increment,
+    where,
+    writeBatch,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+export const ORAL_BATCH_SIZE = 200;
+
+const CATEGORY_MAP: Record<string, string> = {
+    safety: "fn3",
+    fn3: "fn3",
+
+    motor: "fn4b",
+    fn4b: "fn4b",
+
+    electrical: "fn5",
+    fn5: "fn5",
+
+    mep: "fn6",
+    fn6: "fn6",
+};
+
+const clean = (value: unknown): string =>
+    String(value ?? "").trim();
+
+const getBatchId = (
+    category: string,
+    batchNumber: number
+): string =>
+    `${category.toLowerCase()}_batch_${String(
+        batchNumber
+    ).padStart(3, "0")}`;
+
+export interface OralBatchQuestion {
+    id: string;
+    class: string;
+    category: string;
+    examDate: string;
+    topic: string;
+    mmd: string;
+    surveyor: string;
+    question: string;
+    answer: string;
+    order: number;
+    isActive: boolean;
+}
+
+export interface OralBatchDocument {
+    batchId: string;
+    batchNumber: number;
+    category: string;
+    sourceFile: string;
+    questionCount: number;
+    topicCount: number;
+    questions: OralBatchQuestion[];
+    createdAt: unknown;
+    updatedAt: unknown;
+}
+
+export interface OralFilters {
+    topics: string[];
+    surveyors: string[];
+    mmds: string[];
+    classes: string[];
+}
+
+async function setBatchCount(
+    category: string,
+    batchCount: number,
+    questionCount: number,
+    topicCount: number
+) {
+    const counterRef = doc(
+        db,
+        "oral_batches_metadata",
+        "counters"
+    );
+
+    await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(counterRef);
+
+        if (!snap.exists()) {
+            throw new Error(
+                "oral_batches_metadata/counters document not found."
+            );
+        }
+
+        transaction.update(counterRef, {
+            [`${category}.batchCount`]: batchCount,
+            [`${category}.questionCount`]: questionCount,
+            [`${category}.topicCount`]: topicCount,
+            [`${category}.updatedAt`]: serverTimestamp(),
+        });
+    });
+}
+
+export async function deleteExistingBatches(
+    category: string
+) {
+    const q = query(
+        collection(db, "oral_batches"),
+        where("category", "==", category.toLowerCase())
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return;
+    }
+
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach((document) => {
+        batch.delete(document.ref);
+    });
+
+    await batch.commit();
+}
+
+export async function uploadOralBatch(
+    rows: any[],
+    sourceFile: string
+) {
+    if (!rows.length) return;
+
+    const groupedQuestions: Record<
+        string,
+        OralBatchQuestion[]
+    > = {};
+
+    rows
+        .filter((row) => row.Question)
+        .forEach((row) => {
+
+            let category = clean(row.Category)
+                .toLowerCase();
+
+            category =
+                CATEGORY_MAP[category] ?? category;
+
+            if (!groupedQuestions[category]) {
+                groupedQuestions[category] = [];
+            }
+
+            groupedQuestions[category].push({
+                id: crypto.randomUUID(),
+
+                class: clean(row.Class),
+                category,
+
+                examDate: clean(row.Date),
+
+                topic: clean(row.Topic),
+
+                mmd: clean(row.MMD),
+
+                surveyor: clean(row.Surveyor),
+
+                question: clean(row.Question),
+
+                answer: clean(row.Answer),
+
+                order:
+                    groupedQuestions[category]
+                        .length + 1,
+
+                isActive: true,
+            });
+        });
+
+    for (const category of Object.keys(groupedQuestions)) {
+
+        await deleteExistingBatches(category);
+
+        const questions =
+            groupedQuestions[category];
+
+        const firestoreBatch = writeBatch(db);
+
+        const totalBatches = Math.ceil(
+            questions.length / ORAL_BATCH_SIZE
+        );
+
+        for (
+            let batchNumber = 1;
+            batchNumber <= totalBatches;
+            batchNumber++
+        ) {
+
+            const start =
+                (batchNumber - 1) *
+                ORAL_BATCH_SIZE;
+
+            const batchQuestions =
+                questions.slice(
+                    start,
+                    start + ORAL_BATCH_SIZE
+                );
+
+            const batchId = getBatchId(
+                category,
+                batchNumber
+            );
+
+            firestoreBatch.set(
+                doc(db, "oral_batches", batchId),
+                {
+                    batchId,
+                    batchNumber,
+                    category,
+                    sourceFile,
+
+                    questionCount: batchQuestions.length,
+
+                    topicCount: new Set(
+                        batchQuestions.map((q) => q.topic)
+                    ).size,
+
+                    questions: batchQuestions,
+
+                    createdAt: serverTimestamp(),
+
+                    updatedAt: serverTimestamp(),
+                }
+            );
+
+            console.log(
+                `Uploaded ${batchId} (${batchQuestions.length} questions)`
+            );
+        }
+
+        await firestoreBatch.commit();
+
+        console.log(
+            `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
+        );
+    }
+}
+
+export async function getOralBatchQuestions(
+    category: string
+): Promise<OralBatchQuestion[]> {
+
+    const q = query(
+        collection(db, "oral_batches"),
+        where(
+            "category",
+            "==",
+            category.toLowerCase()
+        )
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return [];
+    }
+
+    const questions: OralBatchQuestion[] = [];
+
+    snapshot.docs
+        .sort((a, b) => {
+            const first =
+                a.data().batchNumber ?? 0;
+
+            const second =
+                b.data().batchNumber ?? 0;
+
+            return first - second;
+        })
+        .forEach((document) => {
+
+            const data =
+                document.data() as OralBatchDocument;
+
+            if (
+                Array.isArray(data.questions)
+            ) {
+                questions.push(
+                    ...data.questions
+                );
+            }
+
+        });
+
+    questions.sort(
+        (a, b) => a.order - b.order
+    );
+
+    return questions;
+}
+
+export async function getOralBatchPage(
+    category: string,
+    batchNumber: number,
+    batchCount: number
+) {
+    const currentBatchId = getBatchId(
+        category,
+        batchNumber
+    );
+
+    const currentSnapshot = await getDoc(
+        doc(
+            db,
+            "oral_batches",
+            currentBatchId
+        )
+    );
+
+    if (!currentSnapshot.exists()) {
+        return {
+            questions: [],
+            hasMore: false,
+            nextBatch: null,
+        };
+    }
+
+    const data =
+        currentSnapshot.data() as OralBatchDocument;
+
+    const hasMore = batchNumber < batchCount;
+
+    return {
+        questions: data.questions,
+        hasMore,
+        nextBatch: hasMore
+            ? batchNumber + 1
+            : null,
+    };
+}
+
+
+export async function getOralCategoryMeta(
+    category: string
+): Promise<{
+    batchCount: number;
+    questionCount: number;
+    topicCount: number;
+}> {
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            batchCount: 0,
+            questionCount: 0,
+            topicCount: 0,
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        batchCount: meta.batchCount ?? 0,
+        questionCount: meta.questionCount ?? 0,
+        topicCount: meta.topicCount ?? 0,
+    };
+}
+
+export async function deleteOralBatchQuestion(
+    category: string,
+    questionId: string
+) {
+    const q = query(
+        collection(db, "oral_batches"),
+        where("category", "==", category.toLowerCase())
+    );
+
+    const snapshot = await getDocs(q);
+
+    for (const batchDoc of snapshot.docs) {
+
+        const data =
+            batchDoc.data() as OralBatchDocument;
+
+        const index = data.questions.findIndex(
+            q => q.id === questionId
+        );
+
+        if (index === -1) continue;
+
+        data.questions.splice(index, 1);
+
+        data.questions.forEach((q, i) => {
+            q.order = i + 1;
+        });
+
+        await updateDoc(batchDoc.ref, {
+            questions: data.questions,
+            questionCount: data.questions.length,
+            topicCount: new Set(
+                data.questions.map(q => q.topic)
+            ).size,
+            updatedAt: serverTimestamp(),
+        });
+
+        await runTransaction(db, async (transaction) => {
+
+            const counterRef = doc(
+                db,
+                "oral_batches_metadata",
+                "counters"
+            );
+
+            transaction.update(counterRef, {
+                [`${category.toLowerCase()}.questionCount`]:
+                    increment(-1),
+            });
+
+        });
+
+        return;
+    }
+
+    throw new Error("Question not found.");
+}
+
+export async function updateOralBatchQuestion(
+    category: string,
+    id: string,
+    data: {
+        question: string;
+        answer: string;
+    }
+) {
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where(
+                "category",
+                "==",
+                category.toLowerCase()
+            )
+        )
+    );
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        const questions = [...(batchData.questions ?? [])];
+
+        const index = questions.findIndex(
+            (q: OralBatchQuestion) => q.id === id
+        );
+
+        if (index === -1) {
+            continue;
+        }
+
+        questions[index] = {
+            ...questions[index],
+            question: data.question,
+            answer: data.answer,
+        };
+
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions,
+                updatedAt: serverTimestamp(),
+            }
+        );
+
+        return;
+    }
+
+    throw new Error("Question not found");
+}
+
+export async function deleteOralBatchQuestions(
+    category: string,
+    ids: string[]
+) {
+    const normalizedCategory = category.toLowerCase();
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            )
+        )
+    );
+
+
+    let deletedCount = 0;
+
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        const questions: OralBatchQuestion[] =
+            batchData.questions ?? [];
+
+
+        const updatedQuestions =
+            questions.filter(
+                (q: OralBatchQuestion) =>
+                    !ids.includes(q.id)
+            );
+
+
+        if (
+            updatedQuestions.length ===
+            questions.length
+        ) {
+            continue;
+        }
+
+
+        deletedCount +=
+            questions.length -
+            updatedQuestions.length;
+
+
+        updatedQuestions.forEach((q, index) => {
+            q.order = index + 1;
+        });
+
+
+        const topicCount =
+            new Set(
+                updatedQuestions.map(
+                    (q) => q.topic
+                )
+            ).size;
+
+
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions: updatedQuestions,
+
+                questionCount:
+                    updatedQuestions.length,
+
+                topicCount,
+
+                updatedAt:
+                    serverTimestamp(),
+            }
+        );
+
+
+        console.log(
+            "Updated batch:",
+            batchDoc.id
+        );
+
+    }
+
+
+
+    // Update metadata counter
+    if (deletedCount > 0) {
+
+        await runTransaction(
+            db,
+            async (transaction) => {
+
+                const counterRef =
+                    doc(
+                        db,
+                        "oral_batches_metadata",
+                        "counters"
+                    );
+
+
+                const counterSnap =
+                    await transaction.get(
+                        counterRef
+                    );
+
+
+                if (!counterSnap.exists()) {
+                    return;
+                }
+
+
+                const data =
+                    counterSnap.data();
+
+
+                const currentCount =
+                    data[normalizedCategory]
+                        ?.questionCount ?? 0;
+
+
+
+                transaction.update(
+                    counterRef,
+                    {
+
+                        [`${normalizedCategory}.questionCount`]:
+                            Math.max(
+                                currentCount -
+                                deletedCount,
+                                0
+                            ),
+
+
+                        [`${normalizedCategory}.updatedAt`]:
+                            serverTimestamp(),
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+
+}
+
+
+
+
+export async function getOralFilters(
+    category: string
+): Promise<OralFilters> {
+
+    const questions = await getOralBatchQuestions(category);
+
+    return {
+        topics: [
+            ...new Set(
+                questions.map(q => q.topic)
+            ),
+        ].sort(),
+
+        surveyors: [
+            ...new Set(
+                questions.map(q => q.surveyor)
+            ),
+        ].sort(),
+
+        mmds: [
+            ...new Set(
+                questions.map(q => q.mmd)
+            ),
+        ].sort(),
+
+        classes: [
+            ...new Set(
+                questions.map(q => q.class)
+            ),
+        ].sort(),
+    };
+}
+</file>
+
+<file path="services/writtenBatch.service.ts">
+import {
+    doc,
+    getDoc,
+    runTransaction,
+    serverTimestamp,
+    setDoc,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+async function getNextBatchNumber(category: string) {
+    const counterRef = doc(
+        db,
+        "written_batches_metadata",
+        "counters"
+    );
+
+    return await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(counterRef);
+
+        if (!snapshot.exists()) {
+            throw new Error("Batch counter document not found.");
+        }
+
+        const data = snapshot.data();
+
+        const current = data[category] ?? 0;
+        const next = current + 1;
+
+        transaction.update(counterRef, {
+            [category]: next,
+        });
+
+        return next;
+    });
+}
+
+export async function uploadWrittenBatch(
+    rows: any[],
+    sourceFile: string
+) {
+
+    try {
+        if (!rows.length) return;
+
+        const category = String(rows[0].Category)
+            .trim()
+            .toLowerCase();
+
+        const batchNumber = await getNextBatchNumber(category);
+
+        const batchId = `${category}_batch_${String(batchNumber).padStart(3, "0")}`;
+
+        const questions = rows
+            .filter(row => row.Question)
+            .map((row, index) => ({
+                id: crypto.randomUUID(),
+                class: String(row.Class).trim(),
+                category,
+                topic: String(row.Topic).trim(),
+                year: Number(row.Year),
+                month: String(row.Month).trim(),
+                question: String(row.Question).trim(),
+                answer: String(row.Answer).trim(),
+                order: index + 1,
+                isActive: true,
+            }));
+
+        const topicCount = new Set(
+            questions.map((q) => q.topic)
+        ).size;
+
+        console.log("Creating batch:", batchId);
+        console.log("Category:", category);
+        console.log("Questions:", questions.length);
+
+        const batchRef = doc(
+            db,
+            "written_batches",
+            batchId
+        );
+
+        console.log("Writing document:", batchRef.path);
+
+        await setDoc(
+            batchRef,
+            {
+                batchId,
+                batchNumber,
+                category,
+                sourceFile,
+                questionCount: questions.length,
+                topicCount,
+                questions,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            }
+        );
+
+        console.log(
+            "Batch created successfully:",
+            batchId
+        );
+
+    } catch (error) {
+        console.error(
+            "BATCH CREATION ERROR:",
+            error
+        );
+
+        throw error;
+    }
+
 }
 </file>
 
@@ -2866,879 +3141,45 @@ export default function HomeClient({
 }
 </file>
 
-<file path="components/QuestionsContainer.tsx">
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-import QuestionsList from "./QuestionsList";
+<file path="lib/oral-cache.ts">
+import { unstable_cache } from "next/cache";
 
 import {
-  OralFilters,
-} from "@/services/firestore";
-
-import {
-  OralBatchQuestion,
+    getOralBatchPage,
+    getOralCategoryMeta,
 } from "@/services/oralBatch.service";
 
 
-interface Props {
-  category: string;
-  initialQuestions: OralBatchQuestion[];
-  filters: OralFilters;
-  initialHasMore: boolean;
-  initialNextBatch: number | null;
-}
+export async function getCachedOralBatchPage(
+    category: string,
+    batchNumber: number
+) {
 
-export default function QuestionsContainer({
-  category,
-  initialQuestions,
-  filters,
-  initialHasMore,
-  initialNextBatch,
-}: Props) {
+    const cached = unstable_cache(
+        async () => {
 
+            const meta =
+                await getOralCategoryMeta(category);
 
-  const [questions, setQuestions] =
-    useState<OralBatchQuestion[]>(initialQuestions);
+            return getOralBatchPage(
+                category,
+                batchNumber,
+                meta.batchCount
+            );
 
-  const [nextBatch, setNextBatch] =
-    useState<number | null>(initialNextBatch);
-
-  const [hasMore, setHasMore] =
-    useState(initialHasMore);
-
-  const [loading, setLoading] =
-    useState(false);
-
-
-
-  console.log("QuestionsContainer render", {
-    questions: questions.length,
-    nextBatch,
-    hasMore,
-    loading,
-  });
-
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-
-  const loadingRef = useRef(false);
-
-  async function loadMore() {
-    if (!nextBatch || loadingRef.current) return;
-
-    loadingRef.current = true;
-    setLoading(true);
-
-    const batchToLoad = nextBatch;
-
-    try {
-
-      console.log("Loading batch", nextBatch);
-
-      const response = await fetch(
-        `/api/orals/batch?category=${category}&batch=${batchToLoad}`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to load batch");
-      }
-
-      const result = await response.json();
-
-      console.log("Result:", result);
-
-      setQuestions(prev => [
-        ...prev,
-        ...result.questions,
-      ]);
-
-      setHasMore(result.hasMore);
-      setNextBatch(result.nextBatch);
-
-    } catch (e) {
-      console.error("Load More Error:", e);
-    } finally {
-      loadingRef.current = false;
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    const element = loadMoreRef.current;
-
-    if (!element) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && hasMore) {
-          loadMore();
+        },
+        [
+            "oral-batch-page",
+            category,
+            String(batchNumber),
+        ],
+        {
+            revalidate: 3600,
         }
-      },
-      {
-        rootMargin: "300px",
-      }
     );
 
-    observer.observe(element);
 
-    return () => observer.disconnect();
-
-  }, [hasMore]);
-
-  return (
-    <>
-      <QuestionsList
-        category={category}
-        questions={questions}
-        filters={filters}
-      />
-
-      {hasMore && (
-        <div
-          ref={loadMoreRef}
-          className="flex justify-center py-8"
-        >
-          <p className="text-sm text-gray-400">
-            Loading more...
-          </p>
-        </div>
-      )}
-
-      {!hasMore && questions.length > 0 && (
-        <div className="py-10 text-center">
-          <div className="mx-auto mb-4 h-px w-24 bg-gray-300" />
-          <p className="text-sm text-gray-500">
-            You've reached the end.
-          </p>
-        </div>
-      )}
-    </>
-  );
-}
-</file>
-
-<file path="app/(protected)/admin/manage/page.tsx">
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-
-import {
-    getWrittenQuestions,
-    deleteWrittenQuestion,
-    updateWrittenQuestion,
-} from "@/services/written.service";
-
-import {
-    getQuestions,
-    updateQuestion,
-    deleteQuestion,
-    deleteQuestionsBatch,
-    moveQuestionsBatch,
-} from "@/services/firestore";
-
-import MarkdownRenderer from "@/components/MarkdownRenderer";
-
-export default function ManageWrittenQuestionsPage() {
-
-    const [category, setCategory] =
-        useState("general");
-
-    const [type, setType] =
-        useState<"written" | "oral">("written");
-
-    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-
-    const [questions, setQuestions] =
-        useState<any[]>([]);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [editingQuestion, setEditingQuestion] =
-        useState<any>(null);
-
-    const [editedQuestion, setEditedQuestion] =
-        useState("");
-
-    const [editedAnswer, setEditedAnswer] =
-        useState("");
-
-    const [expandedId, setExpandedId] = useState<string | null>(null);
-
-    const [selectionMode, setSelectionMode] = useState(false);
-
-    const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
-
-    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-
-    const [showMoveDialog, setShowMoveDialog] = useState(false);
-
-    const [moveCategory, setMoveCategory] = useState("FN3");
-
-    async function loadQuestions() {
-
-        try {
-
-            setLoading(true);
-
-            let data: any[];
-
-            if (type === "written") {
-                const written = await getWrittenQuestions(category);
-
-                data = written.map(q => ({
-                    id: q.id,
-                    question: q.question,
-                    answer: q.answer,
-                    topic: q.topic,
-                    class: q.class,
-                    month: q.month,
-                    year: q.year,
-                }));
-            } else {
-                const oral = await getQuestions(category);
-
-                data = oral.map(q => ({
-                    id: q.id,
-                    question: q.question,
-                    answer: q.answer,
-                    topic: q.topic,
-                    class: q.class,
-                    examDate: q.examDate,
-                    mmd: q.mmd,
-                    surveyor: q.surveyor,
-                }));
-            }
-
-            setQuestions(data);
-        }
-
-        finally {
-
-            setLoading(false);
-
-        }
-
-    }
-
-    useEffect(() => {
-        loadQuestions();
-    }, [category, type]);
-
-    async function handleDelete(id: string) {
-
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this question?"
-        );
-
-        if (!confirmed) return;
-
-        try {
-
-            if (type === "written") {
-
-                await deleteWrittenQuestion(
-                    category,
-                    id
-                );
-
-                await refreshWrittenCache();
-
-            } else {
-                await deleteQuestion(category, id);
-            }
-
-            setQuestions((prev) =>
-                prev.filter(
-                    (question) => question.id !== id
-                )
-            );
-
-            alert("Question deleted successfully.");
-
-        } catch (error) {
-
-            console.error(error);
-
-            alert("Failed to delete question.");
-
-        }
-
-    }
-
-    async function handleBulkDelete() {
-
-        if (type !== "oral") {
-            alert("Bulk delete available only for Oral questions.");
-            return;
-        }
-
-        try {
-            await deleteQuestionsBatch(
-                category,
-                selectedQuestions
-            );
-
-            await loadQuestions();
-
-            setSelectedQuestions([]);
-            setSelectionMode(false);
-            setShowDeleteDialog(false);
-
-            alert("Questions deleted successfully.");
-
-        } catch (error) {
-            console.error(error);
-            alert("Failed to delete questions.");
-        }
-    }
-
-    async function handleBulkMove() {
-
-        if (type !== "oral") {
-            alert("Bulk move available only for Oral questions.");
-            return;
-        }
-
-        try {
-
-            const questionsToMove = questions.filter((q) =>
-                selectedQuestions.includes(q.id)
-            );
-
-            await moveQuestionsBatch(
-                questionsToMove,
-                category,
-                moveCategory
-            );
-
-            await loadQuestions();
-
-            setSelectedQuestions([]);
-            setSelectionMode(false);
-            setShowMoveDialog(false);
-
-            alert("Questions moved successfully.");
-
-        } catch (error) {
-
-            console.error(error);
-            alert("Failed to move questions.");
-
-        }
-    }
-
-    function toggleSelection(id: string) {
-        setSelectedQuestions((prev) =>
-            prev.includes(id)
-                ? prev.filter((q) => q !== id)
-                : [...prev, id]
-        );
-    }
-
-    function startLongPress(id: string) {
-
-        if (type !== "oral") return;
-
-        cancelLongPress();
-
-        longPressTimer.current = setTimeout(() => {
-
-            setSelectionMode(true);
-            setSelectedQuestions([id]);
-
-        }, 500);
-    }
-
-    function cancelLongPress() {
-        if (longPressTimer.current) {
-            clearTimeout(longPressTimer.current);
-            longPressTimer.current = null;
-        }
-    }
-
-    function handleQuestionClick(id: string) {
-        if (selectionMode) {
-            toggleSelection(id);
-            return;
-        }
-
-        setExpandedId((prev) => (prev === id ? null : id));
-    }
-
-    async function handleSave() {
-
-        if (!editingQuestion) return;
-
-        try {
-
-            if (type === "written") {
-
-                await updateWrittenQuestion(
-                    category,
-                    editingQuestion.id,
-                    {
-                        question: editedQuestion,
-                        answer: editedAnswer,
-                    }
-                );
-
-                await refreshWrittenCache();
-
-            } else {
-                await updateQuestion(
-                    category,
-                    editingQuestion.id,
-                    {
-                        question: editedQuestion,
-                        answer: editedAnswer,
-                    }
-                );
-            }
-
-            await loadQuestions();
-
-            setEditingQuestion(null);
-
-            alert("Question updated successfully.");
-
-        } catch (error) {
-
-            console.error(error);
-
-            alert("Failed to update question.");
-
-        }
-
-    }
-
-    async function refreshWrittenCache() {
-
-        if (type !== "written") return;
-
-
-        const res = await fetch("/api/revalidate/written", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ category }),
-        });
-
-        if (!res.ok) {
-            throw new Error("Cache revalidation failed");
-        }
-
-    }
-
-
-
-    return (
-        <main className="min-h-screen bg-[#f5f5f5]">
-            <div className="mx-auto max-w-5xl px-5 py-8">
-                <h1 className="text-4xl font-bold">
-                    MANAGE QUESTIONS ALL
-                </h1>
-
-                <p className="mt-2 text-gray-500">
-                    View, edit and delete written questions.
-                </p>
-
-                <div className="mt-8 flex flex-col gap-6 md:flex-row">
-
-                    <div>
-                        <label className="mb-2 block text-sm font-medium">
-                            Question Type
-                        </label>
-
-                        <select
-                            value={type}
-                            onChange={(e) => {
-                                const value = e.target.value as "written" | "oral";
-                                setType(value);
-
-                                if (value === "written") {
-                                    setCategory("general");
-                                } else {
-                                    setCategory("FN3");
-                                }
-                            }}
-                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
-                        >
-                            <option value="written">Written</option>
-                            <option value="oral">Oral</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="mb-2 block text-sm font-medium">
-                            Category
-                        </label>
-
-                        <select
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black"
-                        >
-                            {type === "written" ? (
-                                <>
-                                    <option value="general">General</option>
-                                    <option value="mep">MEP</option>
-                                    <option value="motor">Motor</option>
-                                    <option value="met">MET</option>
-                                    <option value="naval">Naval</option>
-                                    <option value="ssep">SSEP</option>
-                                </>
-                            ) : (
-                                <>
-                                    <option value="FN3">FN3</option>
-                                    <option value="FN4B">FN4B</option>
-                                    <option value="FN5">FN5</option>
-                                    <option value="FN6">FN6</option>
-                                </>
-                            )}
-                        </select>
-                    </div>
-
-                </div>
-
-                {selectionMode && type === "oral" && (
-                    <div className="sticky top-4 z-40 mb-6 rounded-2xl border bg-white p-4 shadow-lg">
-                        <div className="flex flex-wrap items-center justify-between gap-4">
-
-                            <span className="font-semibold text-lg">
-                                {selectedQuestions.length} Selected
-                            </span>
-
-                            <div className="flex gap-3">
-
-                                <button
-                                    onClick={() => {
-                                        const categories = ["FN3", "FN4B", "FN5", "FN6"];
-                                        setMoveCategory(
-                                            categories.find(
-                                                (c) => c !== category.toUpperCase()
-                                            ) || "FN3"
-                                        );
-                                        setShowMoveDialog(true);
-                                    }}
-                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white"
-                                >
-                                    Move
-                                </button>
-
-                                <button
-                                    onClick={() => setShowDeleteDialog(true)}
-                                    className="rounded-xl bg-red-600 px-5 py-2 text-white"
-                                >
-                                    Delete
-                                </button>
-
-                                <button
-                                    onClick={() => {
-                                        setSelectionMode(false);
-                                        setSelectedQuestions([]);
-                                    }}
-                                    className="rounded-xl border px-5 py-2"
-                                >
-                                    Cancel
-                                </button>
-
-                            </div>
-
-                        </div>
-                    </div>
-                )}
-
-                <div className="mt-8">
-
-                    {loading ? (
-
-                        <div className="rounded-2xl bg-white p-6 shadow-sm">
-                            Loading...
-                        </div>
-
-                    ) : questions.length === 0 ? (
-
-                        <div className="rounded-2xl bg-white p-6 shadow-sm">
-                            No questions found.
-                        </div>
-
-                    ) : (
-
-                        <div className="space-y-6">
-
-                            {questions.map((question) => (
-                                <div
-                                    key={question.id}
-                                    className="
-            rounded-2xl
-            border
-            bg-white
-            p-6
-            shadow-sm
-            transition
-            hover:shadow-md
-        "
-                                >
-                                    <div className="mb-4 flex flex-wrap gap-2">
-                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
-                                            {question.class}
-                                        </span>
-
-                                        <span className="rounded-full bg-gray-200 px-3 py-1 text-sm">
-                                            {question.topic}
-                                        </span>
-
-                                        {type === "written" ? (
-                                            <>
-                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
-                                                    {question.month}
-                                                </span>
-
-                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
-                                                    {question.year}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
-                                                    {question.examDate}
-                                                </span>
-
-                                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
-                                                    {question.mmd}
-                                                </span>
-
-                                                <span className="rounded-full bg-purple-100 px-3 py-1 text-sm">
-                                                    {question.surveyor}
-                                                </span>
-                                            </>
-                                        )}
-                                    </div>
-
-                                    <button
-                                        onClick={() => handleQuestionClick(question.id)}
-                                        onMouseDown={() => startLongPress(question.id)}
-                                        onMouseUp={cancelLongPress}
-                                        onMouseLeave={cancelLongPress}
-                                        onTouchStart={() => startLongPress(question.id)}
-                                        onTouchEnd={cancelLongPress}
-                                        className={`w-full text-left transition ${selectionMode &&
-                                            selectedQuestions.includes(question.id)
-                                            ? "rounded-xl bg-blue-50"
-                                            : ""
-                                            }`}
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            {selectionMode && type === "oral" && (
-                                                <span className="mt-1 text-lg">
-                                                    {selectedQuestions.includes(question.id)
-                                                        ? "✅"
-                                                        : "⭕"}
-                                                </span>
-                                            )}
-
-                                            <h2 className="text-lg font-semibold whitespace-pre-wrap">
-                                                {question.question}
-                                            </h2>
-                                        </div>
-
-                                        <p className="mt-2 text-sm text-gray-500">
-                                            {expandedId === question.id
-                                                ? "Click to collapse"
-                                                : "Click to view answer"}
-                                        </p>
-                                    </button>
-
-                                    {expandedId === question.id && (
-                                        <>
-                                            <div className="mt-5 border-t pt-5">
-                                                <MarkdownRenderer
-                                                    content={question.answer}
-                                                />
-                                            </div>
-
-                                            {/* Existing Buttons */}
-                                            <div className="mt-6 flex justify-end gap-3">
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingQuestion(question);
-                                                        setEditedQuestion(question.question);
-                                                        setEditedAnswer(question.answer);
-                                                    }}
-                                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-                                                >
-                                                    Edit
-                                                </button>
-
-                                                <button
-                                                    onClick={() => handleDelete(question.id)}
-                                                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white"
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            ))}
-
-                        </div>
-                    )}
-
-                </div>
-
-                {editingQuestion && (
-
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-
-                        <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
-
-                            <h2 className="text-2xl font-bold">
-                                Edit {type === "oral" ? "Oral" : "Written"} Question
-                            </h2>
-
-                            <textarea
-                                value={editedQuestion}
-                                onChange={(e) =>
-                                    setEditedQuestion(e.target.value)
-                                }
-                                rows={6}
-                                className="mt-6 w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
-                            />
-
-                            <div className="mt-6">
-
-                                <label className="mb-2 block text-sm font-semibold">
-                                    Answer
-                                </label>
-
-                                <textarea
-                                    value={editedAnswer}
-                                    onChange={(e) =>
-                                        setEditedAnswer(e.target.value)
-                                    }
-                                    rows={12}
-                                    className="w-full rounded-xl border border-gray-300 p-4 outline-none focus:border-black"
-                                />
-
-                            </div>
-
-                            <div className="mt-8 flex justify-end gap-3">
-
-                                <button
-                                    onClick={() =>
-                                        setEditingQuestion(null)
-                                    }
-                                    className="rounded-xl border px-5 py-2"
-                                >
-                                    Cancel
-                                </button>
-
-                                <button
-                                    onClick={handleSave}
-                                    className="rounded-xl bg-blue-600 px-5 py-2 text-white transition hover:bg-blue-700"
-                                >
-                                    Save
-                                </button>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                )
-                }
-            </div>
-
-            {showMoveDialog && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
-
-                        <h2 className="text-2xl font-bold text-blue-600">
-                            Move Questions
-                        </h2>
-
-                        <p className="mt-4 text-gray-600">
-                            Move <b>{selectedQuestions.length}</b> selected question(s) to:
-                        </p>
-
-                        <select
-                            value={moveCategory}
-                            onChange={(e) => setMoveCategory(e.target.value)}
-                            className="mt-5 w-full rounded-xl border border-gray-300 p-3"
-                        >
-                            <option value="FN3">FN3</option>
-                            <option value="FN4B">FN4B</option>
-                            <option value="FN5">FN5</option>
-                            <option value="FN6">FN6</option>
-                        </select>
-
-                        <div className="mt-8 flex justify-end gap-3">
-
-                            <button
-                                onClick={() => setShowMoveDialog(false)}
-                                className="rounded-xl border px-5 py-2"
-                            >
-                                Cancel
-                            </button>
-
-                            <button
-                                onClick={handleBulkMove}
-                                className="rounded-xl bg-blue-600 px-5 py-2 text-white"
-                            >
-                                Move
-                            </button>
-
-                        </div>
-
-                    </div>
-                </div>
-            )}
-
-            {showDeleteDialog && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
-
-                        <h2 className="text-2xl font-bold text-red-600">
-                            Delete Questions
-                        </h2>
-
-                        <p className="mt-4 text-gray-600">
-                            Are you sure you want to delete{" "}
-                            <b>{selectedQuestions.length}</b> selected question(s)?
-                        </p>
-
-                        <p className="mt-2 text-sm text-red-500">
-                            This action cannot be undone.
-                        </p>
-
-                        <div className="mt-8 flex justify-end gap-3">
-
-                            <button
-                                onClick={() => setShowDeleteDialog(false)}
-                                className="rounded-xl border px-5 py-2"
-                            >
-                                Cancel
-                            </button>
-
-                            <button
-                                onClick={handleBulkDelete}
-                                className="rounded-xl bg-red-600 px-5 py-2 text-white"
-                            >
-                                Delete
-                            </button>
-
-                        </div>
-
-                    </div>
-                </div>
-            )}
-
-        </main >
-    );
+    return cached();
 }
 </file>
 
@@ -3860,6 +3301,210 @@ export default function AuthModal({
       </div>
 
     </div>
+  );
+}
+</file>
+
+<file path="components/QuestionsContainer.tsx">
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import QuestionsList from "./QuestionsList";
+
+import {
+  OralFilters,
+} from "@/services/firestore";
+
+import {
+  OralBatchQuestion,
+} from "@/services/oralBatch.service";
+
+
+interface Props {
+  category: string;
+  initialQuestions: OralBatchQuestion[];
+  filters: OralFilters;
+  initialHasMore: boolean;
+  initialNextBatch: number | null;
+  totalQuestions: number;
+}
+
+
+export default function QuestionsContainer({
+  category,
+  initialQuestions,
+  filters,
+  initialHasMore,
+  initialNextBatch,
+  totalQuestions,
+}: Props) {
+
+  console.log("QuestionsContainer totalQuestions:", totalQuestions);
+
+
+  const [questions, setQuestions] =
+    useState<OralBatchQuestion[]>(initialQuestions);
+
+  const [nextBatch, setNextBatch] =
+    useState<number | null>(initialNextBatch);
+
+  const [hasMore, setHasMore] =
+    useState(initialHasMore);
+
+  const [loading, setLoading] =
+    useState(false);
+
+
+  console.log("QuestionsContainer render", {
+    questions: questions.length,
+    totalQuestions,
+    nextBatch,
+    hasMore,
+    loading,
+  });
+
+
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  const loadingRef = useRef(false);
+
+
+  async function loadMore() {
+
+    if (!nextBatch || loadingRef.current) return;
+
+
+    loadingRef.current = true;
+    setLoading(true);
+
+
+    const batchToLoad = nextBatch;
+
+
+    try {
+
+      console.log("Loading batch", batchToLoad);
+
+
+      const response = await fetch(
+        `/api/orals/batch?category=${category}&batch=${batchToLoad}`
+      );
+
+
+      if (!response.ok) {
+        throw new Error("Failed to load batch");
+      }
+
+
+      const result = await response.json();
+
+
+      console.log("Result:", result);
+
+
+      setQuestions(prev => [
+        ...prev,
+        ...result.questions,
+      ]);
+
+
+      setHasMore(result.hasMore);
+
+      setNextBatch(result.nextBatch);
+
+
+    } catch (e) {
+
+      console.error("Load More Error:", e);
+
+    } finally {
+
+      loadingRef.current = false;
+
+      setLoading(false);
+
+    }
+  }
+
+
+
+  useEffect(() => {
+
+    const element = loadMoreRef.current;
+
+    if (!element) return;
+
+
+    const observer = new IntersectionObserver(
+
+      ([entry]) => {
+
+        if (entry.isIntersecting && hasMore) {
+          loadMore();
+        }
+
+      },
+
+      {
+        rootMargin: "300px",
+      }
+
+    );
+
+
+    observer.observe(element);
+
+
+    return () => observer.disconnect();
+
+
+  }, [hasMore]);
+
+
+
+  return (
+    <>
+
+      <QuestionsList
+        category={category}
+        questions={questions}
+        filters={filters}
+        totalQuestions={totalQuestions}
+      />
+
+
+      {hasMore && (
+
+        <div
+          ref={loadMoreRef}
+          className="flex justify-center py-8"
+        >
+
+          <p className="text-sm text-gray-400">
+            Loading more...
+          </p>
+
+        </div>
+
+      )}
+
+
+
+      {!hasMore && questions.length > 0 && (
+
+        <div className="py-10 text-center">
+
+          <div className="mx-auto mb-4 h-px w-24 bg-gray-300" />
+
+          <p className="text-sm text-gray-500">
+            You've reached the end.
+          </p>
+
+        </div>
+
+      )}
+
+    </>
   );
 }
 </file>
@@ -3997,6 +3642,856 @@ export default function WrittenFilters({
       </div>
     </div>
   );
+}
+</file>
+
+<file path="app/(protected)/admin/manage/page.tsx">
+"use client";
+
+import {
+    getWrittenQuestions,
+    deleteWrittenQuestion,
+    updateWrittenQuestion,
+} from "@/services/written.service";
+
+import { useEffect, useState } from "react";
+
+import {
+    getOralBatchQuestions,
+    deleteOralBatchQuestion,
+    updateOralBatchQuestion,
+} from "@/services/oralBatch.service";
+
+import MarkdownRenderer from "@/components/MarkdownRenderer";
+
+
+export default function ManageWrittenQuestionsPage() {
+
+    const [category, setCategory] =
+        useState("general");
+
+    const [type, setType] =
+        useState<"written" | "oral">("written");
+
+
+    const [questions, setQuestions] =
+        useState<any[]>([]);
+
+
+    const [loading, setLoading] =
+        useState(true);
+
+
+    const [editingQuestion, setEditingQuestion] =
+        useState<any>(null);
+
+
+    const [editedQuestion, setEditedQuestion] =
+        useState("");
+
+
+    const [editedAnswer, setEditedAnswer] =
+        useState("");
+
+
+    const [expandedId, setExpandedId] =
+        useState<string | null>(null);
+
+
+
+    async function loadQuestions() {
+
+        try {
+
+            setLoading(true);
+
+            let data: any[];
+
+
+            if (type === "written") {
+
+                const written =
+                    await getWrittenQuestions(category);
+
+
+                data = written.map(q => ({
+                    id: q.id,
+                    question: q.question,
+                    answer: q.answer,
+                    topic: q.topic,
+                    class: q.class,
+                    month: q.month,
+                    year: q.year,
+                }));
+
+            } else {
+
+
+                const oral =
+                    await getOralBatchQuestions(category);
+
+
+                data = oral.map(q => ({
+                    id: q.id,
+                    question: q.question,
+                    answer: q.answer,
+                    topic: q.topic,
+                    class: q.class,
+                    examDate: q.examDate,
+                    mmd: q.mmd,
+                    surveyor: q.surveyor,
+                }));
+
+            }
+
+
+            setQuestions(data);
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
+    }
+
+
+
+    useEffect(() => {
+
+        loadQuestions();
+
+    }, [category, type]);
+
+
+
+
+
+    async function handleDelete(id: string) {
+
+
+        const confirmed =
+            window.confirm(
+                "Are you sure you want to delete this question?"
+            );
+
+
+        if (!confirmed) return;
+
+
+
+        try {
+
+
+            if (type === "written") {
+
+
+                await deleteWrittenQuestion(
+                    category,
+                    id
+                );
+
+
+                await refreshWrittenCache();
+
+
+
+            } else {
+
+
+                await deleteOralBatchQuestion(
+                    category,
+                    id
+                );
+
+            }
+
+
+
+            setQuestions(prev =>
+                prev.filter(
+                    question =>
+                        question.id !== id
+                )
+            );
+
+
+            alert(
+                "Question deleted successfully."
+            );
+
+
+        } catch (error) {
+
+
+            console.error(error);
+
+
+            alert(
+                "Failed to delete question."
+            );
+
+        }
+
+    }
+
+
+
+
+
+
+    async function handleSave() {
+
+
+        if (!editingQuestion)
+            return;
+
+
+
+        try {
+
+
+
+            if (type === "written") {
+
+
+
+                await updateWrittenQuestion(
+                    category,
+                    editingQuestion.id,
+                    {
+                        question: editedQuestion,
+                        answer: editedAnswer,
+                    }
+                );
+
+
+
+                await refreshWrittenCache();
+
+
+
+            } else {
+
+
+
+                await updateOralBatchQuestion(
+                    category,
+                    editingQuestion.id,
+                    {
+                        question: editedQuestion,
+                        answer: editedAnswer,
+                    }
+                );
+
+            }
+
+
+
+
+            await loadQuestions();
+
+
+
+            setEditingQuestion(null);
+
+
+
+            alert(
+                "Question updated successfully."
+            );
+
+
+
+        } catch (error) {
+
+
+            console.error(error);
+
+
+            alert(
+                "Failed to update question."
+            );
+
+        }
+
+    }
+
+
+
+
+
+
+    async function refreshWrittenCache() {
+
+
+        if (type !== "written")
+            return;
+
+
+
+        const res =
+            await fetch(
+                "/api/revalidate/written",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+                    body:
+                        JSON.stringify({
+                            category
+                        }),
+                }
+            );
+
+
+
+        if (!res.ok) {
+
+            throw new Error(
+                "Cache revalidation failed"
+            );
+
+        }
+
+    }
+
+
+
+
+
+
+    return (
+
+        <main className="min-h-screen bg-[#f5f5f5]">
+
+            <div className="mx-auto max-w-5xl px-5 py-8">
+
+
+                <h1 className="text-4xl font-bold">
+                    MANAGE QUESTIONS ALL
+                </h1>
+
+
+                <p className="mt-2 text-gray-500">
+                    View, edit and delete questions.
+                </p>
+
+
+
+                <div className="mt-8 flex flex-col gap-6 md:flex-row">
+
+
+                    <div>
+
+                        <label className="mb-2 block text-sm font-medium">
+                            Question Type
+                        </label>
+
+
+                        <select
+
+                            value={type}
+
+                            onChange={(e) => {
+
+                                const value =
+                                    e.target.value as
+                                    "written" | "oral";
+
+
+                                setType(value);
+
+
+                                if (value === "written")
+                                    setCategory("general");
+                                else
+                                    setCategory("FN3");
+
+                            }}
+
+                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
+
+                        >
+
+                            <option value="written">
+                                Written
+                            </option>
+
+                            <option value="oral">
+                                Oral
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+
+
+                    <div>
+
+                        <label className="mb-2 block text-sm font-medium">
+                            Category
+                        </label>
+
+
+                        <select
+
+                            value={category}
+
+                            onChange={(e) =>
+                                setCategory(e.target.value)
+                            }
+
+                            className="w-full md:w-64 rounded-xl border border-gray-300 bg-white px-4 py-3"
+
+                        >
+
+
+                            {
+                                type === "written" ? (
+
+                                    <>
+
+                                        <option value="general">
+                                            General
+                                        </option>
+
+                                        <option value="mep">
+                                            MEP
+                                        </option>
+
+                                        <option value="motor">
+                                            Motor
+                                        </option>
+
+                                        <option value="met">
+                                            MET
+                                        </option>
+
+                                        <option value="naval">
+                                            Naval
+                                        </option>
+
+                                        <option value="ssep">
+                                            SSEP
+                                        </option>
+
+                                    </>
+
+
+                                ) : (
+
+                                    <>
+
+                                        <option value="FN3">
+                                            FN3
+                                        </option>
+
+                                        <option value="FN4B">
+                                            FN4B
+                                        </option>
+
+                                        <option value="FN5">
+                                            FN5
+                                        </option>
+
+                                        <option value="FN6">
+                                            FN6
+                                        </option>
+
+                                    </>
+
+                                )
+
+                            }
+
+
+                        </select>
+
+
+                    </div>
+
+
+                </div>
+                <div className="mt-8">
+
+                    {
+                        loading ? (
+
+                            <div className="rounded-2xl bg-white p-6 shadow-sm">
+                                Loading...
+                            </div>
+
+
+                        ) : questions.length === 0 ? (
+
+
+                            <div className="rounded-2xl bg-white p-6 shadow-sm">
+                                No questions found.
+                            </div>
+
+
+                        ) : (
+
+
+                            <div className="space-y-6">
+
+
+                                {
+                                    questions.map((question) => (
+
+                                        <div
+                                            key={question.id}
+                                            className="
+                                            rounded-2xl
+                                            border
+                                            bg-white
+                                            p-6
+                                            shadow-sm
+                                            transition
+                                            hover:shadow-md
+                                            "
+                                        >
+
+
+                                            <div className="mb-4 flex flex-wrap gap-2">
+
+
+                                                <span className="rounded-full bg-blue-100 px-3 py-1 text-sm">
+                                                    {question.class}
+                                                </span>
+
+
+                                                <span className="rounded-full bg-gray-200 px-3 py-1 text-sm">
+                                                    {question.topic}
+                                                </span>
+
+
+
+                                                {
+                                                    type === "written" ? (
+
+                                                        <>
+
+                                                            <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                                                {question.month}
+                                                            </span>
+
+
+                                                            <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                                                {question.year}
+                                                            </span>
+
+                                                        </>
+
+
+                                                    ) : (
+
+                                                        <>
+
+
+                                                            <span className="rounded-full bg-green-100 px-3 py-1 text-sm">
+                                                                {question.examDate}
+                                                            </span>
+
+
+                                                            <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm">
+                                                                {question.mmd}
+                                                            </span>
+
+
+                                                            <span className="rounded-full bg-purple-100 px-3 py-1 text-sm">
+                                                                {question.surveyor}
+                                                            </span>
+
+
+                                                        </>
+
+                                                    )
+                                                }
+
+
+                                            </div>
+
+
+
+
+                                            <button
+
+                                                onClick={() =>
+                                                    setExpandedId(prev =>
+                                                        prev === question.id
+                                                            ? null
+                                                            : question.id
+                                                    )
+                                                }
+
+                                                className="w-full text-left"
+
+                                            >
+
+
+                                                <h2 className="text-lg font-semibold whitespace-pre-wrap">
+                                                    {question.question}
+                                                </h2>
+
+
+                                                <p className="mt-2 text-sm text-gray-500">
+
+                                                    {
+                                                        expandedId === question.id
+                                                            ? "Click to collapse"
+                                                            : "Click to view answer"
+                                                    }
+
+                                                </p>
+
+
+                                            </button>
+
+
+
+
+
+                                            {
+                                                expandedId === question.id && (
+
+
+                                                    <>
+
+                                                        <div className="mt-5 border-t pt-5">
+
+                                                            <MarkdownRenderer
+                                                                content={
+                                                                    question.answer
+                                                                }
+                                                            />
+
+                                                        </div>
+
+
+
+
+                                                        <div className="mt-6 flex justify-end gap-3">
+
+
+                                                            <button
+
+                                                                onClick={() => {
+
+                                                                    setEditingQuestion(question);
+
+                                                                    setEditedQuestion(
+                                                                        question.question
+                                                                    );
+
+                                                                    setEditedAnswer(
+                                                                        question.answer
+                                                                    );
+
+                                                                }}
+
+                                                                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+
+                                                            >
+
+                                                                Edit
+
+                                                            </button>
+
+
+
+
+                                                            <button
+
+                                                                onClick={() =>
+                                                                    handleDelete(
+                                                                        question.id
+                                                                    )
+                                                                }
+
+                                                                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white"
+
+                                                            >
+
+                                                                Delete
+
+                                                            </button>
+
+
+
+                                                        </div>
+
+
+                                                    </>
+
+
+                                                )
+                                            }
+
+
+
+                                        </div>
+
+
+                                    ))
+                                }
+
+
+
+                            </div>
+
+
+                        )
+                    }
+
+
+                </div>
+
+
+
+
+
+                {
+                    editingQuestion && (
+
+
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+
+
+                            <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
+
+
+                                <h2 className="text-2xl font-bold">
+
+                                    Edit {
+                                        type === "oral"
+                                            ? "Oral"
+                                            : "Written"
+                                    } Question
+
+                                </h2>
+
+
+
+
+                                <textarea
+
+                                    value={editedQuestion}
+
+                                    onChange={(e) =>
+                                        setEditedQuestion(
+                                            e.target.value
+                                        )
+                                    }
+
+                                    rows={6}
+
+                                    className="mt-6 w-full rounded-xl border border-gray-300 p-4"
+
+                                />
+
+
+
+
+
+                                <div className="mt-6">
+
+
+                                    <label className="mb-2 block text-sm font-semibold">
+
+                                        Answer
+
+                                    </label>
+
+
+
+                                    <textarea
+
+                                        value={editedAnswer}
+
+                                        onChange={(e) =>
+                                            setEditedAnswer(
+                                                e.target.value
+                                            )
+                                        }
+
+                                        rows={12}
+
+                                        className="w-full rounded-xl border border-gray-300 p-4"
+
+                                    />
+
+
+                                </div>
+
+
+
+
+
+                                <div className="mt-8 flex justify-end gap-3">
+
+
+                                    <button
+
+                                        onClick={() =>
+                                            setEditingQuestion(null)
+                                        }
+
+                                        className="rounded-xl border px-5 py-2"
+
+                                    >
+
+                                        Cancel
+
+                                    </button>
+
+
+
+
+
+                                    <button
+
+                                        onClick={handleSave}
+
+                                        className="rounded-xl bg-blue-600 px-5 py-2 text-white"
+
+                                    >
+
+                                        Save
+
+                                    </button>
+
+
+
+                                </div>
+
+
+
+                            </div>
+
+
+
+                        </div>
+
+
+                    )
+                }
+
+
+
+            </div>
+
+
+        </main>
+
+    );
+
+
 }
 </file>
 
@@ -5439,6 +5934,388 @@ font-semibold
 }
 </file>
 
+<file path="components/Header.tsx">
+"use client";
+
+
+import {
+    Sailboat,
+    User,
+    LogOut
+} from "lucide-react";
+
+
+import {
+    signOut
+} from "firebase/auth";
+
+
+import {
+    auth
+} from "@/lib/firebase";
+
+
+import {
+    useAuth
+} from "@/app/context/AuthContext";
+
+
+
+interface HeaderProps {
+
+    setShowAuth:
+    (show: boolean) => void;
+
+}
+
+
+
+export default function Header({
+
+    setShowAuth
+
+}: HeaderProps) {
+
+
+
+    const {
+        user
+
+    } = useAuth();
+
+
+
+
+    const handleLogout = async () => {
+
+
+        try {
+
+
+            if (user) {
+
+
+                localStorage.removeItem(
+
+                    `navik_profile_${user.uid}`
+
+                );
+
+
+            }
+
+
+
+            await signOut(auth);
+
+
+
+        } catch (error) {
+
+
+            console.error(
+                error
+            );
+
+
+        }
+
+
+    };
+
+
+
+
+    const shortEmail =
+        user?.email
+
+            ? user.email.length > 14
+
+                ? user.email.slice(0, 14) + "..."
+
+                : user.email
+
+            : "";
+
+
+
+
+    return (
+
+
+        <div
+
+            className="
+            bg-white
+            border
+            border-gray-200
+            rounded-3xl
+            pl-3
+            pr-5
+            py-4
+            md:pl-4
+            md:pr-6
+            md:py-5
+            shadow-sm
+            "
+
+        >
+
+
+
+            <div
+
+                className="
+                flex
+                items-center
+                justify-between
+                "
+
+            >
+
+
+
+                {/* LEFT SIDE */}
+
+
+                <div
+
+                    className="
+                    flex
+                    items-center
+                    gap-2
+                    min-w-0
+                    "
+
+                >
+
+
+                    <div
+
+                        className="
+                        w-12
+                        h-12
+                        flex
+                        items-center
+                        justify-center
+                        rotate-[-8deg]
+                        flex-shrink-0
+                        "
+
+                    >
+
+                        <Sailboat size={30}/>
+
+
+                    </div>
+
+
+
+                    <div
+
+                        className="
+                        leading-tight
+                        min-w-0
+                        "
+
+                    >
+
+
+                        <h1
+
+                            className="
+                            text-xl
+                            font-bold
+                            tracking-tight
+                            truncate
+                            "
+
+                        >
+
+                            NAVIK
+
+                        </h1>
+
+
+
+                        <p
+
+                            className="
+                            text-xs
+                            text-gray-500
+                            truncate
+                            "
+
+                        >
+
+                            Sail towards COC
+
+                        </p>
+
+
+                    </div>
+
+
+                </div>
+
+
+
+
+
+                {/* RIGHT SIDE */}
+
+
+
+                {
+                    user ?
+
+
+                    (
+
+                    <div
+
+                        className="
+                        flex
+                        items-center
+                        gap-3
+                        flex-shrink-0
+                        "
+
+                    >
+
+
+
+                        <div
+
+                            className="
+                            bg-gray-100
+                            px-2
+                            py-2
+                            rounded-xl
+                            w-[80px]
+                            "
+
+                        >
+
+
+                            <p
+
+                                className="
+                                text-[9px]
+                                text-gray-500
+                                leading-none
+                                "
+
+                            >
+
+                                Signed in
+
+                            </p>
+
+
+
+                            <p
+
+                                className="
+                                text-[11px]
+                                font-medium
+                                truncate
+                                "
+
+                            >
+
+                                {shortEmail}
+
+                            </p>
+
+
+
+                        </div>
+
+
+
+
+                        <button
+
+                            onClick={handleLogout}
+
+                            className="
+                            w-10
+                            h-9
+                            rounded-2xl
+                            bg-black
+                            text-white
+                            flex
+                            items-center
+                            justify-center
+                            "
+
+                        >
+
+                            <LogOut size={16}/>
+
+
+                        </button>
+
+
+
+                    </div>
+
+
+                    )
+
+                    :
+
+
+                    (
+
+                    <button
+
+                        onClick={() => setShowAuth(true)}
+
+                        className="
+                        bg-black
+                        text-white
+                        px-4
+                        py-2
+                        rounded-xl
+                        flex
+                        items-center
+                        gap-1
+                        text-sm
+                        font-medium
+                        "
+
+                    >
+
+                        <User size={16}/>
+
+                        Login
+
+
+                    </button>
+
+
+                    )
+
+                }
+
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+    );
+
+
+}
+</file>
+
 <file path="app/(protected)/admin/orals/page.tsx">
 "use client";
 
@@ -5884,385 +6761,57 @@ export default function BulkUploadPage() {
 }
 </file>
 
-<file path="components/Header.tsx">
+<file path="app/page.tsx">
+import HomeClient from "@/components/HomeClient";
+import { getHomeStats } from "@/lib/home-cache";
+
+export default async function HomePage() {
+  const { oralStats, writtenStats } = await getHomeStats();
+
+  return (
+    <HomeClient
+      oralStats={oralStats}
+      writtenStats={writtenStats}
+    />
+  );
+}
+</file>
+
+<file path="components/InitialLoader.tsx">
 "use client";
 
+import { useEffect, useState } from "react";
+import LoadingScreen from "./LoadingScreen";
 
-import {
-    Sailboat,
-    User,
-    LogOut
-} from "lucide-react";
+export default function InitialLoader({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
 
+  const [loading,setLoading] = useState(true);
 
-import {
-    signOut
-} from "firebase/auth";
+  useEffect(()=>{
 
+    const timer=setTimeout(()=>{
+      setLoading(false);
+    },2000);
 
-import {
-    auth
-} from "@/lib/firebase";
+    return ()=>clearTimeout(timer);
 
-
-import {
-    useAuth
-} from "@/app/context/AuthContext";
-
+  },[]);
 
 
-interface HeaderProps {
-
-    setShowAuth:
-    (show: boolean) => void;
-
-}
-
-
-
-export default function Header({
-
-    setShowAuth
-
-}: HeaderProps) {
-
-
-
-    const {
-        user
-
-    } = useAuth();
-
-
-
-
-    const handleLogout = async () => {
-
-
-        try {
-
-
-            if (user) {
-
-
-                localStorage.removeItem(
-
-                    `navik_profile_${user.uid}`
-
-                );
-
-
-            }
-
-
-
-            await signOut(auth);
-
-
-
-        } catch (error) {
-
-
-            console.error(
-                error
-            );
-
-
-        }
-
-
-    };
-
-
-
-
-    const shortEmail =
-        user?.email
-
-            ? user.email.length > 14
-
-                ? user.email.slice(0, 14) + "..."
-
-                : user.email
-
-            : "";
-
-
-
-
+  if(loading){
     return (
-
-
-        <div
-
-            className="
-            bg-white
-            border
-            border-gray-200
-            rounded-3xl
-            pl-3
-            pr-5
-            py-4
-            md:pl-4
-            md:pr-6
-            md:py-5
-            shadow-sm
-            "
-
-        >
-
-
-
-            <div
-
-                className="
-                flex
-                items-center
-                justify-between
-                "
-
-            >
-
-
-
-                {/* LEFT SIDE */}
-
-
-                <div
-
-                    className="
-                    flex
-                    items-center
-                    gap-2
-                    min-w-0
-                    "
-
-                >
-
-
-                    <div
-
-                        className="
-                        w-12
-                        h-12
-                        flex
-                        items-center
-                        justify-center
-                        rotate-[-8deg]
-                        flex-shrink-0
-                        "
-
-                    >
-
-                        <Sailboat size={30}/>
-
-
-                    </div>
-
-
-
-                    <div
-
-                        className="
-                        leading-tight
-                        min-w-0
-                        "
-
-                    >
-
-
-                        <h1
-
-                            className="
-                            text-xl
-                            font-bold
-                            tracking-tight
-                            truncate
-                            "
-
-                        >
-
-                            NAVIK
-
-                        </h1>
-
-
-
-                        <p
-
-                            className="
-                            text-xs
-                            text-gray-500
-                            truncate
-                            "
-
-                        >
-
-                            Sail towards COC
-
-                        </p>
-
-
-                    </div>
-
-
-                </div>
-
-
-
-
-
-                {/* RIGHT SIDE */}
-
-
-
-                {
-                    user ?
-
-
-                    (
-
-                    <div
-
-                        className="
-                        flex
-                        items-center
-                        gap-3
-                        flex-shrink-0
-                        "
-
-                    >
-
-
-
-                        <div
-
-                            className="
-                            bg-gray-100
-                            px-2
-                            py-2
-                            rounded-xl
-                            w-[80px]
-                            "
-
-                        >
-
-
-                            <p
-
-                                className="
-                                text-[9px]
-                                text-gray-500
-                                leading-none
-                                "
-
-                            >
-
-                                Signed in
-
-                            </p>
-
-
-
-                            <p
-
-                                className="
-                                text-[11px]
-                                font-medium
-                                truncate
-                                "
-
-                            >
-
-                                {shortEmail}
-
-                            </p>
-
-
-
-                        </div>
-
-
-
-
-                        <button
-
-                            onClick={handleLogout}
-
-                            className="
-                            w-10
-                            h-9
-                            rounded-2xl
-                            bg-black
-                            text-white
-                            flex
-                            items-center
-                            justify-center
-                            "
-
-                        >
-
-                            <LogOut size={16}/>
-
-
-                        </button>
-
-
-
-                    </div>
-
-
-                    )
-
-                    :
-
-
-                    (
-
-                    <button
-
-                        onClick={() => setShowAuth(true)}
-
-                        className="
-                        bg-black
-                        text-white
-                        px-4
-                        py-2
-                        rounded-xl
-                        flex
-                        items-center
-                        gap-1
-                        text-sm
-                        font-medium
-                        "
-
-                    >
-
-                        <User size={16}/>
-
-                        Login
-
-
-                    </button>
-
-
-                    )
-
-                }
-
-
-
-
-            </div>
-
-
-
-        </div>
-
-
+      <LoadingScreen 
+        text="Setting your course..."
+      />
     );
+  }
 
 
+  return children;
 }
 </file>
 
@@ -6279,15 +6828,16 @@ import {
 } from "@/services/firestore";
 import { getCachedOralBatchPage } from "@/lib/oral-cache";
 
-const getCachedOralCategoryMeta = unstable_cache(
-  async (category: string) => {
-    return getOralCategoryMeta(category);
-  },
-  ["oral-category-meta"],
-  {
-    revalidate: 3600, // 1 hour
-  }
-);
+const getCachedOralCategoryMeta = (category: string) =>
+  unstable_cache(
+    async () => {
+      return getOralCategoryMeta(category);
+    },
+    ["oral-category-meta", category],
+    {
+      revalidate: 3600,
+    }
+  )();
 
 interface PageProps {
   params: Promise<{
@@ -6312,9 +6862,8 @@ export default async function OralCategoryPage({
     )
   ]);
 
-  console.log("FULL BATCH", batch);
-  console.log("NEXT BATCH =", batch.nextBatch);
-  
+  console.log("META FROM PAGE", meta);
+
   const titles: Record<
     string,
     {
@@ -6433,70 +6982,17 @@ export default async function OralCategoryPage({
 
         {/* Questions */}
         <QuestionsContainer
-          category={category}
+          category={normalizedCategory}
           initialQuestions={batch.questions}
           filters={filters}
           initialHasMore={batch.hasMore}
           initialNextBatch={batch.nextBatch}
+          totalQuestions={meta.questionCount}
         />
 
       </div>
     </main>
   );
-}
-</file>
-
-<file path="app/page.tsx">
-import HomeClient from "@/components/HomeClient";
-import { getHomeStats } from "@/lib/home-cache";
-
-export default async function HomePage() {
-  const { oralStats, writtenStats } = await getHomeStats();
-
-  return (
-    <HomeClient
-      oralStats={oralStats}
-      writtenStats={writtenStats}
-    />
-  );
-}
-</file>
-
-<file path="components/InitialLoader.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import LoadingScreen from "./LoadingScreen";
-
-export default function InitialLoader({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-
-  const [loading,setLoading] = useState(true);
-
-  useEffect(()=>{
-
-    const timer=setTimeout(()=>{
-      setLoading(false);
-    },2000);
-
-    return ()=>clearTimeout(timer);
-
-  },[]);
-
-
-  if(loading){
-    return (
-      <LoadingScreen 
-        text="Setting your course..."
-      />
-    );
-  }
-
-
-  return children;
 }
 </file>
 
@@ -6561,13 +7057,16 @@ interface Props {
   category: string;
   questions: Question[];
   filters?: OralFilters;
+  totalQuestions: number;
 }
 
 export default function QuestionsList({
   category,
   questions,
   filters,
+  totalQuestions,
 }: Props) {
+
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -6824,7 +7323,7 @@ export default function QuestionsList({
           <span className="text-gray-500">Current:</span>{" "}
           <span className="font-bold text-black">
             <span className="font-bold text-black">
-              {filteredQuestions.length}
+              {totalQuestions}
             </span>
           </span>
 
@@ -6883,6 +7382,201 @@ export default function QuestionsList({
 }
 </file>
 
+<file path="components/WrittenCard.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Bookmark,
+  BookmarkCheck,
+} from "lucide-react";
+import { WrittenQuestion } from "@/services/written.service";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
+
+interface Props {
+  question: WrittenQuestion;
+  isBookmarked: boolean;
+  onBookmark: () => void;
+}
+
+export default function WrittenCard({
+  question,
+  isBookmarked,
+  onBookmark,
+}: Props) {
+
+  const [showAnswer, setShowAnswer] = useState(false);
+
+  useEffect(() => {
+    setShowAnswer(false);
+  }, [question.id]);
+
+  return (
+    <div
+      className="
+    flex
+    flex-col
+    h-[550px]
+    rounded-3xl
+    border
+    border-gray-200
+    bg-white
+    p-4
+    sm:p-5
+    md:p-6
+    shadow-sm
+    transition
+    hover:shadow-lg
+  "
+    >
+
+      {/* Header */}
+
+      <div className="mb-5 flex items-start justify-between gap-4">
+
+        <div className="flex flex-wrap gap-2">
+
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs sm:text-sm font-semibold text-blue-700">
+            {question.class}
+          </span>
+
+          <span className="rounded-full bg-green-100 px-3 py-1 text-xs sm:text-sm font-semibold text-green-700">
+            {question.year}
+          </span>
+
+          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs sm:text-sm font-semibold text-purple-700">
+            {question.month}
+          </span>
+
+          <span className="max-w-full truncate rounded-full bg-orange-100 px-3 py-1 text-xs sm:text-sm font-semibold text-orange-700">
+            {question.topic}
+          </span>
+
+        </div>
+
+        <button
+          onClick={onBookmark}
+          className="rounded-full p-2 hover:bg-gray-100 transition"
+        >
+          {isBookmarked ? (
+            <Bookmark
+              size={22}
+              className="fill-yellow-400 text-yellow-500"
+            />
+          ) : (
+            <Bookmark size={22} />
+          )}
+        </button>
+
+      </div>
+
+      {/* Scroll Area */}
+
+      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+
+        {/* Question */}
+
+        <h2
+          className="
+      whitespace-pre-wrap
+      break-words
+      text-base
+      sm:text-lg
+      md:text-xl
+      font-medium
+      leading-7
+      sm:leading-8
+      text-gray-900
+    "
+        >
+          {question.question}
+        </h2>
+
+        {showAnswer && (
+          <div
+            className="
+      mt-5
+      rounded-2xl
+      border
+      border-green-200
+      bg-green-50
+      p-4
+      sm:p-5
+    "
+          >
+
+            <h3
+              className="
+        mb-3
+        text-sm
+        sm:text-base
+        font-bold
+        text-green-700
+      "
+            >
+              Official Answer
+            </h3>
+
+            <MarkdownRenderer
+              content={question.answer}
+            />
+
+
+          </div>
+        )}
+
+      </div>
+
+      {/* Answer Button */}
+
+      <button
+        onClick={() => setShowAnswer(!showAnswer)}
+        className="
+    mt-6
+    flex
+    shrink-0
+    w-full
+    sm:w-auto
+    sm:ml-auto
+    items-center
+    justify-center
+    gap-2
+    rounded-xl
+    bg-black
+    px-5
+    py-3
+    text-sm
+    sm:text-base
+    font-semibold
+    text-white
+    transition
+    hover:bg-gray-800
+"
+      >
+
+        {showAnswer ? (
+          <>
+            <ChevronUp size={18} />
+            Hide Answer
+          </>
+        ) : (
+          <>
+            <ChevronDown size={18} />
+            Show Answer
+          </>
+        )}
+
+      </button>
+
+
+
+    </div>
+  );
+}
+</file>
+
 <file path="services/firestore.ts">
 import {
     addDoc,
@@ -6899,11 +7593,8 @@ import {
     where,
     writeBatch,
     limit,
-    startAfter,
-    QueryDocumentSnapshot,
-    DocumentData,
-} from "firebase/firestore";
 
+} from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 
@@ -6937,12 +7628,6 @@ export interface Question {
 
     order: number;
     isActive: boolean;
-}
-
-export interface PaginatedQuestions {
-    questions: Question[];
-    lastDoc: QueryDocumentSnapshot<DocumentData> | null;
-    hasMore: boolean;
 }
 
 export interface CommunityAnswer {
@@ -6999,68 +7684,6 @@ export async function getQuestions(
     questionCache.set(key, result);
 
     return result;
-}
-
-export async function getQuestionsPaginated(
-    category: string,
-    lastDoc: QueryDocumentSnapshot<DocumentData> | null = null,
-    pageSize = 20
-): Promise<PaginatedQuestions> {
-
-    let q;
-
-    if (lastDoc) {
-        q = query(
-            collection(
-                db,
-                "orals",
-                category.toLowerCase(),
-                "questions"
-            ),
-            orderBy("order"),
-            startAfter(lastDoc),
-            limit(pageSize)
-        );
-    } else {
-        q = query(
-            collection(
-                db,
-                "orals",
-                category.toLowerCase(),
-                "questions"
-            ),
-            orderBy("order"),
-            limit(pageSize)
-        );
-    }
-
-    const snapshot = await getDocs(q);
-
-    const questions = snapshot.docs.map((doc) => {
-        const data = doc.data();
-
-        return {
-            id: doc.id,
-            question: data.question,
-            answer: data.answer,
-            topic: data.topic,
-            mmd: data.mmd,
-            surveyor: data.surveyor,
-            class: data.class ?? "",
-            examDate: data.examDate ?? "",
-            order: data.order,
-            isActive: data.isActive,
-        };
-    });
-
-    return {
-        questions,
-        lastDoc:
-            snapshot.docs.length > 0
-                ? snapshot.docs[snapshot.docs.length - 1]
-                : null,
-        hasMore: snapshot.docs.length === pageSize,
-    };
 }
 
 export async function submitCommunityAnswer(data: {
@@ -7826,201 +8449,6 @@ export async function getQuestionsByOrder(
                 : null,
         hasMore: questions.length === pageSize,
     };
-}
-</file>
-
-<file path="components/WrittenCard.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  Bookmark,
-  BookmarkCheck,
-} from "lucide-react";
-import { WrittenQuestion } from "@/services/written.service";
-import MarkdownRenderer from "@/components/MarkdownRenderer";
-
-interface Props {
-  question: WrittenQuestion;
-  isBookmarked: boolean;
-  onBookmark: () => void;
-}
-
-export default function WrittenCard({
-  question,
-  isBookmarked,
-  onBookmark,
-}: Props) {
-
-  const [showAnswer, setShowAnswer] = useState(false);
-
-  useEffect(() => {
-    setShowAnswer(false);
-  }, [question.id]);
-
-  return (
-    <div
-      className="
-    flex
-    flex-col
-    h-[550px]
-    rounded-3xl
-    border
-    border-gray-200
-    bg-white
-    p-4
-    sm:p-5
-    md:p-6
-    shadow-sm
-    transition
-    hover:shadow-lg
-  "
-    >
-
-      {/* Header */}
-
-      <div className="mb-5 flex items-start justify-between gap-4">
-
-        <div className="flex flex-wrap gap-2">
-
-          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs sm:text-sm font-semibold text-blue-700">
-            {question.class}
-          </span>
-
-          <span className="rounded-full bg-green-100 px-3 py-1 text-xs sm:text-sm font-semibold text-green-700">
-            {question.year}
-          </span>
-
-          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs sm:text-sm font-semibold text-purple-700">
-            {question.month}
-          </span>
-
-          <span className="max-w-full truncate rounded-full bg-orange-100 px-3 py-1 text-xs sm:text-sm font-semibold text-orange-700">
-            {question.topic}
-          </span>
-
-        </div>
-
-        <button
-          onClick={onBookmark}
-          className="rounded-full p-2 hover:bg-gray-100 transition"
-        >
-          {isBookmarked ? (
-            <Bookmark
-              size={22}
-              className="fill-yellow-400 text-yellow-500"
-            />
-          ) : (
-            <Bookmark size={22} />
-          )}
-        </button>
-
-      </div>
-
-      {/* Scroll Area */}
-
-      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
-
-        {/* Question */}
-
-        <h2
-          className="
-      whitespace-pre-wrap
-      break-words
-      text-base
-      sm:text-lg
-      md:text-xl
-      font-medium
-      leading-7
-      sm:leading-8
-      text-gray-900
-    "
-        >
-          {question.question}
-        </h2>
-
-        {showAnswer && (
-          <div
-            className="
-      mt-5
-      rounded-2xl
-      border
-      border-green-200
-      bg-green-50
-      p-4
-      sm:p-5
-    "
-          >
-
-            <h3
-              className="
-        mb-3
-        text-sm
-        sm:text-base
-        font-bold
-        text-green-700
-      "
-            >
-              Official Answer
-            </h3>
-
-            <MarkdownRenderer
-              content={question.answer}
-            />
-
-
-          </div>
-        )}
-
-      </div>
-
-      {/* Answer Button */}
-
-      <button
-        onClick={() => setShowAnswer(!showAnswer)}
-        className="
-    mt-6
-    flex
-    shrink-0
-    w-full
-    sm:w-auto
-    sm:ml-auto
-    items-center
-    justify-center
-    gap-2
-    rounded-xl
-    bg-black
-    px-5
-    py-3
-    text-sm
-    sm:text-base
-    font-semibold
-    text-white
-    transition
-    hover:bg-gray-800
-"
-      >
-
-        {showAnswer ? (
-          <>
-            <ChevronUp size={18} />
-            Hide Answer
-          </>
-        ) : (
-          <>
-            <ChevronDown size={18} />
-            Show Answer
-          </>
-        )}
-
-      </button>
-
-
-
-    </div>
-  );
 }
 </file>
 

@@ -6,6 +6,8 @@ import {
     query,
     runTransaction,
     serverTimestamp,
+    updateDoc,
+    increment,
     where,
     writeBatch,
 } from "firebase/firestore";
@@ -65,9 +67,22 @@ export interface OralBatchDocument {
     updatedAt: unknown;
 }
 
+export interface OralFilters {
+    topics: string[];
+    surveyors: string[];
+    mmds: string[];
+    classes: string[];
+}
+
 async function setBatchCount(
     category: string,
-    count: number
+    batchCount: number,
+    questionCount: number,
+    topicCount: number,
+    topics: string[],
+    surveyors: string[],
+    mmds: string[],
+    classes: string[]
 ) {
     const counterRef = doc(
         db,
@@ -85,7 +100,15 @@ async function setBatchCount(
         }
 
         transaction.update(counterRef, {
-            [`${category}.batchCount`]: count,
+            [`${category}.batchCount`]: batchCount,
+            [`${category}.questionCount`]: questionCount,
+            [`${category}.topicCount`]: topicCount,
+
+            [`${category}.topics`]: topics,
+            [`${category}.surveyors`]: surveyors,
+            [`${category}.mmds`]: mmds,
+            [`${category}.classes`]: classes,
+
             [`${category}.updatedAt`]: serverTimestamp(),
         });
     });
@@ -172,6 +195,14 @@ export async function uploadOralBatch(
         const questions =
             groupedQuestions[category];
 
+        const topics = [...new Set(questions.map(q => q.topic))].sort();
+
+        const surveyors = [...new Set(questions.map(q => q.surveyor))].sort();
+
+        const mmds = [...new Set(questions.map(q => q.mmd))].sort();
+
+        const classes = [...new Set(questions.map(q => q.class))].sort();
+
         const firestoreBatch = writeBatch(db);
 
         const totalBatches = Math.ceil(
@@ -230,7 +261,13 @@ export async function uploadOralBatch(
 
         await setBatchCount(
             category,
-            totalBatches
+            totalBatches,
+            questions.length,
+            topics.length,
+            topics,
+            surveyors,
+            mmds,
+            classes
         );
 
         console.log(
@@ -294,19 +331,13 @@ export async function getOralBatchQuestions(
 
 export async function getOralBatchPage(
     category: string,
-    batchNumber: number
+    batchNumber: number,
+    batchCount: number
 ) {
-
     const currentBatchId = getBatchId(
         category,
         batchNumber
     );
-
-    const nextBatchId = getBatchId(
-        category,
-        batchNumber + 1
-    );
-
 
     const currentSnapshot = await getDoc(
         doc(
@@ -316,7 +347,6 @@ export async function getOralBatchPage(
         )
     );
 
-
     if (!currentSnapshot.exists()) {
         return {
             questions: [],
@@ -325,20 +355,10 @@ export async function getOralBatchPage(
         };
     }
 
-
-    const nextSnapshot = await getDoc(
-        doc(
-            db,
-            "oral_batches",
-            nextBatchId
-        )
-    );
-
-
     const data =
         currentSnapshot.data() as OralBatchDocument;
 
-    const hasMore = nextSnapshot.exists();
+    const hasMore = batchNumber < batchCount;
 
     return {
         questions: data.questions,
@@ -347,5 +367,328 @@ export async function getOralBatchPage(
             ? batchNumber + 1
             : null,
     };
+}
 
+
+export async function getOralCategoryMeta(
+    category: string
+): Promise<{
+    batchCount: number;
+    questionCount: number;
+    topicCount: number;
+}> {
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            batchCount: 0,
+            questionCount: 0,
+            topicCount: 0,
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        batchCount: meta.batchCount ?? 0,
+        questionCount: meta.questionCount ?? 0,
+        topicCount: meta.topicCount ?? 0,
+    };
+}
+
+export async function deleteOralBatchQuestion(
+    category: string,
+    questionId: string
+) {
+    const q = query(
+        collection(db, "oral_batches"),
+        where("category", "==", category.toLowerCase())
+    );
+
+    const snapshot = await getDocs(q);
+
+    for (const batchDoc of snapshot.docs) {
+
+        const data =
+            batchDoc.data() as OralBatchDocument;
+
+        const index = data.questions.findIndex(
+            q => q.id === questionId
+        );
+
+        if (index === -1) continue;
+
+        data.questions.splice(index, 1);
+
+        data.questions.forEach((q, i) => {
+            q.order = i + 1;
+        });
+
+        await updateDoc(batchDoc.ref, {
+            questions: data.questions,
+            questionCount: data.questions.length,
+            topicCount: new Set(
+                data.questions.map(q => q.topic)
+            ).size,
+            updatedAt: serverTimestamp(),
+        });
+
+        await runTransaction(db, async (transaction) => {
+
+            const counterRef = doc(
+                db,
+                "oral_batches_metadata",
+                "counters"
+            );
+
+            transaction.update(counterRef, {
+                [`${category.toLowerCase()}.questionCount`]:
+                    increment(-1),
+            });
+
+        });
+
+        return;
+    }
+
+    throw new Error("Question not found.");
+}
+
+export async function updateOralBatchQuestion(
+    category: string,
+    id: string,
+    data: {
+        question: string;
+        answer: string;
+    }
+) {
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where(
+                "category",
+                "==",
+                category.toLowerCase()
+            )
+        )
+    );
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        const questions = [...(batchData.questions ?? [])];
+
+        const index = questions.findIndex(
+            (q: OralBatchQuestion) => q.id === id
+        );
+
+        if (index === -1) {
+            continue;
+        }
+
+        questions[index] = {
+            ...questions[index],
+            question: data.question,
+            answer: data.answer,
+        };
+
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions,
+                updatedAt: serverTimestamp(),
+            }
+        );
+
+        return;
+    }
+
+    throw new Error("Question not found");
+}
+
+export async function deleteOralBatchQuestions(
+    category: string,
+    ids: string[]
+) {
+    const normalizedCategory = category.toLowerCase();
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            )
+        )
+    );
+
+
+    let deletedCount = 0;
+
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        const questions: OralBatchQuestion[] =
+            batchData.questions ?? [];
+
+
+        const updatedQuestions =
+            questions.filter(
+                (q: OralBatchQuestion) =>
+                    !ids.includes(q.id)
+            );
+
+
+        if (
+            updatedQuestions.length ===
+            questions.length
+        ) {
+            continue;
+        }
+
+
+        deletedCount +=
+            questions.length -
+            updatedQuestions.length;
+
+
+        updatedQuestions.forEach((q, index) => {
+            q.order = index + 1;
+        });
+
+
+        const topicCount =
+            new Set(
+                updatedQuestions.map(
+                    (q) => q.topic
+                )
+            ).size;
+
+
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions: updatedQuestions,
+
+                questionCount:
+                    updatedQuestions.length,
+
+                topicCount,
+
+                updatedAt:
+                    serverTimestamp(),
+            }
+        );
+
+
+        console.log(
+            "Updated batch:",
+            batchDoc.id
+        );
+
+    }
+
+
+
+    // Update metadata counter
+    if (deletedCount > 0) {
+
+        await runTransaction(
+            db,
+            async (transaction) => {
+
+                const counterRef =
+                    doc(
+                        db,
+                        "oral_batches_metadata",
+                        "counters"
+                    );
+
+
+                const counterSnap =
+                    await transaction.get(
+                        counterRef
+                    );
+
+
+                if (!counterSnap.exists()) {
+                    return;
+                }
+
+
+                const data =
+                    counterSnap.data();
+
+
+                const currentCount =
+                    data[normalizedCategory]
+                        ?.questionCount ?? 0;
+
+
+
+                transaction.update(
+                    counterRef,
+                    {
+
+                        [`${normalizedCategory}.questionCount`]:
+                            Math.max(
+                                currentCount -
+                                deletedCount,
+                                0
+                            ),
+
+
+                        [`${normalizedCategory}.updatedAt`]:
+                            serverTimestamp(),
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+
+}
+
+
+
+
+export async function getOralFilters(
+    category: string
+): Promise<OralFilters> {
+
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            topics: [],
+            surveyors: [],
+            mmds: [],
+            classes: [],
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        topics: meta.topics ?? [],
+        surveyors: meta.surveyors ?? [],
+        mmds: meta.mmds ?? [],
+        classes: meta.classes ?? [],
+    };
 }

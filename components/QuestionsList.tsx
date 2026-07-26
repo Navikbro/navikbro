@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react";
-import type { OralFilters } from "@/services/firestore";
+import type { OralFilters } from "@/services/oralBatch.service";
 import {
   ChevronDown,
   ChevronUp,
@@ -30,13 +30,16 @@ interface Props {
   category: string;
   questions: Question[];
   filters?: OralFilters;
+  totalQuestions: number;
 }
 
 export default function QuestionsList({
   category,
   questions,
   filters,
+  totalQuestions,
 }: Props) {
+
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -293,7 +296,7 @@ export default function QuestionsList({
           <span className="text-gray-500">Current:</span>{" "}
           <span className="font-bold text-black">
             <span className="font-bold text-black">
-              {filteredQuestions.length}
+              {totalQuestions}
             </span>
           </span>
 
@@ -349,4 +352,4 @@ export default function QuestionsList({
 
     </>
   )
-}
+}  
