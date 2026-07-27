@@ -1,18 +1,26 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 
-const app =
-    getApps().length > 0
-        ? getApps()[0]
-        : initializeApp({
+import serviceAccount from "@/config/serviceAccountKey.json";
+
+console.log("🔥 FIREBASE ADMIN FILE LOADED");
+console.log("🔥 SERVICE ACCOUNT:", {
+    project_id: serviceAccount.project_id,
+    client_email: serviceAccount.client_email,
+});
+
+const adminApp =
+    getApps().length === 0
+        ? initializeApp({
               credential: cert({
-                  projectId: process.env.FIREBASE_PROJECT_ID,
-                  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(
+                  projectId: serviceAccount.project_id,
+                  clientEmail: serviceAccount.client_email,
+                  privateKey: serviceAccount.private_key.replace(
                       /\\n/g,
                       "\n"
                   ),
               }),
-          });
+          })
+        : getApps()[0];
 
-export const adminAuth = getAuth(app);
+export const adminAuth = getAuth(adminApp);

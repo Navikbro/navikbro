@@ -38,50 +38,76 @@ export function AuthProvider({
     const [role, setRole] = useState<"admin" | "user">("user");
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            setUser(user);
+        const unsubscribe = onAuthStateChanged(
+            auth,
+            async (user) => {
+                setUser(user);
 
-            if (!user) {
-                setRole("user");
-                setLoading(false);
-                return;
-            }
-
-            try {
-                const userRef = doc(db, "users", user.uid);
-
-                const snapshot = await getDoc(userRef);
-
-                if (!snapshot.exists()) {
-                    await setDoc(userRef, {
-                        name: user.displayName || "Anonymous",
-                        email: user.email || "",
-                        role: "user",
-                        subscription: "free",
-                        createdAt: serverTimestamp(),
-                    });
-
+                if (!user) {
                     setRole("user");
-                } else {
-                    const data = snapshot.data();
+                    setLoading(false);
+                    return;
+                }
 
+                try {
+                    // Get Firebase Auth custom claims
+                    const token =
+                        await user.getIdTokenResult(true);
+
+                    const isAdmin =
+                        token.claims.admin === true;
+
+                    console.log("Firebase Claims:", token.claims);
+                    console.log(
+                        "User Role:",
+                        isAdmin ? "admin" : "user"
+                    );
                     setRole(
-                        data.role === "admin"
+                        isAdmin
                             ? "admin"
                             : "user"
                     );
-                }
-            } catch (error) {
-                console.error(
-                    "Failed to load user profile:",
-                    error
-                );
 
-                setRole("user");
-            } finally {
-                setLoading(false);
+
+                    // Create user profile if missing
+                    const userRef = doc(
+                        db,
+                        "users",
+                        user.uid
+                    );
+
+                    const snapshot =
+                        await getDoc(userRef);
+
+                    if (!snapshot.exists()) {
+                        await setDoc(userRef, {
+                            name:
+                                user.displayName ||
+                                "Anonymous",
+
+                            email:
+                                user.email ||
+                                "",
+
+                            subscription: "free",
+
+                            createdAt:
+                                serverTimestamp(),
+                        });
+                    }
+
+                } catch (error) {
+                    console.error(
+                        "Failed to load user:",
+                        error
+                    );
+
+                    setRole("user");
+                } finally {
+                    setLoading(false);
+                }
             }
-        });
+        );
 
         return unsubscribe;
     }, []);
