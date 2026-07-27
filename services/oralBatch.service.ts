@@ -14,8 +14,6 @@ import {
 
 import { db } from "@/lib/firebase";
 
-import { revalidateTag } from "next/cache";
-
 export const ORAL_BATCH_SIZE = 200;
 
 const CATEGORY_MAP: Record<string, string> = {
@@ -146,6 +144,8 @@ export async function uploadOralBatch(
 ) {
     if (!rows.length) return;
 
+    const uploadedCategories = new Set<string>();
+
     const groupedQuestions: Record<
         string,
         OralBatchQuestion[]
@@ -273,14 +273,27 @@ export async function uploadOralBatch(
             classes
         );
 
-        revalidateTag(`oral-${category}`, "max");
-        revalidateTag(`oral-${category}-meta`, "max");
+        uploadedCategories.add(category);
 
         console.log(
             `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
         );
     }
+
+    if (uploadedCategories.size > 0) {
+        await fetch("/api/revalidate-oral", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                categories: [...uploadedCategories],
+            }),
+        });
+    }
 }
+
+
 
 export async function getOralBatchQuestions(
     category: string

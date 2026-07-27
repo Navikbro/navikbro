@@ -21,8 +21,9 @@ export async function POST(req: NextRequest) {
 
     const categories = [
         ...new Set(
-            (body.categories ?? []).map(
-                (c: string) => CATEGORY_MAP[c.toLowerCase()] ?? c.toLowerCase()
+            rawCategories.map(
+                (c: string) =>
+                    CATEGORY_MAP[c.toLowerCase()] ?? c.toLowerCase()
             )
         ),
     ];
