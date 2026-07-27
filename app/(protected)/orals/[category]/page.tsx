@@ -49,8 +49,7 @@ export default async function OralCategoryPage({
   const filters = categoryData.filters;
 
   const questions = await getCachedAllOralQuestions(
-    normalizedCategory,
-    categoryData.batchCount
+    normalizedCategory
   );
 
   const titles: Record<
