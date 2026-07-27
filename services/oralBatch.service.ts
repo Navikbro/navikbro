@@ -14,6 +14,8 @@ import {
 
 import { db } from "@/lib/firebase";
 
+import { revalidateTag } from "next/cache";
+
 export const ORAL_BATCH_SIZE = 200;
 
 const CATEGORY_MAP: Record<string, string> = {
@@ -139,7 +141,8 @@ export async function deleteExistingBatches(
 
 export async function uploadOralBatch(
     rows: any[],
-    sourceFile: string
+    sourceFile: string,
+    onProgress?: (uploaded: number, total: number) => void
 ) {
     if (!rows.length) return;
 
@@ -270,6 +273,9 @@ export async function uploadOralBatch(
             classes
         );
 
+        revalidateTag(`oral-${category}`, "max");
+        revalidateTag(`oral-${category}-meta`, "max");
+
         console.log(
             `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
         );
@@ -397,6 +403,51 @@ export async function getOralCategoryMeta(
         batchCount: meta.batchCount ?? 0,
         questionCount: meta.questionCount ?? 0,
         topicCount: meta.topicCount ?? 0,
+    };
+}
+
+export async function getOralCategoryData(
+    category: string
+): Promise<{
+    batchCount: number;
+    questionCount: number;
+    topicCount: number;
+    filters: OralFilters;
+}> {
+
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            batchCount: 0,
+            questionCount: 0,
+            topicCount: 0,
+            filters: {
+                topics: [],
+                surveyors: [],
+                mmds: [],
+                classes: [],
+            },
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        batchCount: meta.batchCount ?? 0,
+        questionCount: meta.questionCount ?? 0,
+        topicCount: meta.topicCount ?? 0,
+
+        filters: {
+            topics: meta.topics ?? [],
+            surveyors: meta.surveyors ?? [],
+            mmds: meta.mmds ?? [],
+            classes: meta.classes ?? [],
+        },
     };
 }
 
@@ -691,4 +742,45 @@ export async function getOralFilters(
         mmds: meta.mmds ?? [],
         classes: meta.classes ?? [],
     };
+}
+
+export async function getAllOralBatchQuestions(
+    category: string
+): Promise<OralBatchQuestion[]> {
+
+
+    const meta =
+        await getOralCategoryMeta(category);
+
+
+    const batchCount =
+        meta.batchCount;
+
+
+    const allQuestions: OralBatchQuestion[] = [];
+
+
+    for (
+        let batchNumber = 1;
+        batchNumber <= batchCount;
+        batchNumber++
+    ) {
+
+
+        const page =
+            await getOralBatchPage(
+                category,
+                batchNumber,
+                batchCount
+            );
+
+
+        allQuestions.push(
+            ...page.questions
+        );
+
+    }
+
+
+    return allQuestions;
 }
