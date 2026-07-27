@@ -57,11 +57,6 @@ export function AuthProvider({
                     const isAdmin =
                         token.claims.admin === true;
 
-                    console.log("Firebase Claims:", token.claims);
-                    console.log(
-                        "User Role:",
-                        isAdmin ? "admin" : "user"
-                    );
                     setRole(
                         isAdmin
                             ? "admin"

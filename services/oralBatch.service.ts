@@ -144,8 +144,6 @@ export async function uploadOralBatch(
 ) {
     if (!rows.length) return;
 
-    const uploadedCategories = new Set<string>();
-
     const groupedQuestions: Record<
         string,
         OralBatchQuestion[]
@@ -273,27 +271,11 @@ export async function uploadOralBatch(
             classes
         );
 
-        uploadedCategories.add(category);
-
         console.log(
             `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
         );
     }
-
-    if (uploadedCategories.size > 0) {
-        await fetch("/api/revalidate-oral", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                categories: [...uploadedCategories],
-            }),
-        });
-    }
 }
-
-
 
 export async function getOralBatchQuestions(
     category: string

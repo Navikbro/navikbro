@@ -1,10 +1,10 @@
-This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
 
 <file_summary>
 This section contains a summary of this file.
 
 <purpose>
-This file contains a packed representation of the entire repository's contents.
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
 It is designed to be easily consumable by AI systems for analysis, code review,
 or other automated processes.
 </purpose>
@@ -32,6 +32,7 @@ The content is organized as follows:
 <notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: .env.local, node_modules, .next, .git, dist, build, coverage
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
 - Files are sorted by Git change count (files with more changes are at the bottom)
@@ -51,6 +52,7 @@ app/
         page.tsx
       writtens/
         page.tsx
+      layout.tsx
       page.tsx
     orals/
       [category]/
@@ -65,6 +67,9 @@ app/
         WrittensClient.tsx
     layout.tsx
   api/
+    admin/
+      make-admin/
+        route.ts
     orals/
       batch/
         route.ts
@@ -87,6 +92,7 @@ app/
   page.tsx
 components/
   AdminAnswerCard.tsx
+  AdminRoute.tsx
   AuthModal.tsx
   CategoryCard.tsx
   CommunityAnswer.tsx
@@ -107,6 +113,7 @@ components/
   WrittenCard.tsx
   WrittenFilters.tsx
 lib/
+  firebase-admin.ts
   firebase.ts
   home-cache.ts
   oral-cache.ts
@@ -139,6 +146,22 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="app/(protected)/admin/layout.tsx">
+import AdminRoute from "@/components/AdminRoute";
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <AdminRoute>
+      {children}
+    </AdminRoute>
+  );
+}
+</file>
 
 <file path="app/(protected)/orals/[category]/topics/loading.tsx">
 import LoadingScreen from "@/components/LoadingScreen";
@@ -956,6 +979,58 @@ export default function AdminAnswerCard({
 }
 </file>
 
+<file path="components/AdminRoute.tsx">
+"use client";
+
+import { ReactNode, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+import { useAuth } from "@/app/context/AuthContext";
+
+interface Props {
+    children: ReactNode;
+}
+
+export default function AdminRoute({
+    children,
+}: Props) {
+    const router = useRouter();
+
+    const {
+        user,
+        loading,
+        role,
+    } = useAuth();
+
+    useEffect(() => {
+        if (loading) return;
+
+        if (!user) {
+            router.replace("/");
+            return;
+        }
+
+        if (role !== "admin") {
+            router.replace("/");
+        }
+    }, [user, loading, role, router]);
+
+    if (loading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                Loading...
+            </div>
+        );
+    }
+
+    if (!user || role !== "admin") {
+        return null;
+    }
+
+    return <>{children}</>;
+}
+</file>
+
 <file path="components/CommunityAnswer.tsx">
 "use client";
 
@@ -1483,50 +1558,6 @@ export interface Question {
 }
 </file>
 
-<file path=".gitignore">
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-</file>
-
 <file path="eslint.config.mjs">
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
@@ -1666,6 +1697,98 @@ export default function Loading() {
 }
 </file>
 
+<file path="app/api/admin/make-admin/route.ts">
+import { NextResponse } from "next/server";
+import { adminAuth } from "@/lib/firebase-admin";
+
+export async function POST(req: Request) {
+    try {
+        // Get authorization token
+        const authHeader =
+            req.headers.get("authorization");
+
+        if (!authHeader?.startsWith("Bearer ")) {
+            return NextResponse.json(
+                {
+                    error: "Unauthorized",
+                },
+                {
+                    status: 401,
+                }
+            );
+        }
+
+        const token =
+            authHeader.split("Bearer ")[1];
+
+
+        // Verify Firebase ID token
+        const decodedToken =
+            await adminAuth.verifyIdToken(token);
+
+
+        // Check admin claim
+        if (decodedToken.admin !== true) {
+            return NextResponse.json(
+                {
+                    error: "Admin access required",
+                },
+                {
+                    status: 403,
+                }
+            );
+        }
+
+
+        const { uid } = await req.json();
+
+
+        if (!uid) {
+            return NextResponse.json(
+                {
+                    error: "UID required",
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
+
+
+        // Create admin claim
+        await adminAuth.setCustomUserClaims(uid, {
+            admin: true,
+        });
+
+
+        return NextResponse.json({
+            success: true,
+            message: "User is now admin",
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "MAKE ADMIN ERROR:",
+            error
+        );
+
+        return NextResponse.json(
+            {
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : "Unknown error",
+            },
+            {
+                status: 500,
+            }
+        );
+    }
+}
+</file>
+
 <file path="app/api/orals/batch/route.ts">
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
@@ -1728,197 +1851,6 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-}
-</file>
-
-<file path="app/context/AuthContext.tsx">
-"use client";
-
-import {
-    onAuthStateChanged,
-    User,
-} from "firebase/auth";
-
-import {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
-
-import {
-    doc,
-    getDoc,
-    serverTimestamp,
-    setDoc,
-} from "firebase/firestore";
-
-import { auth, db } from "@/lib/firebase";
-
-
-interface AuthContextType {
-    user: User | null;
-    loading: boolean;
-}
-
-
-const AuthContext =
-    createContext<AuthContextType>({
-        user: null,
-        loading: true,
-    });
-
-
-export function AuthProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-
-    const [user, setUser] =
-        useState<User | null>(null);
-
-
-    const [loading, setLoading] =
-        useState(true);
-
-
-
-    useEffect(() => {
-
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                (user) => {
-
-
-                    // Update UI immediately
-                    setUser(user);
-                    setLoading(false);
-
-
-
-                    // Background user profile creation
-                    if (user) {
-
-
-                        const cached =
-                            localStorage.getItem(
-                                `navik_profile_${user.uid}`
-                            );
-
-
-                        if (!cached) {
-
-
-                            (async () => {
-
-                                try {
-
-
-                                    const userRef =
-                                        doc(
-                                            db,
-                                            "users",
-                                            user.uid
-                                        );
-
-
-                                    const snapshot =
-                                        await getDoc(userRef);
-
-
-
-                                    if (!snapshot.exists()) {
-
-
-                                        await setDoc(
-                                            userRef,
-                                            {
-                                                name:
-                                                    user.displayName ||
-                                                    "Anonymous",
-
-                                                email:
-                                                    user.email || "",
-
-                                                role:
-                                                    "user",
-
-                                                subscription:
-                                                    "free",
-
-                                                createdAt:
-                                                    serverTimestamp(),
-                                            }
-                                        );
-
-                                    }
-
-
-                                } catch (error) {
-
-
-                                    console.error(
-                                        "Profile creation failed:",
-                                        error
-                                    );
-
-
-                                } finally {
-
-
-                                    localStorage.setItem(
-                                        `navik_profile_${user.uid}`,
-                                        "checked"
-                                    );
-
-
-                                }
-
-
-                            })();
-
-                        }
-
-                    }
-
-
-                }
-            );
-
-
-
-        return unsubscribe;
-
-
-    }, []);
-
-
-
-    return (
-
-        <AuthContext.Provider
-            value={{
-                user,
-                loading,
-            }}
-        >
-
-            {children}
-
-        </AuthContext.Provider>
-
-    );
-
-}
-
-
-
-export function useAuth() {
-
-    return useContext(AuthContext);
-
 }
 </file>
 
@@ -2107,6 +2039,53 @@ export async function uploadWrittenBatch(
     }
 
 }
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Firebase Admin secret
+/config/serviceAccountKey.json
 </file>
 
 <file path="app/(protected)/admin/downloads/page.tsx">
@@ -2500,6 +2479,166 @@ export default function HomeClient({
 
     </main>
   );
+}
+</file>
+
+<file path="lib/firebase-admin.ts">
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+
+console.log("🔥 FIREBASE ADMIN FILE LOADED");
+
+const adminApp =
+    getApps().length === 0
+        ? initializeApp({
+              credential: cert({
+                  projectId: process.env.FIREBASE_PROJECT_ID,
+
+                  clientEmail:
+                      process.env.FIREBASE_CLIENT_EMAIL,
+
+                  privateKey:
+                      process.env.FIREBASE_PRIVATE_KEY?.replace(
+                          /\\n/g,
+                          "\n"
+                      ),
+              }),
+          })
+        : getApps()[0];
+
+export const adminAuth = getAuth(adminApp);
+</file>
+
+<file path="app/context/AuthContext.tsx">
+"use client";
+
+import { onAuthStateChanged, User } from "firebase/auth";
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+import {
+    doc,
+    getDoc,
+    serverTimestamp,
+    setDoc,
+} from "firebase/firestore";
+
+import { auth, db } from "@/lib/firebase";
+
+interface AuthContextType {
+    user: User | null;
+    loading: boolean;
+    role: "admin" | "user";
+}
+
+const AuthContext = createContext<AuthContextType>({
+    user: null,
+    loading: true,
+    role: "user",
+});
+
+export function AuthProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [role, setRole] = useState<"admin" | "user">("user");
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(
+            auth,
+            async (user) => {
+                setUser(user);
+
+                if (!user) {
+                    setRole("user");
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    // Get Firebase Auth custom claims
+                    const token =
+                        await user.getIdTokenResult(true);
+
+                    const isAdmin =
+                        token.claims.admin === true;
+
+                    console.log("Firebase Claims:", token.claims);
+                    console.log(
+                        "User Role:",
+                        isAdmin ? "admin" : "user"
+                    );
+                    setRole(
+                        isAdmin
+                            ? "admin"
+                            : "user"
+                    );
+
+
+                    // Create user profile if missing
+                    const userRef = doc(
+                        db,
+                        "users",
+                        user.uid
+                    );
+
+                    const snapshot =
+                        await getDoc(userRef);
+
+                    if (!snapshot.exists()) {
+                        await setDoc(userRef, {
+                            name:
+                                user.displayName ||
+                                "Anonymous",
+
+                            email:
+                                user.email ||
+                                "",
+
+                            subscription: "free",
+
+                            createdAt:
+                                serverTimestamp(),
+                        });
+                    }
+
+                } catch (error) {
+                    console.error(
+                        "Failed to load user:",
+                        error
+                    );
+
+                    setRole("user");
+                } finally {
+                    setLoading(false);
+                }
+            }
+        );
+
+        return unsubscribe;
+    }, []);
+
+    return (
+        <AuthContext.Provider
+            value={{
+                user,
+                loading,
+                role,
+            }}
+        >
+            {children}
+        </AuthContext.Provider>
+    );
+}
+
+export function useAuth() {
+    return useContext(AuthContext);
 }
 </file>
 
@@ -3655,48 +3794,6 @@ export async function getAllOralBatchQuestions(
 
 
     return allQuestions;
-}
-</file>
-
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "exceljs": "^4.4.0",
-    "firebase": "^12.15.0",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.1",
-    "typescript": "^5"
-    
-  }
 }
 </file>
 
@@ -5000,179 +5097,45 @@ export default function QuestionsContainer({
 }
 </file>
 
-<file path="app/(protected)/admin/page.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-
-import { useAuth } from "@/app/context/AuthContext";
-import { isUserAdmin } from "@/services/admin";
-import {
-    getPendingAnswers,
-    approveAnswer,
-    rejectAnswer,
-} from "@/services/firestore";
-
-import AdminAnswerCard from "@/components/AdminAnswerCard";
-
-interface PendingAnswer {
-    id: string;
-    questionId: string;
-    category: string;
-    userName: string;
-    answer: string;
-}
-
-export default function AdminPage() {
-    const { user, loading } = useAuth();
-    const router = useRouter();
-
-    const [checking, setChecking] = useState(true);
-    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
-
-    useEffect(() => {
-        async function init() {
-            if (loading) return;
-
-            if (!user) {
-                router.replace("/");
-                return;
-            }
-
-            const admin = await isUserAdmin(user.uid);
-
-            if (!admin) {
-                router.replace("/");
-                return;
-            }
-
-            const pending = await getPendingAnswers();
-
-            setAnswers(pending as PendingAnswer[]);
-            setChecking(false);
-        }
-
-        init();
-    }, [user, loading, router]);
-
-    async function handleApprove(id: string) {
-        await approveAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
-    }
-
-    async function handleReject(id: string) {
-        await rejectAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
-    }
-
-    if (checking) {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                Checking permissions...
-            </div>
-        );
-    }
-
-    return (
-        <main className="min-h-screen bg-[#f5f5f5]">
-            <div className="mx-auto max-w-6xl px-6 py-10">
-
-                <h1 className="text-4xl font-bold">
-                    Admin Dashboard
-                </h1>
-
-                <p className="mt-2 text-gray-500">
-                    Manage uploads and community answers.
-                </p>
-
-                <div className="mt-8 flex flex-wrap gap-4">
-
-                    <Link
-                        href="/admin/orals"
-                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
-                    >
-                        Upload Oral Questions
-                    </Link>
-
-                    <Link
-                        href="/admin/writtens"
-                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
-                    >
-                        Upload Written Questions
-                    </Link>
-
-                    <Link
-                        href="/admin/downloads"
-                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
-                    >
-                        <h2 className="text-lg font-semibold">
-                            Download Questions
-                        </h2>
-
-                        <p className="mt-2 text-sm text-gray-500">
-                            Download the latest Oral and Written question banks.
-                        </p>
-                    </Link>
-
-                    <Link
-                        href="/admin/manage"
-                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
-                    >
-                        <h2 className="text-l font-semibold">
-                            MANAGE QUESTIONS ALL
-                        </h2>
-
-                        <p className="mt-2 text-sm text-gray-500">
-                            View, edit and delete written questions.
-                        </p>
-                    </Link>
-
-                </div>
-
-
-
-                <div className="mt-12">
-
-                    <h2 className="text-2xl font-bold">
-                        Pending Community Answers
-                    </h2>
-
-                    <div className="mt-6 space-y-6">
-
-                        {answers.length === 0 && (
-                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
-                                No pending answers.
-                            </div>
-                        )}
-
-                        {answers.map((answer) => (
-                            <AdminAnswerCard
-                                key={answer.id}
-                                id={answer.id}
-                                questionId={answer.questionId}
-                                category={answer.category}
-                                userName={answer.userName}
-                                answer={answer.answer}
-                                onApprove={handleApprove}
-                                onReject={handleReject}
-                            />
-                        ))}
-
-                    </div>
-
-                </div>
-
-            </div>
-        </main>
-    );
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "firebase-admin": "^14.2.0",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+  }
 }
 </file>
 
@@ -5965,6 +5928,166 @@ export async function getCachedOralCategoryData(
 
   return cached();
 
+}
+</file>
+
+<file path="app/(protected)/admin/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+import { useAuth } from "@/app/context/AuthContext";
+import {
+    getPendingAnswers,
+    approveAnswer,
+    rejectAnswer,
+} from "@/services/firestore";
+
+import AdminAnswerCard from "@/components/AdminAnswerCard";
+
+interface PendingAnswer {
+    id: string;
+    questionId: string;
+    category: string;
+    userName: string;
+    answer: string;
+}
+
+export default function AdminPage() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+
+    const [answers, setAnswers] = useState<PendingAnswer[]>([]);
+
+    useEffect(() => {
+        async function loadAnswers() {
+            if (loading || !user) return;
+
+            const pending = await getPendingAnswers();
+            setAnswers(pending as PendingAnswer[]);
+        }
+
+        loadAnswers();
+    }, [user, loading]);
+
+    async function handleApprove(id: string) {
+        try {
+            await approveAnswer(id);
+
+            setAnswers((prev) =>
+                prev.filter((answer) => answer.id !== id)
+            );
+        } catch (error) {
+            console.error(error);
+        }
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
+
+    async function handleReject(id: string) {
+        await rejectAnswer(id);
+
+        setAnswers((prev) =>
+            prev.filter((answer) => answer.id !== id)
+        );
+    }
+
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
+
+                <h1 className="text-4xl font-bold">
+                    Admin Dashboard
+                </h1>
+
+                <p className="mt-2 text-gray-500">
+                    Manage uploads and community answers.
+                </p>
+
+                <div className="mt-8 flex flex-wrap gap-4">
+
+                    <Link
+                        href="/admin/orals"
+                        className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
+                    >
+                        Upload Oral Questions
+                    </Link>
+
+                    <Link
+                        href="/admin/writtens"
+                        className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
+                    >
+                        Upload Written Questions
+                    </Link>
+
+                    <Link
+                        href="/admin/downloads"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-lg font-semibold">
+                            Download Questions
+                        </h2>
+
+                        <p className="mt-2 text-sm text-gray-500">
+                            Download the latest Oral and Written question banks.
+                        </p>
+                    </Link>
+
+                    <Link
+                        href="/admin/manage"
+                        className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    >
+                        <h2 className="text-l font-semibold">
+                            MANAGE QUESTIONS ALL
+                        </h2>
+
+                        <p className="mt-2 text-sm text-gray-500">
+                            View, edit and delete written questions.
+                        </p>
+                    </Link>
+
+                </div>
+
+
+
+                <div className="mt-12">
+
+                    <h2 className="text-2xl font-bold">
+                        Pending Community Answers
+                    </h2>
+
+                    <div className="mt-6 space-y-6">
+
+                        {answers.length === 0 && (
+                            <div className="rounded-3xl border border-gray-200 bg-white p-8">
+                                No pending answers.
+                            </div>
+                        )}
+
+                        {answers.map((answer) => (
+                            <AdminAnswerCard
+                                key={answer.id}
+                                id={answer.id}
+                                questionId={answer.questionId}
+                                category={answer.category}
+                                userName={answer.userName}
+                                answer={answer.answer}
+                                onApprove={handleApprove}
+                                onReject={handleReject}
+                            />
+                        ))}
+
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    );
 }
 </file>
 

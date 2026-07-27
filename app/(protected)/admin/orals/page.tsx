@@ -4,7 +4,7 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 import { uploadOralBatch } from "@/services/oralBatch.service";
 
-
+import { adminFetch } from "@/lib/adminFetch";
 interface ExcelQuestion {
     Category: string;
     Class: string;
@@ -146,10 +146,6 @@ export default function BulkUploadPage() {
                 }
             );
 
-            // Refresh homepage cache
-            await fetch("/api/revalidate-home", {
-                method: "POST",
-            });
 
             const CATEGORY_MAP: Record<string, string> = {
                 safety: "fn3",
@@ -174,15 +170,18 @@ export default function BulkUploadPage() {
                 ),
             ];
 
-            await fetch("/api/revalidate-orals", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    categories,
+            await Promise.all([
+                adminFetch("/api/revalidate-home", {
+                    method: "POST",
                 }),
-            });
+                adminFetch("/api/revalidate-orals", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ categories }),
+                }),
+            ]);
 
             alert(
                 `${rows.length

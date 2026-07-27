@@ -21,8 +21,6 @@ export const getHomeStats = unstable_cache(
             Object.entries(data.oral ?? {}).map(([key, value]: any) => [
                 key,
                 {
-                    questions: value.questionCount ?? 0,
-                    topics: value.topicCount ?? 0,
                     updatedAt: value.updatedAt?.toDate?.() ?? null,
                 },
             ])
@@ -32,8 +30,6 @@ export const getHomeStats = unstable_cache(
             Object.entries(data.written ?? {}).map(([key, value]: any) => [
                 key,
                 {
-                    questions: value.questionCount ?? 0,
-                    topics: value.topicCount ?? 0,
                     updatedAt: value.updatedAt?.toDate?.() ?? null,
                 },
             ])
@@ -46,7 +42,7 @@ export const getHomeStats = unstable_cache(
     },
     ["home-stats"],
     {
-        revalidate: 300,
+        revalidate: false,
         tags: ["home-stats"] // 5 minutes
     }
 );

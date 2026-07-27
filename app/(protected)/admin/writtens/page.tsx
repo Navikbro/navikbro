@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-
+import { adminFetch } from "@/lib/adminFetch";
 import { uploadWrittenBatch } from "@/services/writtenBatch.service";
 interface ExcelQuestion {
     Class: string;
@@ -142,13 +142,20 @@ export default function WrittenUploadPage() {
 
             await uploadWrittenBatch(rows, fileName);
 
-            // Refresh homepage cache
-            const res = await fetch("/api/revalidate-home", {
-                method: "POST",
-            });
+            const category = rows[0].Category.toLowerCase();
 
-            console.log("Revalidate status:", res.status);
-            console.log(await res.json());
+            await Promise.all([
+                adminFetch("/api/revalidate-written", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ category }),
+                }),
+                adminFetch("/api/revalidate-home", {
+                    method: "POST",
+                }),
+            ]);
 
             alert(
                 `${rows.length} questions uploaded as "${fileName}".`
