@@ -73,6 +73,8 @@ app/
         route.ts
     revalidate-home/
       route.ts
+    revalidate-orals/
+      route.ts
     revalidate-written/
       route.ts
   context/
@@ -743,39 +745,6 @@ export default function ProtectedLayout({
       {children}
     </ProtectedRoute>
   );
-}
-</file>
-
-<file path="app/api/orals/batch/route.ts">
-import { NextRequest, NextResponse } from "next/server";
-import { getOralBatchPage } from "@/services/oralBatch.service";
-
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-
-  const category = searchParams.get("category");
-  const batch = Number(searchParams.get("batch"));
-
-  if (!category || !batch) {
-    return NextResponse.json(
-      { error: "Missing parameters" },
-      { status: 400 }
-    );
-  }
-
-  console.log("API REQUEST", {
-    category,
-    batch,
-  });
-
-  const result = await getOralBatchPage(
-    category,
-    batch
-  );
-
-  console.log("API RESPONSE", result);
-
-  return NextResponse.json(result);
 }
 </file>
 
@@ -1697,6 +1666,71 @@ export default function Loading() {
 }
 </file>
 
+<file path="app/api/orals/batch/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+
+export async function POST(req: NextRequest) {
+    const { categories } = await req.json();
+
+    if (!Array.isArray(categories)) {
+        return NextResponse.json(
+            { error: "Invalid categories" },
+            { status: 400 }
+        );
+    }
+
+    for (const category of categories) {
+        revalidateTag(`oral-${category}`, "max");
+        revalidateTag(`oral-${category}-meta`, "max");
+    }
+
+    return NextResponse.json({
+        success: true,
+    });
+}
+</file>
+
+<file path="app/api/revalidate-orals/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+
+const CATEGORY_MAP: Record<string, string> = {
+    safety: "fn3",
+    fn3: "fn3",
+    motor: "fn4b",
+    fn4b: "fn4b",
+    electrical: "fn5",
+    fn5: "fn5",
+    mep: "fn6",
+    fn6: "fn6",
+};
+
+export async function POST(req: NextRequest) {
+    const body = await req.json();
+
+    const rawCategories = Array.isArray(body.categories)
+        ? body.categories
+        : [];
+
+    const categories = [
+        ...new Set(
+            rawCategories.map(
+                (c: string) =>
+                    CATEGORY_MAP[c.toLowerCase()] ?? c.toLowerCase()
+            )
+        ),
+    ];
+
+    for (const category of categories) {
+        revalidateTag(`oral-${category}`, "max");
+        revalidateTag(`oral-${category}-meta`, "max");
+    }
+
+    return NextResponse.json({ success: true });
+}
+</file>
+
 <file path="app/context/AuthContext.tsx">
 "use client";
 
@@ -1955,678 +1989,6 @@ export async function getWrittenStats(category: string) {
     topics: data.topicCount ?? 0,
     updatedAt: data.updatedAt?.toDate?.() ?? null,
   };
-}
-</file>
-
-<file path="services/oralBatch.service.ts">
-import {
-    collection,
-    doc,
-    getDocs,
-    getDoc,
-    query,
-    runTransaction,
-    serverTimestamp,
-    updateDoc,
-    increment,
-    where,
-    writeBatch,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
-
-export const ORAL_BATCH_SIZE = 200;
-
-const CATEGORY_MAP: Record<string, string> = {
-    safety: "fn3",
-    fn3: "fn3",
-
-    motor: "fn4b",
-    fn4b: "fn4b",
-
-    electrical: "fn5",
-    fn5: "fn5",
-
-    mep: "fn6",
-    fn6: "fn6",
-};
-
-const clean = (value: unknown): string =>
-    String(value ?? "").trim();
-
-const getBatchId = (
-    category: string,
-    batchNumber: number
-): string =>
-    `${category.toLowerCase()}_batch_${String(
-        batchNumber
-    ).padStart(3, "0")}`;
-
-export interface OralBatchQuestion {
-    id: string;
-    class: string;
-    category: string;
-    examDate: string;
-    topic: string;
-    mmd: string;
-    surveyor: string;
-    question: string;
-    answer: string;
-    order: number;
-    isActive: boolean;
-}
-
-export interface OralBatchDocument {
-    batchId: string;
-    batchNumber: number;
-    category: string;
-    sourceFile: string;
-    questionCount: number;
-    topicCount: number;
-    questions: OralBatchQuestion[];
-    createdAt: unknown;
-    updatedAt: unknown;
-}
-
-export interface OralFilters {
-    topics: string[];
-    surveyors: string[];
-    mmds: string[];
-    classes: string[];
-}
-
-async function setBatchCount(
-    category: string,
-    batchCount: number,
-    questionCount: number,
-    topicCount: number
-) {
-    const counterRef = doc(
-        db,
-        "oral_batches_metadata",
-        "counters"
-    );
-
-    await runTransaction(db, async (transaction) => {
-        const snap = await transaction.get(counterRef);
-
-        if (!snap.exists()) {
-            throw new Error(
-                "oral_batches_metadata/counters document not found."
-            );
-        }
-
-        transaction.update(counterRef, {
-            [`${category}.batchCount`]: batchCount,
-            [`${category}.questionCount`]: questionCount,
-            [`${category}.topicCount`]: topicCount,
-            [`${category}.updatedAt`]: serverTimestamp(),
-        });
-    });
-}
-
-export async function deleteExistingBatches(
-    category: string
-) {
-    const q = query(
-        collection(db, "oral_batches"),
-        where("category", "==", category.toLowerCase())
-    );
-
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-        return;
-    }
-
-    const batch = writeBatch(db);
-
-    snapshot.docs.forEach((document) => {
-        batch.delete(document.ref);
-    });
-
-    await batch.commit();
-}
-
-export async function uploadOralBatch(
-    rows: any[],
-    sourceFile: string
-) {
-    if (!rows.length) return;
-
-    const groupedQuestions: Record<
-        string,
-        OralBatchQuestion[]
-    > = {};
-
-    rows
-        .filter((row) => row.Question)
-        .forEach((row) => {
-
-            let category = clean(row.Category)
-                .toLowerCase();
-
-            category =
-                CATEGORY_MAP[category] ?? category;
-
-            if (!groupedQuestions[category]) {
-                groupedQuestions[category] = [];
-            }
-
-            groupedQuestions[category].push({
-                id: crypto.randomUUID(),
-
-                class: clean(row.Class),
-                category,
-
-                examDate: clean(row.Date),
-
-                topic: clean(row.Topic),
-
-                mmd: clean(row.MMD),
-
-                surveyor: clean(row.Surveyor),
-
-                question: clean(row.Question),
-
-                answer: clean(row.Answer),
-
-                order:
-                    groupedQuestions[category]
-                        .length + 1,
-
-                isActive: true,
-            });
-        });
-
-    for (const category of Object.keys(groupedQuestions)) {
-
-        await deleteExistingBatches(category);
-
-        const questions =
-            groupedQuestions[category];
-
-        const firestoreBatch = writeBatch(db);
-
-        const totalBatches = Math.ceil(
-            questions.length / ORAL_BATCH_SIZE
-        );
-
-        for (
-            let batchNumber = 1;
-            batchNumber <= totalBatches;
-            batchNumber++
-        ) {
-
-            const start =
-                (batchNumber - 1) *
-                ORAL_BATCH_SIZE;
-
-            const batchQuestions =
-                questions.slice(
-                    start,
-                    start + ORAL_BATCH_SIZE
-                );
-
-            const batchId = getBatchId(
-                category,
-                batchNumber
-            );
-
-            firestoreBatch.set(
-                doc(db, "oral_batches", batchId),
-                {
-                    batchId,
-                    batchNumber,
-                    category,
-                    sourceFile,
-
-                    questionCount: batchQuestions.length,
-
-                    topicCount: new Set(
-                        batchQuestions.map((q) => q.topic)
-                    ).size,
-
-                    questions: batchQuestions,
-
-                    createdAt: serverTimestamp(),
-
-                    updatedAt: serverTimestamp(),
-                }
-            );
-
-            console.log(
-                `Uploaded ${batchId} (${batchQuestions.length} questions)`
-            );
-        }
-
-        await firestoreBatch.commit();
-
-        console.log(
-            `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
-        );
-    }
-}
-
-export async function getOralBatchQuestions(
-    category: string
-): Promise<OralBatchQuestion[]> {
-
-    const q = query(
-        collection(db, "oral_batches"),
-        where(
-            "category",
-            "==",
-            category.toLowerCase()
-        )
-    );
-
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-        return [];
-    }
-
-    const questions: OralBatchQuestion[] = [];
-
-    snapshot.docs
-        .sort((a, b) => {
-            const first =
-                a.data().batchNumber ?? 0;
-
-            const second =
-                b.data().batchNumber ?? 0;
-
-            return first - second;
-        })
-        .forEach((document) => {
-
-            const data =
-                document.data() as OralBatchDocument;
-
-            if (
-                Array.isArray(data.questions)
-            ) {
-                questions.push(
-                    ...data.questions
-                );
-            }
-
-        });
-
-    questions.sort(
-        (a, b) => a.order - b.order
-    );
-
-    return questions;
-}
-
-export async function getOralBatchPage(
-    category: string,
-    batchNumber: number,
-    batchCount: number
-) {
-    const currentBatchId = getBatchId(
-        category,
-        batchNumber
-    );
-
-    const currentSnapshot = await getDoc(
-        doc(
-            db,
-            "oral_batches",
-            currentBatchId
-        )
-    );
-
-    if (!currentSnapshot.exists()) {
-        return {
-            questions: [],
-            hasMore: false,
-            nextBatch: null,
-        };
-    }
-
-    const data =
-        currentSnapshot.data() as OralBatchDocument;
-
-    const hasMore = batchNumber < batchCount;
-
-    return {
-        questions: data.questions,
-        hasMore,
-        nextBatch: hasMore
-            ? batchNumber + 1
-            : null,
-    };
-}
-
-
-export async function getOralCategoryMeta(
-    category: string
-): Promise<{
-    batchCount: number;
-    questionCount: number;
-    topicCount: number;
-}> {
-    const snapshot = await getDoc(
-        doc(db, "oral_batches_metadata", "counters")
-    );
-
-    if (!snapshot.exists()) {
-        return {
-            batchCount: 0,
-            questionCount: 0,
-            topicCount: 0,
-        };
-    }
-
-    const data = snapshot.data();
-
-    const meta = data[category.toLowerCase()] ?? {};
-
-    return {
-        batchCount: meta.batchCount ?? 0,
-        questionCount: meta.questionCount ?? 0,
-        topicCount: meta.topicCount ?? 0,
-    };
-}
-
-export async function deleteOralBatchQuestion(
-    category: string,
-    questionId: string
-) {
-    const q = query(
-        collection(db, "oral_batches"),
-        where("category", "==", category.toLowerCase())
-    );
-
-    const snapshot = await getDocs(q);
-
-    for (const batchDoc of snapshot.docs) {
-
-        const data =
-            batchDoc.data() as OralBatchDocument;
-
-        const index = data.questions.findIndex(
-            q => q.id === questionId
-        );
-
-        if (index === -1) continue;
-
-        data.questions.splice(index, 1);
-
-        data.questions.forEach((q, i) => {
-            q.order = i + 1;
-        });
-
-        await updateDoc(batchDoc.ref, {
-            questions: data.questions,
-            questionCount: data.questions.length,
-            topicCount: new Set(
-                data.questions.map(q => q.topic)
-            ).size,
-            updatedAt: serverTimestamp(),
-        });
-
-        await runTransaction(db, async (transaction) => {
-
-            const counterRef = doc(
-                db,
-                "oral_batches_metadata",
-                "counters"
-            );
-
-            transaction.update(counterRef, {
-                [`${category.toLowerCase()}.questionCount`]:
-                    increment(-1),
-            });
-
-        });
-
-        return;
-    }
-
-    throw new Error("Question not found.");
-}
-
-export async function updateOralBatchQuestion(
-    category: string,
-    id: string,
-    data: {
-        question: string;
-        answer: string;
-    }
-) {
-
-    const snapshot = await getDocs(
-        query(
-            collection(db, "oral_batches"),
-            where(
-                "category",
-                "==",
-                category.toLowerCase()
-            )
-        )
-    );
-
-    for (const batchDoc of snapshot.docs) {
-
-        const batchData = batchDoc.data();
-
-        const questions = [...(batchData.questions ?? [])];
-
-        const index = questions.findIndex(
-            (q: OralBatchQuestion) => q.id === id
-        );
-
-        if (index === -1) {
-            continue;
-        }
-
-        questions[index] = {
-            ...questions[index],
-            question: data.question,
-            answer: data.answer,
-        };
-
-        await updateDoc(
-            batchDoc.ref,
-            {
-                questions,
-                updatedAt: serverTimestamp(),
-            }
-        );
-
-        return;
-    }
-
-    throw new Error("Question not found");
-}
-
-export async function deleteOralBatchQuestions(
-    category: string,
-    ids: string[]
-) {
-    const normalizedCategory = category.toLowerCase();
-
-    const snapshot = await getDocs(
-        query(
-            collection(db, "oral_batches"),
-            where(
-                "category",
-                "==",
-                normalizedCategory
-            )
-        )
-    );
-
-
-    let deletedCount = 0;
-
-
-    for (const batchDoc of snapshot.docs) {
-
-        const batchData = batchDoc.data();
-
-        const questions: OralBatchQuestion[] =
-            batchData.questions ?? [];
-
-
-        const updatedQuestions =
-            questions.filter(
-                (q: OralBatchQuestion) =>
-                    !ids.includes(q.id)
-            );
-
-
-        if (
-            updatedQuestions.length ===
-            questions.length
-        ) {
-            continue;
-        }
-
-
-        deletedCount +=
-            questions.length -
-            updatedQuestions.length;
-
-
-        updatedQuestions.forEach((q, index) => {
-            q.order = index + 1;
-        });
-
-
-        const topicCount =
-            new Set(
-                updatedQuestions.map(
-                    (q) => q.topic
-                )
-            ).size;
-
-
-        await updateDoc(
-            batchDoc.ref,
-            {
-                questions: updatedQuestions,
-
-                questionCount:
-                    updatedQuestions.length,
-
-                topicCount,
-
-                updatedAt:
-                    serverTimestamp(),
-            }
-        );
-
-
-        console.log(
-            "Updated batch:",
-            batchDoc.id
-        );
-
-    }
-
-
-
-    // Update metadata counter
-    if (deletedCount > 0) {
-
-        await runTransaction(
-            db,
-            async (transaction) => {
-
-                const counterRef =
-                    doc(
-                        db,
-                        "oral_batches_metadata",
-                        "counters"
-                    );
-
-
-                const counterSnap =
-                    await transaction.get(
-                        counterRef
-                    );
-
-
-                if (!counterSnap.exists()) {
-                    return;
-                }
-
-
-                const data =
-                    counterSnap.data();
-
-
-                const currentCount =
-                    data[normalizedCategory]
-                        ?.questionCount ?? 0;
-
-
-
-                transaction.update(
-                    counterRef,
-                    {
-
-                        [`${normalizedCategory}.questionCount`]:
-                            Math.max(
-                                currentCount -
-                                deletedCount,
-                                0
-                            ),
-
-
-                        [`${normalizedCategory}.updatedAt`]:
-                            serverTimestamp(),
-
-                    }
-                );
-
-            }
-        );
-
-    }
-
-
-}
-
-
-
-
-export async function getOralFilters(
-    category: string
-): Promise<OralFilters> {
-
-    const questions = await getOralBatchQuestions(category);
-
-    return {
-        topics: [
-            ...new Set(
-                questions.map(q => q.topic)
-            ),
-        ].sort(),
-
-        surveyors: [
-            ...new Set(
-                questions.map(q => q.surveyor)
-            ),
-        ].sort(),
-
-        mmds: [
-            ...new Set(
-                questions.map(q => q.mmd)
-            ),
-        ].sort(),
-
-        classes: [
-            ...new Set(
-                questions.map(q => q.class)
-            ),
-        ].sort(),
-    };
 }
 </file>
 
@@ -3141,48 +2503,6 @@ export default function HomeClient({
 }
 </file>
 
-<file path="lib/oral-cache.ts">
-import { unstable_cache } from "next/cache";
-
-import {
-    getOralBatchPage,
-    getOralCategoryMeta,
-} from "@/services/oralBatch.service";
-
-
-export async function getCachedOralBatchPage(
-    category: string,
-    batchNumber: number
-) {
-
-    const cached = unstable_cache(
-        async () => {
-
-            const meta =
-                await getOralCategoryMeta(category);
-
-            return getOralBatchPage(
-                category,
-                batchNumber,
-                meta.batchCount
-            );
-
-        },
-        [
-            "oral-batch-page",
-            category,
-            String(batchNumber),
-        ],
-        {
-            revalidate: 3600,
-        }
-    );
-
-
-    return cached();
-}
-</file>
-
 <file path="components/AuthModal.tsx">
 "use client";
 
@@ -3301,210 +2621,6 @@ export default function AuthModal({
       </div>
 
     </div>
-  );
-}
-</file>
-
-<file path="components/QuestionsContainer.tsx">
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-import QuestionsList from "./QuestionsList";
-
-import {
-  OralFilters,
-} from "@/services/firestore";
-
-import {
-  OralBatchQuestion,
-} from "@/services/oralBatch.service";
-
-
-interface Props {
-  category: string;
-  initialQuestions: OralBatchQuestion[];
-  filters: OralFilters;
-  initialHasMore: boolean;
-  initialNextBatch: number | null;
-  totalQuestions: number;
-}
-
-
-export default function QuestionsContainer({
-  category,
-  initialQuestions,
-  filters,
-  initialHasMore,
-  initialNextBatch,
-  totalQuestions,
-}: Props) {
-
-  console.log("QuestionsContainer totalQuestions:", totalQuestions);
-
-
-  const [questions, setQuestions] =
-    useState<OralBatchQuestion[]>(initialQuestions);
-
-  const [nextBatch, setNextBatch] =
-    useState<number | null>(initialNextBatch);
-
-  const [hasMore, setHasMore] =
-    useState(initialHasMore);
-
-  const [loading, setLoading] =
-    useState(false);
-
-
-  console.log("QuestionsContainer render", {
-    questions: questions.length,
-    totalQuestions,
-    nextBatch,
-    hasMore,
-    loading,
-  });
-
-
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-
-  const loadingRef = useRef(false);
-
-
-  async function loadMore() {
-
-    if (!nextBatch || loadingRef.current) return;
-
-
-    loadingRef.current = true;
-    setLoading(true);
-
-
-    const batchToLoad = nextBatch;
-
-
-    try {
-
-      console.log("Loading batch", batchToLoad);
-
-
-      const response = await fetch(
-        `/api/orals/batch?category=${category}&batch=${batchToLoad}`
-      );
-
-
-      if (!response.ok) {
-        throw new Error("Failed to load batch");
-      }
-
-
-      const result = await response.json();
-
-
-      console.log("Result:", result);
-
-
-      setQuestions(prev => [
-        ...prev,
-        ...result.questions,
-      ]);
-
-
-      setHasMore(result.hasMore);
-
-      setNextBatch(result.nextBatch);
-
-
-    } catch (e) {
-
-      console.error("Load More Error:", e);
-
-    } finally {
-
-      loadingRef.current = false;
-
-      setLoading(false);
-
-    }
-  }
-
-
-
-  useEffect(() => {
-
-    const element = loadMoreRef.current;
-
-    if (!element) return;
-
-
-    const observer = new IntersectionObserver(
-
-      ([entry]) => {
-
-        if (entry.isIntersecting && hasMore) {
-          loadMore();
-        }
-
-      },
-
-      {
-        rootMargin: "300px",
-      }
-
-    );
-
-
-    observer.observe(element);
-
-
-    return () => observer.disconnect();
-
-
-  }, [hasMore]);
-
-
-
-  return (
-    <>
-
-      <QuestionsList
-        category={category}
-        questions={questions}
-        filters={filters}
-        totalQuestions={totalQuestions}
-      />
-
-
-      {hasMore && (
-
-        <div
-          ref={loadMoreRef}
-          className="flex justify-center py-8"
-        >
-
-          <p className="text-sm text-gray-400">
-            Loading more...
-          </p>
-
-        </div>
-
-      )}
-
-
-
-      {!hasMore && questions.length > 0 && (
-
-        <div className="py-10 text-center">
-
-          <div className="mx-auto mb-4 h-px w-24 bg-gray-300" />
-
-          <p className="text-sm text-gray-500">
-            You've reached the end.
-          </p>
-
-        </div>
-
-      )}
-
-    </>
   );
 }
 </file>
@@ -3642,6 +2758,945 @@ export default function WrittenFilters({
       </div>
     </div>
   );
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+
+import { AuthProvider } from "@/app/context/AuthContext";
+import InitialLoader from "@/components/InitialLoader";
+export const metadata: Metadata = {
+  title: "NAVIK",
+  description: "Sail Towards COC",
+
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0A2540",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider>
+          <InitialLoader>
+            {children}
+          </InitialLoader>
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="components/LoadingScreen.tsx">
+"use client";
+
+import { Sailboat } from "lucide-react";
+
+interface Props {
+  text?: string;
+}
+
+export default function LoadingScreen({
+  text = "Loading Questions...",
+}: Props) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#f5f5f5]">
+
+      <div className="flex flex-col items-center">
+
+        {/* WAVES + SHIP */}
+        <div className="relative mb-2 flex h-24 w-64 items-end justify-center overflow-hidden">
+
+          {/* Wave 1 */}
+          <div className="absolute bottom-0 h-6 w-[300px] rounded-[100%] bg-black/10 animate-wave1" />
+
+          {/* Wave 2 */}
+          <div className="absolute bottom-2 h-5 w-[260px] rounded-[100%] bg-black/5 animate-wave2" />
+
+
+          {/* SHIP */}
+          <div className="relative animate-float">
+
+            <div className="animate-ship">
+              <Sailboat
+                size={60}
+                strokeWidth={2}
+                className="text-black"
+              />
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* TEXT */}
+        <p className="mt-2 px-5 text-center text-sm tracking-wide text-gray-500">
+          {text}
+        </p>
+
+
+      </div>
+
+    </div>
+  );
+}
+</file>
+
+<file path="services/oralBatch.service.ts">
+import {
+    collection,
+    doc,
+    getDocs,
+    getDoc,
+    query,
+    runTransaction,
+    serverTimestamp,
+    updateDoc,
+    increment,
+    where,
+    writeBatch,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+export const ORAL_BATCH_SIZE = 200;
+
+const CATEGORY_MAP: Record<string, string> = {
+    safety: "fn3",
+    fn3: "fn3",
+
+    motor: "fn4b",
+    fn4b: "fn4b",
+
+    electrical: "fn5",
+    fn5: "fn5",
+
+    mep: "fn6",
+    fn6: "fn6",
+};
+
+const clean = (value: unknown): string =>
+    String(value ?? "").trim();
+
+const getBatchId = (
+    category: string,
+    batchNumber: number
+): string =>
+    `${category.toLowerCase()}_batch_${String(
+        batchNumber
+    ).padStart(3, "0")}`;
+
+export interface OralBatchQuestion {
+    id: string;
+    class: string;
+    category: string;
+    examDate: string;
+    topic: string;
+    mmd: string;
+    surveyor: string;
+    question: string;
+    answer: string;
+    order: number;
+    isActive: boolean;
+}
+
+export interface OralBatchDocument {
+    batchId: string;
+    batchNumber: number;
+    category: string;
+    sourceFile: string;
+    questionCount: number;
+    topicCount: number;
+    questions: OralBatchQuestion[];
+    createdAt: unknown;
+    updatedAt: unknown;
+}
+
+export interface OralFilters {
+    topics: string[];
+    surveyors: string[];
+    mmds: string[];
+    classes: string[];
+}
+
+async function setBatchCount(
+    category: string,
+    batchCount: number,
+    questionCount: number,
+    topicCount: number,
+    topics: string[],
+    surveyors: string[],
+    mmds: string[],
+    classes: string[]
+) {
+    const counterRef = doc(
+        db,
+        "oral_batches_metadata",
+        "counters"
+    );
+
+    await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(counterRef);
+
+        if (!snap.exists()) {
+            throw new Error(
+                "oral_batches_metadata/counters document not found."
+            );
+        }
+
+        transaction.update(counterRef, {
+            [`${category}.batchCount`]: batchCount,
+            [`${category}.questionCount`]: questionCount,
+            [`${category}.topicCount`]: topicCount,
+
+            [`${category}.topics`]: topics,
+            [`${category}.surveyors`]: surveyors,
+            [`${category}.mmds`]: mmds,
+            [`${category}.classes`]: classes,
+
+            [`${category}.updatedAt`]: serverTimestamp(),
+        });
+    });
+}
+
+export async function deleteExistingBatches(
+    category: string
+) {
+    const q = query(
+        collection(db, "oral_batches"),
+        where("category", "==", category.toLowerCase())
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return;
+    }
+
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach((document) => {
+        batch.delete(document.ref);
+    });
+
+    await batch.commit();
+}
+
+export async function uploadOralBatch(
+    rows: any[],
+    sourceFile: string,
+    onProgress?: (uploaded: number, total: number) => void
+) {
+    if (!rows.length) return;
+
+    const uploadedCategories = new Set<string>();
+
+    const groupedQuestions: Record<
+        string,
+        OralBatchQuestion[]
+    > = {};
+
+    rows
+        .filter((row) => row.Question)
+        .forEach((row) => {
+
+            let category = clean(row.Category)
+                .toLowerCase();
+
+            category =
+                CATEGORY_MAP[category] ?? category;
+
+            if (!groupedQuestions[category]) {
+                groupedQuestions[category] = [];
+            }
+
+            groupedQuestions[category].push({
+                id: crypto.randomUUID(),
+
+                class: clean(row.Class),
+                category,
+
+                examDate: clean(row.Date),
+
+                topic: clean(row.Topic),
+
+                mmd: clean(row.MMD),
+
+                surveyor: clean(row.Surveyor),
+
+                question: clean(row.Question),
+
+                answer: clean(row.Answer),
+
+                order:
+                    groupedQuestions[category]
+                        .length + 1,
+
+                isActive: true,
+            });
+        });
+
+    for (const category of Object.keys(groupedQuestions)) {
+
+        await deleteExistingBatches(category);
+
+        const questions =
+            groupedQuestions[category];
+
+        const topics = [...new Set(questions.map(q => q.topic))].sort();
+
+        const surveyors = [...new Set(questions.map(q => q.surveyor))].sort();
+
+        const mmds = [...new Set(questions.map(q => q.mmd))].sort();
+
+        const classes = [...new Set(questions.map(q => q.class))].sort();
+
+        const firestoreBatch = writeBatch(db);
+
+        const totalBatches = Math.ceil(
+            questions.length / ORAL_BATCH_SIZE
+        );
+
+        for (
+            let batchNumber = 1;
+            batchNumber <= totalBatches;
+            batchNumber++
+        ) {
+
+            const start =
+                (batchNumber - 1) *
+                ORAL_BATCH_SIZE;
+
+            const batchQuestions =
+                questions.slice(
+                    start,
+                    start + ORAL_BATCH_SIZE
+                );
+
+            const batchId = getBatchId(
+                category,
+                batchNumber
+            );
+
+            firestoreBatch.set(
+                doc(db, "oral_batches", batchId),
+                {
+                    batchId,
+                    batchNumber,
+                    category,
+                    sourceFile,
+
+                    questionCount: batchQuestions.length,
+
+                    topicCount: new Set(
+                        batchQuestions.map((q) => q.topic)
+                    ).size,
+
+                    questions: batchQuestions,
+
+                    createdAt: serverTimestamp(),
+
+                    updatedAt: serverTimestamp(),
+                }
+            );
+
+            console.log(
+                `Uploaded ${batchId} (${batchQuestions.length} questions)`
+            );
+        }
+
+        await firestoreBatch.commit();
+
+        await setBatchCount(
+            category,
+            totalBatches,
+            questions.length,
+            topics.length,
+            topics,
+            surveyors,
+            mmds,
+            classes
+        );
+
+        uploadedCategories.add(category);
+
+        console.log(
+            `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
+        );
+    }
+
+    if (uploadedCategories.size > 0) {
+        await fetch("/api/revalidate-oral", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                categories: [...uploadedCategories],
+            }),
+        });
+    }
+}
+
+
+
+export async function getOralBatchQuestions(
+    category: string
+): Promise<OralBatchQuestion[]> {
+
+    const q = query(
+        collection(db, "oral_batches"),
+        where(
+            "category",
+            "==",
+            category.toLowerCase()
+        )
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return [];
+    }
+
+    const questions: OralBatchQuestion[] = [];
+
+    snapshot.docs
+        .sort((a, b) => {
+            const first =
+                a.data().batchNumber ?? 0;
+
+            const second =
+                b.data().batchNumber ?? 0;
+
+            return first - second;
+        })
+        .forEach((document) => {
+
+            const data =
+                document.data() as OralBatchDocument;
+
+            if (
+                Array.isArray(data.questions)
+            ) {
+                questions.push(
+                    ...data.questions
+                );
+            }
+
+        });
+
+    questions.sort(
+        (a, b) => a.order - b.order
+    );
+
+    return questions;
+}
+
+export async function getOralBatchPage(
+    category: string,
+    batchNumber: number,
+    batchCount: number
+) {
+    const currentBatchId = getBatchId(
+        category,
+        batchNumber
+    );
+
+    const currentSnapshot = await getDoc(
+        doc(
+            db,
+            "oral_batches",
+            currentBatchId
+        )
+    );
+
+    if (!currentSnapshot.exists()) {
+        return {
+            questions: [],
+            hasMore: false,
+            nextBatch: null,
+        };
+    }
+
+    const data =
+        currentSnapshot.data() as OralBatchDocument;
+
+    const hasMore = batchNumber < batchCount;
+
+    return {
+        questions: data.questions,
+        hasMore,
+        nextBatch: hasMore
+            ? batchNumber + 1
+            : null,
+    };
+}
+
+
+export async function getOralCategoryMeta(
+    category: string
+): Promise<{
+    batchCount: number;
+    questionCount: number;
+    topicCount: number;
+}> {
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            batchCount: 0,
+            questionCount: 0,
+            topicCount: 0,
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        batchCount: meta.batchCount ?? 0,
+        questionCount: meta.questionCount ?? 0,
+        topicCount: meta.topicCount ?? 0,
+    };
+}
+
+export async function getOralCategoryData(
+    category: string
+): Promise<{
+    batchCount: number;
+    questionCount: number;
+    topicCount: number;
+    filters: OralFilters;
+}> {
+
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            batchCount: 0,
+            questionCount: 0,
+            topicCount: 0,
+            filters: {
+                topics: [],
+                surveyors: [],
+                mmds: [],
+                classes: [],
+            },
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        batchCount: meta.batchCount ?? 0,
+        questionCount: meta.questionCount ?? 0,
+        topicCount: meta.topicCount ?? 0,
+
+        filters: {
+            topics: meta.topics ?? [],
+            surveyors: meta.surveyors ?? [],
+            mmds: meta.mmds ?? [],
+            classes: meta.classes ?? [],
+        },
+    };
+}
+
+export async function deleteOralBatchQuestion(
+    category: string,
+    questionId: string
+) {
+    const q = query(
+        collection(db, "oral_batches"),
+        where("category", "==", category.toLowerCase())
+    );
+
+    const snapshot = await getDocs(q);
+
+    for (const batchDoc of snapshot.docs) {
+
+        const data =
+            batchDoc.data() as OralBatchDocument;
+
+        const index = data.questions.findIndex(
+            q => q.id === questionId
+        );
+
+        if (index === -1) continue;
+
+        data.questions.splice(index, 1);
+
+        data.questions.forEach((q, i) => {
+            q.order = i + 1;
+        });
+
+        await updateDoc(batchDoc.ref, {
+            questions: data.questions,
+            questionCount: data.questions.length,
+            topicCount: new Set(
+                data.questions.map(q => q.topic)
+            ).size,
+            updatedAt: serverTimestamp(),
+        });
+
+        await runTransaction(db, async (transaction) => {
+
+            const counterRef = doc(
+                db,
+                "oral_batches_metadata",
+                "counters"
+            );
+
+            transaction.update(counterRef, {
+                [`${category.toLowerCase()}.questionCount`]:
+                    increment(-1),
+            });
+
+        });
+
+        return;
+    }
+
+    throw new Error("Question not found.");
+}
+
+export async function updateOralBatchQuestion(
+    category: string,
+    id: string,
+    data: {
+        question: string;
+        answer: string;
+    }
+) {
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where(
+                "category",
+                "==",
+                category.toLowerCase()
+            )
+        )
+    );
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        const questions = [...(batchData.questions ?? [])];
+
+        const index = questions.findIndex(
+            (q: OralBatchQuestion) => q.id === id
+        );
+
+        if (index === -1) {
+            continue;
+        }
+
+        questions[index] = {
+            ...questions[index],
+            question: data.question,
+            answer: data.answer,
+        };
+
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions,
+                updatedAt: serverTimestamp(),
+            }
+        );
+
+        return;
+    }
+
+    throw new Error("Question not found");
+}
+
+export async function deleteOralBatchQuestions(
+    category: string,
+    ids: string[]
+) {
+    const normalizedCategory = category.toLowerCase();
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            )
+        )
+    );
+
+
+    let deletedCount = 0;
+
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        const questions: OralBatchQuestion[] =
+            batchData.questions ?? [];
+
+
+        const updatedQuestions =
+            questions.filter(
+                (q: OralBatchQuestion) =>
+                    !ids.includes(q.id)
+            );
+
+
+        if (
+            updatedQuestions.length ===
+            questions.length
+        ) {
+            continue;
+        }
+
+
+        deletedCount +=
+            questions.length -
+            updatedQuestions.length;
+
+
+        updatedQuestions.forEach((q, index) => {
+            q.order = index + 1;
+        });
+
+
+        const topicCount =
+            new Set(
+                updatedQuestions.map(
+                    (q) => q.topic
+                )
+            ).size;
+
+
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions: updatedQuestions,
+
+                questionCount:
+                    updatedQuestions.length,
+
+                topicCount,
+
+                updatedAt:
+                    serverTimestamp(),
+            }
+        );
+
+
+        console.log(
+            "Updated batch:",
+            batchDoc.id
+        );
+
+    }
+
+
+
+    // Update metadata counter
+    if (deletedCount > 0) {
+
+        await runTransaction(
+            db,
+            async (transaction) => {
+
+                const counterRef =
+                    doc(
+                        db,
+                        "oral_batches_metadata",
+                        "counters"
+                    );
+
+
+                const counterSnap =
+                    await transaction.get(
+                        counterRef
+                    );
+
+
+                if (!counterSnap.exists()) {
+                    return;
+                }
+
+
+                const data =
+                    counterSnap.data();
+
+
+                const currentCount =
+                    data[normalizedCategory]
+                        ?.questionCount ?? 0;
+
+
+
+                transaction.update(
+                    counterRef,
+                    {
+
+                        [`${normalizedCategory}.questionCount`]:
+                            Math.max(
+                                currentCount -
+                                deletedCount,
+                                0
+                            ),
+
+
+                        [`${normalizedCategory}.updatedAt`]:
+                            serverTimestamp(),
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+
+}
+
+
+
+
+export async function getOralFilters(
+    category: string
+): Promise<OralFilters> {
+
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            topics: [],
+            surveyors: [],
+            mmds: [],
+            classes: [],
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        topics: meta.topics ?? [],
+        surveyors: meta.surveyors ?? [],
+        mmds: meta.mmds ?? [],
+        classes: meta.classes ?? [],
+    };
+}
+
+export async function getAllOralBatchQuestions(
+    category: string
+): Promise<OralBatchQuestion[]> {
+
+
+    const meta =
+        await getOralCategoryMeta(category);
+
+
+    const batchCount =
+        meta.batchCount;
+
+
+    const allQuestions: OralBatchQuestion[] = [];
+
+
+    for (
+        let batchNumber = 1;
+        batchNumber <= batchCount;
+        batchNumber++
+    ) {
+
+
+        const page =
+            await getOralBatchPage(
+                category,
+                batchNumber,
+                batchCount
+            );
+
+
+        allQuestions.push(
+            ...page.questions
+        );
+
+    }
+
+
+    return allQuestions;
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+    
+  }
 }
 </file>
 
@@ -4495,143 +4550,6 @@ export default function ManageWrittenQuestionsPage() {
 }
 </file>
 
-<file path="app/layout.tsx">
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
-
-import { AuthProvider } from "@/app/context/AuthContext";
-import InitialLoader from "@/components/InitialLoader";
-export const metadata: Metadata = {
-  title: "NAVIK",
-  description: "Sail Towards COC",
-
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-icon.png",
-  },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#0A2540",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body>
-        <AuthProvider>
-          <InitialLoader>
-            {children}
-          </InitialLoader>
-        </AuthProvider>
-      </body>
-    </html>
-  );
-}
-</file>
-
-<file path="components/LoadingScreen.tsx">
-"use client";
-
-import { Sailboat } from "lucide-react";
-
-interface Props {
-  text?: string;
-}
-
-export default function LoadingScreen({
-  text = "Loading Questions...",
-}: Props) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#f5f5f5]">
-
-      <div className="flex flex-col items-center">
-
-        {/* WAVES + SHIP */}
-        <div className="relative mb-2 flex h-24 w-64 items-end justify-center overflow-hidden">
-
-          {/* Wave 1 */}
-          <div className="absolute bottom-0 h-6 w-[300px] rounded-[100%] bg-black/10 animate-wave1" />
-
-          {/* Wave 2 */}
-          <div className="absolute bottom-2 h-5 w-[260px] rounded-[100%] bg-black/5 animate-wave2" />
-
-
-          {/* SHIP */}
-          <div className="relative animate-float">
-
-            <div className="animate-ship">
-              <Sailboat
-                size={60}
-                strokeWidth={2}
-                className="text-black"
-              />
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* TEXT */}
-        <p className="mt-2 px-5 text-center text-sm tracking-wide text-gray-500">
-          {text}
-        </p>
-
-
-      </div>
-
-    </div>
-  );
-}
-</file>
-
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "exceljs": "^4.4.0",
-    "firebase": "^12.15.0",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.1",
-    "typescript": "^5"
-    
-  }
-}
-</file>
-
 <file path="app/(protected)/admin/writtens/page.tsx">
 "use client";
 
@@ -5041,6 +4959,44 @@ export default function WrittenUploadPage() {
             }
         </>
     );
+}
+</file>
+
+<file path="components/QuestionsContainer.tsx">
+"use client";
+
+import { useState } from "react";
+import QuestionsList from "./QuestionsList";
+
+import type {
+  OralBatchQuestion,
+  OralFilters,
+} from "@/services/oralBatch.service";
+
+interface Props {
+  category: string;
+  initialQuestions: OralBatchQuestion[];
+  filters: OralFilters;
+  totalQuestions: number;
+}
+
+export default function QuestionsContainer({
+  category,
+  initialQuestions,
+  filters,
+  totalQuestions,
+}: Props) {
+  const [questions] =
+    useState<OralBatchQuestion[]>(initialQuestions);
+
+  return (
+    <QuestionsList
+      category={category}
+      questions={questions}
+      filters={filters}
+      totalQuestions={totalQuestions}
+    />
+  );
 }
 </file>
 
@@ -5934,6 +5890,84 @@ font-semibold
 }
 </file>
 
+<file path="lib/oral-cache.ts">
+import { unstable_cache } from "next/cache";
+
+import {
+  getAllOralBatchQuestions,
+  getOralCategoryData,
+} from "@/services/oralBatch.service";
+
+
+export async function getCachedAllOralQuestions(
+  category: string
+) {
+
+  const normalizedCategory =
+    category.trim().toLowerCase();
+
+
+  const cached =
+    unstable_cache(
+      async () => {
+
+        return getAllOralBatchQuestions(
+          normalizedCategory
+        );
+
+      },
+      [
+        "oral-all-questions",
+        normalizedCategory,
+      ],
+      {
+        tags: [
+          `oral-${normalizedCategory}`,
+        ],
+      }
+    );
+
+
+  return cached();
+
+}
+
+
+
+export async function getCachedOralCategoryData(
+  category: string
+) {
+
+  const normalizedCategory =
+    category.trim().toLowerCase();
+
+
+  const cached =
+    unstable_cache(
+      async () => {
+
+        return getOralCategoryData(
+          normalizedCategory
+        );
+
+      },
+      [
+        "oral-category-data",
+        normalizedCategory,
+      ],
+      {
+        tags: [
+          `oral-${normalizedCategory}-meta`,
+        ],
+      }
+    );
+
+
+  return cached();
+
+}
+</file>
+
 <file path="components/Header.tsx">
 "use client";
 
@@ -6316,6 +6350,60 @@ export default function Header({
 }
 </file>
 
+<file path="app/page.tsx">
+import HomeClient from "@/components/HomeClient";
+import { getHomeStats } from "@/lib/home-cache";
+
+export default async function HomePage() {
+  const { oralStats, writtenStats } = await getHomeStats();
+
+  return (
+    <HomeClient
+      oralStats={oralStats}
+      writtenStats={writtenStats}
+    />
+  );
+}
+</file>
+
+<file path="components/InitialLoader.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import LoadingScreen from "./LoadingScreen";
+
+export default function InitialLoader({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+
+  const [loading,setLoading] = useState(true);
+
+  useEffect(()=>{
+
+    const timer=setTimeout(()=>{
+      setLoading(false);
+    },2000);
+
+    return ()=>clearTimeout(timer);
+
+  },[]);
+
+
+  if(loading){
+    return (
+      <LoadingScreen 
+        text="Setting your course..."
+      />
+    );
+  }
+
+
+  return children;
+}
+</file>
+
 <file path="app/(protected)/admin/orals/page.tsx">
 "use client";
 
@@ -6323,9 +6411,6 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 import { uploadOralBatch } from "@/services/oralBatch.service";
 
-import {
-    bulkUploadQuestions,
-} from "@/services/firestore";
 
 interface ExcelQuestion {
     Category: string;
@@ -6456,8 +6541,10 @@ export default function BulkUploadPage() {
 
             setUploading(true);
 
-            await bulkUploadQuestions(
+            // create the batch
+            await uploadOralBatch(
                 rows,
+                "Admin Upload",
                 (uploaded, total) => {
                     setUploadProgress({
                         uploaded,
@@ -6466,15 +6553,42 @@ export default function BulkUploadPage() {
                 }
             );
 
-            // ALSO create the batch documents
-            await uploadOralBatch(
-                rows,
-                "Admin Upload"
-            );
-
             // Refresh homepage cache
             await fetch("/api/revalidate-home", {
                 method: "POST",
+            });
+
+            const CATEGORY_MAP: Record<string, string> = {
+                safety: "fn3",
+                fn3: "fn3",
+
+                motor: "fn4b",
+                fn4b: "fn4b",
+
+                electrical: "fn5",
+                fn5: "fn5",
+
+                mep: "fn6",
+                fn6: "fn6",
+            };
+
+            const categories = [
+                ...new Set(
+                    rows.map((r) => {
+                        const category = r.Category.trim().toLowerCase();
+                        return CATEGORY_MAP[category] ?? category;
+                    })
+                ),
+            ];
+
+            await fetch("/api/revalidate-orals", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    categories,
+                }),
             });
 
             alert(
@@ -6484,6 +6598,11 @@ export default function BulkUploadPage() {
 
             setRows([]);
             setValidationErrors([]);
+
+            setUploadProgress({
+                uploaded: 0,
+                total: 0,
+            });
 
             setShowConfirm(false);
 
@@ -6761,241 +6880,6 @@ export default function BulkUploadPage() {
 }
 </file>
 
-<file path="app/page.tsx">
-import HomeClient from "@/components/HomeClient";
-import { getHomeStats } from "@/lib/home-cache";
-
-export default async function HomePage() {
-  const { oralStats, writtenStats } = await getHomeStats();
-
-  return (
-    <HomeClient
-      oralStats={oralStats}
-      writtenStats={writtenStats}
-    />
-  );
-}
-</file>
-
-<file path="components/InitialLoader.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import LoadingScreen from "./LoadingScreen";
-
-export default function InitialLoader({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-
-  const [loading,setLoading] = useState(true);
-
-  useEffect(()=>{
-
-    const timer=setTimeout(()=>{
-      setLoading(false);
-    },2000);
-
-    return ()=>clearTimeout(timer);
-
-  },[]);
-
-
-  if(loading){
-    return (
-      <LoadingScreen 
-        text="Setting your course..."
-      />
-    );
-  }
-
-
-  return children;
-}
-</file>
-
-<file path="app/(protected)/orals/[category]/page.tsx">
-import UserGreeting from "@/components/UserGreeting";
-import QuestionsContainer from "@/components/QuestionsContainer";
-import { unstable_cache } from "next/cache";
-import Link from "next/link";
-import { ArrowLeft, Sailboat } from "lucide-react";
-import InsightSwitcher from "@/components/InsightSwitcher";
-import {
-  getOralCategoryMeta,
-  getOralFilters,
-} from "@/services/firestore";
-import { getCachedOralBatchPage } from "@/lib/oral-cache";
-
-const getCachedOralCategoryMeta = (category: string) =>
-  unstable_cache(
-    async () => {
-      return getOralCategoryMeta(category);
-    },
-    ["oral-category-meta", category],
-    {
-      revalidate: 3600,
-    }
-  )();
-
-interface PageProps {
-  params: Promise<{
-    category: string;
-  }>;
-}
-
-export default async function OralCategoryPage({
-  params,
-}: PageProps) {
-  const { category } = await params;
-
-  const normalizedCategory =
-    category.toLowerCase();
-
-  const [meta, filters, batch] = await Promise.all([
-    getCachedOralCategoryMeta(normalizedCategory),
-    getOralFilters(normalizedCategory),
-    getCachedOralBatchPage(
-      normalizedCategory,
-      1
-    )
-  ]);
-
-  console.log("META FROM PAGE", meta);
-
-  const titles: Record<
-    string,
-    {
-      title: string;
-      subtitle: string;
-      quote: string;
-    }
-  > = {
-    fn3: {
-      title: "FN3",
-      subtitle: "SAFETY",
-      quote:
-        "Today's revision is tomorrow's Promotion.",
-    },
-    fn4b: {
-      title: "FN4B",
-      subtitle: "MOTOR",
-      quote:
-        "Knowledge grows one question at a time.",
-    },
-    fn5: {
-      title: "FN5",
-      subtitle: "ELECTRICAL",
-      quote:
-        "Consistency beats intensity in exam preparation.",
-    },
-    fn6: {
-      title: "FN6",
-      subtitle: "MEP",
-      quote:
-        "Small improvements every day lead to big results.",
-    },
-  };
-
-  const page = titles[category.toLowerCase()] ?? {
-    title: category.toUpperCase(),
-    subtitle: "ORAL QUESTIONS",
-    quote:
-      "Success belongs to those who prepare before opportunity arrives.",
-  };
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-5xl px-5 py-8">
-
-        {/* HEADER */}
-        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-
-          {/* Top Row */}
-          <div className="flex items-center justify-between">
-
-            <Link
-              href="/"
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
-            >
-              <ArrowLeft size={20} />
-            </Link>
-
-            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
-              <Sailboat
-                size={30}
-                strokeWidth={2}
-                className="text-black"
-              />
-            </div>
-
-          </div>
-
-          {/* Greeting */}
-          <div className="mt-7">
-            <UserGreeting />
-          </div>
-
-          {/* Quote */}
-          <div className="mt-6 border-l-4 border-black pl-4">
-
-            <p className="text-sm italic leading-6 text-gray-600">
-              {page.quote}
-            </p>
-
-          </div>
-
-          {/* Badge */}
-          <div className="mt-6">
-
-            <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
-              {page.title}
-            </span>
-
-          </div>
-
-          {/* Category */}
-          <div className="mt-5">
-
-            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
-              {page.subtitle}
-            </h1>
-
-          </div>
-
-          {/* Stats */}
-          <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
-            <span>{meta.questionCount} Questions</span>
-
-            <span>•</span>
-
-            <span>{meta.topicCount} Topics</span>
-          </div>
-
-        </div>
-
-        <InsightSwitcher
-          category={normalizedCategory}
-          current="questions"
-        />
-
-        {/* Questions */}
-        <QuestionsContainer
-          category={normalizedCategory}
-          initialQuestions={batch.questions}
-          filters={filters}
-          initialHasMore={batch.hasMore}
-          initialNextBatch={batch.nextBatch}
-          totalQuestions={meta.questionCount}
-        />
-
-      </div>
-    </main>
-  );
-}
-</file>
-
 <file path="app/(protected)/writtens/[category]/page.tsx">
 import WrittensClient from "../[category]/WrittensClient";
 import { getCachedWrittenQuestions } from "@/lib/written-cache";
@@ -7021,364 +6905,6 @@ export default async function WrittenPage({
       category={normalizedCategory}
     />
   );
-}
-</file>
-
-<file path="components/QuestionsList.tsx">
-"use client"
-
-import { useEffect, useMemo, useState } from "react";
-import type { OralFilters } from "@/services/firestore";
-import {
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
-} from "lucide-react";
-
-import QuestionCard from "./QuestionCard";
-
-interface Question {
-  id: string;
-  question: string;
-  answer: string;
-  mmd: string;
-  surveyor: string;
-  topic: string;
-
-  class: string;
-
-  examDate: string;
-
-  order: number;
-  isActive: boolean;
-}
-
-interface Props {
-  category: string;
-  questions: Question[];
-  filters?: OralFilters;
-  totalQuestions: number;
-}
-
-export default function QuestionsList({
-  category,
-  questions,
-  filters,
-  totalQuestions,
-}: Props) {
-
-  const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-
-  const [bookmarks, setBookmarks] = useState<string[]>([]);
-  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
-
-  const DEFAULT_MMD = "All";
-
-  const [selectedMmd, setSelectedMmd] =
-    useState(DEFAULT_MMD);
-  const [selectedSurveyor, setSelectedSurveyor] = useState("All");
-  const [selectedTopic, setSelectedTopic] = useState("All");
-  const [selectedClass, setSelectedClass] = useState("All");
-
-  const topics = filters?.topics ?? [];
-  const surveyors = filters?.surveyors ?? [];
-  const mmds = filters?.mmds ?? [];
-  const classes = filters?.classes ?? [];
-  const showMmd = selectedMmd !== "All";
-  const showSurveyor = selectedSurveyor !== "All";
-  const showTopic = selectedTopic !== "All";
-
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((q) => {
-      if (q.isActive === false) return false;
-      if (showBookmarksOnly && !bookmarks.includes(q.id))
-        return false;
-
-      if (
-        selectedMmd !== "All" &&
-        q.mmd !== selectedMmd
-      )
-        return false;
-
-      if (
-        selectedSurveyor !== "All" &&
-        q.surveyor !== selectedSurveyor
-      )
-        return false;
-
-      if (
-        selectedTopic !== "All" &&
-        q.topic !== selectedTopic
-      )
-        return false;
-
-      if (
-        selectedClass !== "All" &&
-        q.class !== selectedClass
-      )
-        return false;
-
-      if (
-        search.trim() &&
-        !(
-          q.question
-            .toLowerCase()
-            .includes(search.toLowerCase()) ||
-          (q.answer ?? "").toLowerCase()
-            .includes(search.toLowerCase()) ||
-          q.topic
-            .toLowerCase()
-            .includes(search.toLowerCase()) ||
-          q.mmd
-            .toLowerCase()
-            .includes(search.toLowerCase()) ||
-          q.surveyor
-            .toLowerCase()
-            .includes(search.toLowerCase())
-        )
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [
-    questions,
-    search,
-    selectedMmd,
-    selectedSurveyor,
-    selectedTopic,
-    selectedClass,
-    bookmarks,
-    showBookmarksOnly,
-  ]);
-
-  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
-
-  const clearFilters = () => {
-    setSearch("");
-    setSelectedMmd(DEFAULT_MMD);
-    setSelectedSurveyor("All");
-    setSelectedTopic("All");
-    setSelectedClass("All");
-  };
-
-  useEffect(() => {
-    const saved = localStorage.getItem("bookmarkedQuestions");
-
-    if (saved) {
-      setBookmarks(JSON.parse(saved));
-    }
-  }, []);
-
-  const toggleBookmark = (id: string) => {
-    setBookmarks((prev) => {
-      const updated = prev.includes(id)
-        ? prev.filter((item) => item !== id)
-        : [...prev, id];
-
-      localStorage.setItem(
-        "bookmarkedQuestions",
-        JSON.stringify(updated)
-      );
-
-      return updated;
-    });
-  };
-
-  return (
-    <>
-      {/* SEARCH */}
-      <div className="mt-8">
-        <input
-          type="text"
-          placeholder="🔍 Search Questions..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
-        />
-      </div>
-
-      {/* FILTER BUTTON */}
-      <div className="mt-4 grid grid-cols-2 gap-3">
-
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
-        >
-          <div className="flex items-center gap-3">
-            <SlidersHorizontal size={18} />
-            <span className="font-semibold">Filters</span>
-          </div>
-
-          {showFilters ? (
-            <ChevronUp size={18} />
-          ) : (
-            <ChevronDown size={18} />
-          )}
-        </button>
-
-        <button
-          onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-          className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
-            ? "border-black bg-black text-white"
-            : "border-gray-200 bg-white hover:border-black"
-            }`}
-        >
-          🔖 Bookmarks ({bookmarks.length})
-        </button>
-
-      </div>
-
-      {/* FILTERS */}
-      {
-        showFilters && (
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-
-            <div className="grid gap-4 md:grid-cols-4">
-
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">Class</option>
-
-                {classes.map((questionClass) => (
-                  <option key={questionClass} value={questionClass}>
-                    {questionClass}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedMmd}
-                onChange={(e) => setSelectedMmd(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">All MMDs</option>
-
-                {mmds.map((mmd) => (
-                  <option key={mmd} value={mmd}>
-                    {mmd}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedSurveyor}
-                onChange={(e) => setSelectedSurveyor(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">All Surveyors</option>
-
-                {surveyors.map((surveyor) => (
-                  <option key={surveyor} value={surveyor}>
-                    {surveyor}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">All Topics</option>
-
-                {topics.map((topic) => (
-                  <option key={topic} value={topic}>
-                    {topic}
-                  </option>
-                ))}
-              </select>
-
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={clearFilters}
-                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
-              >
-                Clear Filters
-              </button>
-            </div>
-
-          </div>
-        )
-      }
-
-
-
-
-      {/* HEADING */}
-      <div className="mt-8 mb-6 flex items-center justify-between gap-4">
-
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
-          Questions
-        </h2>
-
-        <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
-          <span className="text-gray-500">Current:</span>{" "}
-          <span className="font-bold text-black">
-            <span className="font-bold text-black">
-              {totalQuestions}
-            </span>
-          </span>
-
-          <span className="mx-2 text-gray-300">|</span>
-
-        </div>
-
-      </div>
-
-      {/* QUESTIONS */}
-      <div className="space-y-4">
-
-        {filteredQuestions.map((q) => {
-
-
-          return (
-            <QuestionCard
-              key={q.id}
-              questionId={q.id}
-              category={category}
-              question={q.question}
-              answer={q.answer}
-              mmd={q.mmd}
-              surveyor={q.surveyor}
-              topic={q.topic}
-              examDate={q.examDate}
-              showMmd={showMmd}
-              showSurveyor={showSurveyor}
-              showTopic={showTopic}
-              isBookmarked={bookmarks.includes(q.id)}
-              onBookmark={() => toggleBookmark(q.id)}
-              isOpen={openQuestion === q.id}
-              onToggle={() => {
-                const currentScroll = window.scrollY;
-
-                setOpenQuestion(
-                  openQuestion === q.id ? null : q.id
-                );
-
-                requestAnimationFrame(() => {
-                  requestAnimationFrame(() => {
-                    window.scrollTo({
-                      top: currentScroll,
-                      behavior: "instant",
-                    });
-                  });
-                });
-              }}
-            />
-          );
-        })}
-      </div>
-
-    </>
-  )
 }
 </file>
 
@@ -8449,6 +7975,537 @@ export async function getQuestionsByOrder(
                 : null,
         hasMore: questions.length === pageSize,
     };
+}
+</file>
+
+<file path="components/QuestionsList.tsx">
+"use client"
+
+import { useEffect, useMemo, useState } from "react";
+import type { OralFilters } from "@/services/oralBatch.service";
+import {
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
+
+import QuestionCard from "./QuestionCard";
+
+interface Question {
+  id: string;
+  question: string;
+  answer: string;
+  mmd: string;
+  surveyor: string;
+  topic: string;
+
+  class: string;
+
+  examDate: string;
+
+  order: number;
+  isActive: boolean;
+}
+
+interface Props {
+  category: string;
+  questions: Question[];
+  filters?: OralFilters;
+  totalQuestions: number;
+}
+
+export default function QuestionsList({
+  category,
+  questions,
+  filters,
+  totalQuestions,
+}: Props) {
+
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+
+  const DEFAULT_MMD = "All";
+
+  const [selectedMmd, setSelectedMmd] =
+    useState(DEFAULT_MMD);
+  const [selectedSurveyor, setSelectedSurveyor] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+  const [selectedClass, setSelectedClass] = useState("All");
+
+  const topics = filters?.topics ?? [];
+  const surveyors = filters?.surveyors ?? [];
+  const mmds = filters?.mmds ?? [];
+  const classes = filters?.classes ?? [];
+  const showMmd = selectedMmd !== "All";
+  const showSurveyor = selectedSurveyor !== "All";
+  const showTopic = selectedTopic !== "All";
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      if (q.isActive === false) return false;
+      if (showBookmarksOnly && !bookmarks.includes(q.id))
+        return false;
+
+      if (
+        selectedMmd !== "All" &&
+        q.mmd !== selectedMmd
+      )
+        return false;
+
+      if (
+        selectedSurveyor !== "All" &&
+        q.surveyor !== selectedSurveyor
+      )
+        return false;
+
+      if (
+        selectedTopic !== "All" &&
+        q.topic !== selectedTopic
+      )
+        return false;
+
+      if (
+        selectedClass !== "All" &&
+        q.class !== selectedClass
+      )
+        return false;
+
+      if (
+        search.trim() &&
+        !(
+          q.question
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          (q.answer ?? "").toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.topic
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.mmd
+            .toLowerCase()
+            .includes(search.toLowerCase()) ||
+          q.surveyor
+            .toLowerCase()
+            .includes(search.toLowerCase())
+        )
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    questions,
+    search,
+    selectedMmd,
+    selectedSurveyor,
+    selectedTopic,
+    selectedClass,
+    bookmarks,
+    showBookmarksOnly,
+  ]);
+
+  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedMmd(DEFAULT_MMD);
+    setSelectedSurveyor("All");
+    setSelectedTopic("All");
+    setSelectedClass("All");
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem("bookmarkedQuestions");
+
+    if (saved) {
+      setBookmarks(JSON.parse(saved));
+    }
+  }, []);
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        "bookmarkedQuestions",
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
+  };
+
+  return (
+    <>
+      {/* SEARCH */}
+      <div className="mt-8">
+        <input
+          type="text"
+          placeholder="🔍 Search Questions..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+        />
+      </div>
+
+      {/* FILTER BUTTON */}
+      <div className="mt-4 grid grid-cols-2 gap-3">
+
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+        >
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal size={18} />
+            <span className="font-semibold">Filters</span>
+          </div>
+
+          {showFilters ? (
+            <ChevronUp size={18} />
+          ) : (
+            <ChevronDown size={18} />
+          )}
+        </button>
+
+        <button
+          onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+          className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
+            ? "border-black bg-black text-white"
+            : "border-gray-200 bg-white hover:border-black"
+            }`}
+        >
+          🔖 Bookmarks ({bookmarks.length})
+        </button>
+
+      </div>
+
+      {/* FILTERS */}
+      {
+        showFilters && (
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+
+            <div className="grid gap-4 md:grid-cols-4">
+
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">Class</option>
+
+                {classes.map((questionClass) => (
+                  <option key={questionClass} value={questionClass}>
+                    {questionClass}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedMmd}
+                onChange={(e) => setSelectedMmd(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All MMDs</option>
+
+                {mmds.map((mmd) => (
+                  <option key={mmd} value={mmd}>
+                    {mmd}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedSurveyor}
+                onChange={(e) => setSelectedSurveyor(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Surveyors</option>
+
+                {surveyors.map((surveyor) => (
+                  <option key={surveyor} value={surveyor}>
+                    {surveyor}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedTopic}
+                onChange={(e) => setSelectedTopic(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Topics</option>
+
+                {topics.map((topic) => (
+                  <option key={topic} value={topic}>
+                    {topic}
+                  </option>
+                ))}
+              </select>
+
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={clearFilters}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
+
+          </div>
+        )
+      }
+
+
+
+
+      {/* HEADING */}
+      <div className="mt-8 mb-6 flex items-center justify-between gap-4">
+
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+          Questions
+        </h2>
+
+        <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+          <span className="text-gray-500">Current:</span>{" "}
+          <span className="font-bold text-black">
+            <span className="font-bold text-black">
+              {totalQuestions}
+            </span>
+          </span>
+
+          <span className="mx-2 text-gray-300">|</span>
+
+        </div>
+
+      </div>
+
+      {/* QUESTIONS */}
+      <div className="space-y-4">
+
+        {filteredQuestions.map((q) => {
+
+
+          return (
+            <QuestionCard
+              key={q.id}
+              questionId={q.id}
+              category={category}
+              question={q.question}
+              answer={q.answer}
+              mmd={q.mmd}
+              surveyor={q.surveyor}
+              topic={q.topic}
+              examDate={q.examDate}
+              showMmd={showMmd}
+              showSurveyor={showSurveyor}
+              showTopic={showTopic}
+              isBookmarked={bookmarks.includes(q.id)}
+              onBookmark={() => toggleBookmark(q.id)}
+              isOpen={openQuestion === q.id}
+              onToggle={() => {
+                const currentScroll = window.scrollY;
+
+                setOpenQuestion(
+                  openQuestion === q.id ? null : q.id
+                );
+
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    window.scrollTo({
+                      top: currentScroll,
+                      behavior: "instant",
+                    });
+                  });
+                });
+              }}
+            />
+          );
+        })}
+      </div>
+
+    </>
+  )
+}
+</file>
+
+<file path="app/(protected)/orals/[category]/page.tsx">
+import UserGreeting from "@/components/UserGreeting";
+import QuestionsContainer from "@/components/QuestionsContainer";
+import Link from "next/link";
+import { ArrowLeft, Sailboat } from "lucide-react";
+import InsightSwitcher from "@/components/InsightSwitcher";
+import {
+  getCachedAllOralQuestions,
+  getCachedOralCategoryData,
+} from "@/lib/oral-cache";
+interface PageProps {
+  params: Promise<{
+    category: string;
+  }>;
+}
+
+export default async function OralCategoryPage({
+  params,
+}: PageProps) {
+  const { category } = await params;
+
+  const normalizedCategory =
+    category.toLowerCase();
+
+  const categoryData =
+    await getCachedOralCategoryData(
+      normalizedCategory
+    );
+
+
+  const questions =
+    await getCachedAllOralQuestions(
+      normalizedCategory
+    );
+
+  const meta = {
+    batchCount: categoryData.batchCount,
+    questionCount: categoryData.questionCount,
+    topicCount: categoryData.topicCount,
+  };
+
+  const filters = categoryData.filters;
+
+  const titles: Record<
+    string,
+    {
+      title: string;
+      subtitle: string;
+      quote: string;
+    }
+  > = {
+    fn3: {
+      title: "FN3",
+      subtitle: "SAFETY",
+      quote:
+        "Today's revision is tomorrow's Promotion.",
+    },
+    fn4b: {
+      title: "FN4B",
+      subtitle: "MOTOR",
+      quote:
+        "Knowledge grows one question at a time.",
+    },
+    fn5: {
+      title: "FN5",
+      subtitle: "ELECTRICAL",
+      quote:
+        "Consistency beats intensity in exam preparation.",
+    },
+    fn6: {
+      title: "FN6",
+      subtitle: "MEP",
+      quote:
+        "Small improvements every day lead to big results.",
+    },
+  };
+
+  const page = titles[category.toLowerCase()] ?? {
+    title: category.toUpperCase(),
+    subtitle: "ORAL QUESTIONS",
+    quote:
+      "Success belongs to those who prepare before opportunity arrives.",
+  };
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-5xl px-5 py-8">
+
+        {/* HEADER */}
+        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+          {/* Top Row */}
+          <div className="flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+
+            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+              <Sailboat
+                size={30}
+                strokeWidth={2}
+                className="text-black"
+              />
+            </div>
+
+          </div>
+
+          {/* Greeting */}
+          <div className="mt-7">
+            <UserGreeting />
+          </div>
+
+          {/* Quote */}
+          <div className="mt-6 border-l-4 border-black pl-4">
+
+            <p className="text-sm italic leading-6 text-gray-600">
+              {page.quote}
+            </p>
+
+          </div>
+
+          {/* Badge */}
+          <div className="mt-6">
+
+            <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
+              {page.title}
+            </span>
+
+          </div>
+
+          {/* Category */}
+          <div className="mt-5">
+
+            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
+              {page.subtitle}
+            </h1>
+
+          </div>
+
+          {/* Stats */}
+          <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
+            <span>{meta.questionCount} Questions</span>
+
+            <span>•</span>
+
+            <span>{meta.topicCount} Topics</span>
+          </div>
+
+        </div>
+
+        <InsightSwitcher
+          category={normalizedCategory}
+          current="questions"
+        />
+
+        {/* Questions */}
+        <QuestionsContainer
+          category={normalizedCategory}
+          initialQuestions={questions}
+          filters={filters}
+          totalQuestions={meta.questionCount}
+        />
+
+      </div>
+    </main>
+  );
 }
 </file>
 

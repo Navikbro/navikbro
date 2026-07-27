@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { useAuth } from "@/app/context/AuthContext";
-import { isUserAdmin } from "@/services/admin";
 import {
     getPendingAnswers,
     approveAnswer,
@@ -26,36 +25,29 @@ export default function AdminPage() {
     const { user, loading } = useAuth();
     const router = useRouter();
 
-    const [checking, setChecking] = useState(true);
     const [answers, setAnswers] = useState<PendingAnswer[]>([]);
 
     useEffect(() => {
-        async function init() {
-            if (loading) return;
-
-            if (!user) {
-                router.replace("/");
-                return;
-            }
-
-            const admin = await isUserAdmin(user.uid);
-
-            if (!admin) {
-                router.replace("/");
-                return;
-            }
+        async function loadAnswers() {
+            if (loading || !user) return;
 
             const pending = await getPendingAnswers();
-
             setAnswers(pending as PendingAnswer[]);
-            setChecking(false);
         }
 
-        init();
-    }, [user, loading, router]);
+        loadAnswers();
+    }, [user, loading]);
 
     async function handleApprove(id: string) {
-        await approveAnswer(id);
+        try {
+            await approveAnswer(id);
+
+            setAnswers((prev) =>
+                prev.filter((answer) => answer.id !== id)
+            );
+        } catch (error) {
+            console.error(error);
+        }
 
         setAnswers((prev) =>
             prev.filter((answer) => answer.id !== id)
@@ -67,14 +59,6 @@ export default function AdminPage() {
 
         setAnswers((prev) =>
             prev.filter((answer) => answer.id !== id)
-        );
-    }
-
-    if (checking) {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                Checking permissions...
-            </div>
         );
     }
 
