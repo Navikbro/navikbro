@@ -1,35 +1,75 @@
 import { unstable_cache } from "next/cache";
-import { getAllOralBatchQuestions } from "@/services/oralBatch.service";
+
+import {
+  getAllOralBatchQuestions,
+  getOralCategoryData,
+} from "@/services/oralBatch.service";
+
 
 export async function getCachedAllOralQuestions(
-    category: string
+  category: string
 ) {
 
-    const normalizedCategory =
-        category.trim().toLowerCase();
+  const normalizedCategory =
+    category.trim().toLowerCase();
 
 
-    const cached =
-        unstable_cache(
-            async () => {
+  const cached =
+    unstable_cache(
+      async () => {
 
-                return getAllOralBatchQuestions(
-                    normalizedCategory
-                );
-
-            },
-            [
-                "oral-all-questions",
-                normalizedCategory,
-            ],
-            {
-                tags: [
-                    `oral-${normalizedCategory}`,
-                ],
-            }
+        return getAllOralBatchQuestions(
+          normalizedCategory
         );
 
+      },
+      [
+        "oral-all-questions",
+        normalizedCategory,
+      ],
+      {
+        tags: [
+          `oral-${normalizedCategory}`,
+        ],
+      }
+    );
 
-    return cached();
+
+  return cached();
+
+}
+
+
+
+export async function getCachedOralCategoryData(
+  category: string
+) {
+
+  const normalizedCategory =
+    category.trim().toLowerCase();
+
+
+  const cached =
+    unstable_cache(
+      async () => {
+
+        return getOralCategoryData(
+          normalizedCategory
+        );
+
+      },
+      [
+        "oral-category-data",
+        normalizedCategory,
+      ],
+      {
+        tags: [
+          `oral-${normalizedCategory}-meta`,
+        ],
+      }
+    );
+
+
+  return cached();
 
 }
