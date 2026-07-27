@@ -2,27 +2,13 @@
 
 import UserGreeting from "@/components/UserGreeting";
 import QuestionsContainer from "@/components/QuestionsContainer";
-import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft, Sailboat } from "lucide-react";
 import InsightSwitcher from "@/components/InsightSwitcher";
-import { getCachedAllOralQuestions } from "@/lib/oral-cache";
-
 import {
-  getOralCategoryData,
-} from "@/services/oralBatch.service";
-
-const getCachedOralCategoryData = (category: string) =>
-  unstable_cache(
-    async () => {
-      return getOralCategoryData(category);
-    },
-    ["oral-category-data", category],
-    {
-      tags: [`oral-${category}-meta`],
-    }
-  )();
-
+  getCachedAllOralQuestions,
+  getCachedOralCategoryData,
+} from "@/lib/oral-cache";
 interface PageProps {
   params: Promise<{
     category: string;
@@ -38,7 +24,15 @@ export default async function OralCategoryPage({
     category.toLowerCase();
 
   const categoryData =
-    await getCachedOralCategoryData(normalizedCategory);
+    await getCachedOralCategoryData(
+      normalizedCategory
+    );
+
+
+  const questions =
+    await getCachedAllOralQuestions(
+      normalizedCategory
+    );
 
   const meta = {
     batchCount: categoryData.batchCount,
@@ -47,10 +41,6 @@ export default async function OralCategoryPage({
   };
 
   const filters = categoryData.filters;
-
-  const questions = await getCachedAllOralQuestions(
-    normalizedCategory
-  );
 
   const titles: Record<
     string,
