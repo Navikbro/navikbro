@@ -4,9 +4,6 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 import { uploadOralBatch } from "@/services/oralBatch.service";
 
-import {
-    bulkUploadQuestions,
-} from "@/services/firestore";
 
 interface ExcelQuestion {
     Category: string;
@@ -137,8 +134,10 @@ export default function BulkUploadPage() {
 
             setUploading(true);
 
-            await bulkUploadQuestions(
+            // create the batch
+            await uploadOralBatch(
                 rows,
+                "Admin Upload",
                 (uploaded, total) => {
                     setUploadProgress({
                         uploaded,
@@ -147,15 +146,42 @@ export default function BulkUploadPage() {
                 }
             );
 
-            // ALSO create the batch documents
-            await uploadOralBatch(
-                rows,
-                "Admin Upload"
-            );
-
             // Refresh homepage cache
             await fetch("/api/revalidate-home", {
                 method: "POST",
+            });
+
+            const CATEGORY_MAP: Record<string, string> = {
+                safety: "fn3",
+                fn3: "fn3",
+
+                motor: "fn4b",
+                fn4b: "fn4b",
+
+                electrical: "fn5",
+                fn5: "fn5",
+
+                mep: "fn6",
+                fn6: "fn6",
+            };
+
+            const categories = [
+                ...new Set(
+                    rows.map((r) => {
+                        const category = r.Category.trim().toLowerCase();
+                        return CATEGORY_MAP[category] ?? category;
+                    })
+                ),
+            ];
+
+            await fetch("/api/revalidate-orals", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    categories,
+                }),
             });
 
             alert(
@@ -165,6 +191,11 @@ export default function BulkUploadPage() {
 
             setRows([]);
             setValidationErrors([]);
+
+            setUploadProgress({
+                uploaded: 0,
+                total: 0,
+            });
 
             setShowConfirm(false);
 

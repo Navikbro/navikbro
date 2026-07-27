@@ -6,20 +6,20 @@ import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { ArrowLeft, Sailboat } from "lucide-react";
 import InsightSwitcher from "@/components/InsightSwitcher";
-import {
-  getOralCategoryMeta,
-  getOralFilters,
-} from "@/services/firestore";
-import { getCachedOralBatchPage } from "@/lib/oral-cache";
+import { getCachedAllOralQuestions } from "@/lib/oral-cache";
 
-const getCachedOralCategoryMeta = (category: string) =>
+import {
+  getOralCategoryData,
+} from "@/services/oralBatch.service";
+
+const getCachedOralCategoryData = (category: string) =>
   unstable_cache(
     async () => {
-      return getOralCategoryMeta(category);
+      return getOralCategoryData(category);
     },
-    ["oral-category-meta", category],
+    ["oral-category-data", category],
     {
-      revalidate: 3600,
+      tags: [`oral-${category}-meta`],
     }
   )();
 
@@ -37,16 +37,21 @@ export default async function OralCategoryPage({
   const normalizedCategory =
     category.toLowerCase();
 
-  const [meta, filters, batch] = await Promise.all([
-    getCachedOralCategoryMeta(normalizedCategory),
-    getOralFilters(normalizedCategory),
-    getCachedOralBatchPage(
-      normalizedCategory,
-      1
-    )
-  ]);
+  const categoryData =
+    await getCachedOralCategoryData(normalizedCategory);
 
-  console.log("META FROM PAGE", meta);
+  const meta = {
+    batchCount: categoryData.batchCount,
+    questionCount: categoryData.questionCount,
+    topicCount: categoryData.topicCount,
+  };
+
+  const filters = categoryData.filters;
+
+  const questions = await getCachedAllOralQuestions(
+    normalizedCategory,
+    categoryData.batchCount
+  );
 
   const titles: Record<
     string,
@@ -167,10 +172,8 @@ export default async function OralCategoryPage({
         {/* Questions */}
         <QuestionsContainer
           category={normalizedCategory}
-          initialQuestions={batch.questions}
+          initialQuestions={questions}
           filters={filters}
-          initialHasMore={batch.hasMore}
-          initialNextBatch={batch.nextBatch}
           totalQuestions={meta.questionCount}
         />
 

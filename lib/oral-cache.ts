@@ -1,36 +1,18 @@
 import { unstable_cache } from "next/cache";
+import { getAllOralBatchQuestions } from "@/services/oralBatch.service";
 
-import {
-  getOralBatchPage,
-} from "@/services/oralBatch.service";
-
-
-export async function getCachedOralBatchPage(
-  category: string,
-  batchNumber: number,
-  batchCount: number
+export async function getCachedAllOralQuestions(
+  category: string
 ) {
-
   const cached = unstable_cache(
     async () => {
-
-      return getOralBatchPage(
-        category,
-        batchNumber,
-        batchCount
-      );
-
+      return getAllOralBatchQuestions(category);
     },
-    [
-      "oral-batch-page",
-      category,
-      String(batchNumber),
-    ],
+    ["oral-all-questions", category],
     {
-      revalidate: 3600,
+      tags: [`oral-${category}`],
     }
   );
-
 
   return cached();
 }

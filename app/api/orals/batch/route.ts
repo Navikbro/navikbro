@@ -1,30 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOralBatchPage } from "@/services/oralBatch.service";
+import { revalidateTag } from "next/cache";
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
+export async function POST(req: NextRequest) {
+    const { categories } = await req.json();
 
-  const category = searchParams.get("category");
-  const batch = Number(searchParams.get("batch"));
+    if (!Array.isArray(categories)) {
+        return NextResponse.json(
+            { error: "Invalid categories" },
+            { status: 400 }
+        );
+    }
 
-  if (!category || !batch) {
-    return NextResponse.json(
-      { error: "Missing parameters" },
-      { status: 400 }
-    );
-  }
+    for (const category of categories) {
+        revalidateTag(`oral-${category}`, "max");
+        revalidateTag(`oral-${category}-meta`, "max");
+    }
 
-  console.log("API REQUEST", {
-    category,
-    batch,
-  });
-
-  const result = await getOralBatchPage(
-    category,
-    batch
-  );
-
-  console.log("API RESPONSE", result);
-
-  return NextResponse.json(result);
+    return NextResponse.json({
+        success: true,
+    });
 }
