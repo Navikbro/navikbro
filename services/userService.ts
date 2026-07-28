@@ -1,0 +1,366 @@
+import {
+    doc,
+    getDoc,
+    setDoc,
+    updateDoc,
+    serverTimestamp,
+    increment,
+} from "firebase/firestore";
+
+import {
+    addUserToAdminCache,
+} from "@/services/adminUserService";
+
+import {
+    incrementTotalUsers,
+} from "@/services/adminService";
+
+import { db } from "@/lib/firebase";
+
+import {
+    AppUser,
+} from "@/types/user";
+
+
+interface FirebaseUserData {
+    uid: string;
+    displayName: string | null;
+    email: string | null;
+    photoURL: string | null;
+}
+
+
+/**
+ * Create user profile after first login
+ * If user already exists, return existing profile
+ */
+export async function createUserProfile(
+    firebaseUser: FirebaseUserData
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        firebaseUser.uid
+    );
+
+
+    const snapshot = await getDoc(userRef);
+
+
+    if (snapshot.exists()) {
+
+        const existingUser = snapshot.data();
+
+
+        await updateDoc(
+            userRef,
+            {
+
+                uid: firebaseUser.uid,
+
+                updatedAt:
+                    serverTimestamp(),
+
+
+                role:
+                    existingUser.role === "admin"
+                        ? "admin"
+                        : "student",
+
+
+                isBlocked:
+                    existingUser.isBlocked ?? false,
+
+
+                subscription:
+                    typeof existingUser.subscription === "object"
+                        ? existingUser.subscription
+                        : {
+                            plan: "free",
+                            status: "inactive",
+                            startDate: null,
+                            endDate: null,
+                            paymentId: null,
+                            autoRenew: false,
+                        },
+
+
+                "stats.loginCount":
+                    existingUser.stats?.loginCount ?? 0,
+
+                "stats.lastLogin":
+                    serverTimestamp(),
+
+            }
+        );
+
+
+        return {
+            ...existingUser,
+        };
+    }
+
+
+    const newUser = {
+
+        uid: firebaseUser.uid,
+
+        name:
+            firebaseUser.displayName ||
+            "Anonymous",
+
+        email:
+            firebaseUser.email ||
+            "",
+
+        photoURL:
+            firebaseUser.photoURL ||
+            null,
+
+
+        role: "student",
+
+
+        createdAt:
+            serverTimestamp(),
+
+        updatedAt:
+            serverTimestamp(),
+
+
+        isBlocked: false,
+
+
+        subscription: {
+
+            plan: "free",
+
+            status: "inactive",
+
+            startDate: null,
+
+            endDate: null,
+
+            paymentId: null,
+
+            autoRenew: false,
+
+        },
+
+
+        stats: {
+
+            loginCount: 1,
+
+            lastLogin:
+                serverTimestamp(),
+
+        },
+
+    };
+
+
+    await setDoc(
+        userRef,
+        newUser
+    );
+
+
+    // Update admin dashboard counters
+    await incrementTotalUsers();
+
+
+    // Update admin user cache
+    await addUserToAdminCache({
+
+        uid: firebaseUser.uid,
+
+        name:
+            firebaseUser.displayName ||
+            "Anonymous",
+
+        email:
+            firebaseUser.email ||
+            "",
+
+        photoURL:
+            firebaseUser.photoURL ||
+            null,
+
+        plan: "free",
+
+        status: "inactive",
+
+        endDate: null,
+
+        isBlocked: false,
+
+    });
+
+
+    return newUser;
+
+}
+
+
+/**
+ * Update user login activity
+ * Called every successful login
+ */
+export async function updateUserLogin(
+    uid: string
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+
+    await updateDoc(
+        userRef,
+        {
+
+            updatedAt:
+                serverTimestamp(),
+
+            "stats.loginCount":
+                increment(1),
+
+            "stats.lastLogin":
+                serverTimestamp(),
+
+        }
+    );
+
+}
+
+
+/**
+ * Get complete user profile
+ */
+export async function getUserProfile(
+    uid: string
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+
+    const snapshot =
+        await getDoc(userRef);
+
+
+    if (!snapshot.exists()) {
+        return null;
+    }
+
+
+    return snapshot.data() as AppUser;
+
+}
+
+
+/**
+ * Block user from accessing app
+ */
+export async function blockUser(
+    uid: string
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+
+    await updateDoc(
+        userRef,
+        {
+
+            isBlocked: true,
+
+            updatedAt:
+                serverTimestamp(),
+
+        }
+    );
+
+}
+
+
+/**
+ * Restore blocked user
+ */
+export async function unblockUser(
+    uid: string
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+
+    await updateDoc(
+        userRef,
+        {
+
+            isBlocked: false,
+
+            updatedAt:
+                serverTimestamp(),
+
+        }
+    );
+
+}
+
+export async function updateUserSubscription(
+    uid: string,
+    plan: string,
+    status: string,
+    endDate: Date | null
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+    await updateDoc(
+        userRef,
+        {
+
+            subscription: {
+
+                plan,
+
+                status,
+
+                startDate:
+                    serverTimestamp(),
+
+                endDate,
+
+                paymentId: null,
+
+                autoRenew: false,
+
+            },
+
+            updatedAt:
+                serverTimestamp(),
+
+        }
+    );
+
+}
