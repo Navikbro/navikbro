@@ -137,91 +137,88 @@ export default function Header({
             >
 
 
-
                 {/* LEFT SIDE */}
 
-
                 <div
-
                     className="
-                    flex
-                    items-center
-                    gap-2
-                    min-w-0
-                    "
-
+    flex
+    items-center
+    gap-3
+    min-w-0
+  "
                 >
-
-
+                    {/* Sailboat */}
                     <div
-
                         className="
-                        w-12
-                        h-12
-                        flex
-                        items-center
-                        justify-center
-                        rotate-[-8deg]
-                        flex-shrink-0
-                        "
-
+      w-12
+      h-12
+      flex
+      items-center
+      justify-center
+      rotate-[-8deg]
+      flex-shrink-0
+    "
                     >
-
-                        <Sailboat size={30}/>
-
-
+                        <Sailboat
+                            size={30}
+                            strokeWidth={2}
+                            className="text-black"
+                        />
                     </div>
 
-
-
+                    {/* Brand */}
                     <div
-
                         className="
-                        leading-tight
-                        min-w-0
-                        "
-
+      flex
+      flex-col
+      leading-tight
+    "
                     >
+                        {/* NAVIK + bro */}
+                        <div className="relative inline-block w-fit">
+                            <h1
+                                className="
+          text-2xl
+          font-bold
+          tracking-tight
+          leading-none
+          text-black
+        "
+                            >
+                                NAVIK
+                            </h1>
 
+                            <span
+                                className="
+    absolute
+    left-full
+    ml-1
+    top-0
+    text-[10px]
+    font-bold
+    italic
+    lowercase
+    text-gray-700
+    leading-none
+  "
+                            >
+                                bro
+                            </span>
+                        </div>
 
-                        <h1
-
-                            className="
-                            text-xl
-                            font-bold
-                            tracking-tight
-                            truncate
-                            "
-
-                        >
-
-                            NAVIK
-
-                        </h1>
-
-
-
+                        {/* Tagline */}
                         <p
-
                             className="
-                            text-xs
-                            text-gray-500
-                            truncate
-                            "
-
+        mt-1
+        text-[10px]
+        text-gray-500
+        leading-none
+      "
                         >
-
-                            Sail towards COC
-
+                            Sail Towards COC
                         </p>
-
-
                     </div>
-
-
                 </div>
-
-
 
 
 
@@ -233,24 +230,24 @@ export default function Header({
                     user ?
 
 
-                    (
+                        (
 
-                    <div
+                            <div
 
-                        className="
+                                className="
                         flex
                         items-center
                         gap-3
                         flex-shrink-0
                         "
 
-                    >
+                            >
 
 
 
-                        <div
+                                <div
 
-                            className="
+                                    className="
                             bg-gray-100
                             px-2
                             py-2
@@ -258,51 +255,51 @@ export default function Header({
                             w-[80px]
                             "
 
-                        >
+                                >
 
 
-                            <p
+                                    <p
 
-                                className="
+                                        className="
                                 text-[9px]
                                 text-gray-500
                                 leading-none
                                 "
 
-                            >
+                                    >
 
-                                Signed in
+                                        Signed in
 
-                            </p>
+                                    </p>
 
 
 
-                            <p
+                                    <p
 
-                                className="
+                                        className="
                                 text-[11px]
                                 font-medium
                                 truncate
                                 "
 
-                            >
+                                    >
 
-                                {shortEmail}
+                                        {shortEmail}
 
-                            </p>
-
-
-
-                        </div>
+                                    </p>
 
 
 
+                                </div>
 
-                        <button
 
-                            onClick={handleLogout}
 
-                            className="
+
+                                <button
+
+                                    onClick={handleLogout}
+
+                                    className="
                             w-10
                             h-9
                             rounded-2xl
@@ -313,30 +310,30 @@ export default function Header({
                             justify-center
                             "
 
-                        >
+                                >
 
-                            <LogOut size={16}/>
-
-
-                        </button>
+                                    <LogOut size={16} />
 
 
-
-                    </div>
-
-
-                    )
-
-                    :
+                                </button>
 
 
-                    (
 
-                    <button
+                            </div>
 
-                        onClick={() => setShowAuth(true)}
 
-                        className="
+                        )
+
+                        :
+
+
+                        (
+
+                            <button
+
+                                onClick={() => setShowAuth(true)}
+
+                                className="
                         bg-black
                         text-white
                         px-4
@@ -349,17 +346,17 @@ export default function Header({
                         font-medium
                         "
 
-                    >
+                            >
 
-                        <User size={16}/>
+                                <User size={16} />
 
-                        Login
-
-
-                    </button>
+                                Login
 
 
-                    )
+                            </button>
+
+
+                        )
 
                 }
 
@@ -370,7 +367,7 @@ export default function Header({
 
 
 
-        </div>
+        </div >
 
 
     );

@@ -10,6 +10,8 @@ import SectionHeading from "@/components/SectionHeading";
 import { Folder } from "lucide-react";
 
 interface Stats {
+  questions: number;
+  topics: number;
   updatedAt: Date | null;
 }
 
@@ -47,6 +49,8 @@ export default function HomeClient({
               title="MEKG"
               icon={Folder}
               badge="GENERAL"
+              questions={writtenStats.general?.questions ?? 0}
+              topics={writtenStats.general?.topics ?? 0}
               updatedAt={writtenStats.general?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -56,6 +60,8 @@ export default function HomeClient({
               title="MEP"
               icon={Folder}
               badge="MEP"
+              questions={writtenStats.mep?.questions ?? 0}
+              topics={writtenStats.mep?.topics ?? 0}
               updatedAt={writtenStats.mep?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -65,6 +71,8 @@ export default function HomeClient({
               title="MEKM"
               icon={Folder}
               badge="MOTOR"
+              questions={writtenStats.motor?.questions ?? 0}
+              topics={writtenStats.motor?.topics ?? 0}
               updatedAt={writtenStats.motor?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -74,6 +82,8 @@ export default function HomeClient({
               title="MET"
               icon={Folder}
               badge="ELECTRICAL"
+              questions={writtenStats.met?.questions ?? 0}
+              topics={writtenStats.met?.topics ?? 0}
               updatedAt={writtenStats.met?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -83,6 +93,8 @@ export default function HomeClient({
               title="SHIP-CO"
               icon={Folder}
               badge="NAVAL"
+              questions={writtenStats.naval?.questions ?? 0}
+              topics={writtenStats.naval?.topics ?? 0}
               updatedAt={writtenStats.naval?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -92,6 +104,8 @@ export default function HomeClient({
               title="SSEP"
               icon={Folder}
               badge="SAFETY"
+              questions={writtenStats.ssep?.questions ?? 0}
+              topics={writtenStats.ssep?.topics ?? 0}
               updatedAt={writtenStats.ssep?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -110,6 +124,8 @@ export default function HomeClient({
               title="SAFETY"
               icon={Folder}
               badge="FN-3"
+              questions={oralStats.fn3?.questions ?? 0}
+              topics={oralStats.fn3?.topics ?? 0}
               updatedAt={oralStats.fn3?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -119,6 +135,8 @@ export default function HomeClient({
               title="MOTOR"
               icon={Folder}
               badge="FN-4B"
+              questions={oralStats.fn4b?.questions ?? 0}
+              topics={oralStats.fn4b?.topics ?? 0}
               updatedAt={oralStats.fn4b?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -128,6 +146,8 @@ export default function HomeClient({
               title="MEP"
               icon={Folder}
               badge="FN-6"
+              questions={oralStats.fn6?.questions ?? 0}
+              topics={oralStats.fn6?.topics ?? 0}
               updatedAt={oralStats.fn6?.updatedAt}
               onRequireLogin={requireLogin}
             />
@@ -137,6 +157,8 @@ export default function HomeClient({
               title="ELECTRICAL"
               icon={Folder}
               badge="FN-5"
+              questions={oralStats.fn5?.questions ?? 0}
+              topics={oralStats.fn5?.topics ?? 0}
               updatedAt={oralStats.fn5?.updatedAt}
               onRequireLogin={requireLogin}
             />
