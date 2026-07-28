@@ -38,8 +38,8 @@ export default function AuthModal({
       if (result.user) {
         redirectUser();
       }
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
       alert("Google Sign In Failed");
     } finally {
       setLoading(false);
@@ -50,13 +50,13 @@ export default function AuthModal({
     <AnimatePresence>
       {show && (
         <>
-          {/* Background */}
+          {/* Backdrop */}
           <motion.div
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.18 }}
             onClick={() => setShow(false)}
           />
 
@@ -65,7 +65,7 @@ export default function AuthModal({
             drag="y"
             dragDirectionLock
             dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.15}
+            dragElastic={0.12}
             dragMomentum={false}
             whileDrag={{
               scale: 0.995,
@@ -83,11 +83,12 @@ export default function AuthModal({
             exit={{ y: "100%" }}
             transition={{
               type: "spring",
-              stiffness: 350,
-              damping: 32,
+              stiffness: 420,
+              damping: 38,
+              mass: 0.8,
             }}
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] bg-white px-6 pt-4 pb-8 shadow-2xl touch-pan-y"
             onClick={(e) => e.stopPropagation()}
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] bg-white px-6 pt-4 pb-8 shadow-2xl touch-pan-y"
           >
             {/* Drag Handle */}
             <div className="mx-auto mb-6 h-1.5 w-12 rounded-full bg-gray-300" />
@@ -106,34 +107,28 @@ export default function AuthModal({
                 </h2>
               </div>
 
-              <p className="mt-3 text-center text-sm text-gray-500">
+              <p className="mt-3 text-sm text-gray-500">
                 Sign in to continue
               </p>
             </div>
 
             {/* Google Button */}
-            <motion.button
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                delay: 0.15,
-              }}
+            <button
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="mt-8 flex w-full items-center justify-center gap-3 rounded-full border border-gray-300 bg-white px-5 py-4 text-base font-medium shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+              className="mt-8 flex w-full items-center justify-center gap-3 rounded-full border border-gray-300 bg-white px-5 py-4 text-base font-medium shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-60"
             >
               <img
                 src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
                 alt="Google"
-                className="h-6 w-6"
+                className="h-5 w-5"
               />
 
               {loading
                 ? "Signing in..."
                 : "Continue with Google"}
-            </motion.button>
+            </button>
 
-            {/* Bottom Safe Space */}
             <div className="h-2" />
           </motion.div>
         </>
