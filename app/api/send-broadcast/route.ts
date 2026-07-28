@@ -1,32 +1,14 @@
-import {
-    NextResponse,
-} from "next/server";
-
-import {
-    adminMessaging,
-} from "@/lib/firebase-admin";
-
-
-import {
-    db,
-} from "@/lib/firebase";
-
-
-import {
-    collection,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-
-
+import { NextRequest, NextResponse } from "next/server";
+import { sendNotification } from "@/services/notificationService";
+import { verifyAdmin } from "@/lib/verifyAdmin";
 
 export async function POST(
-    request: Request
+    request: NextRequest
 ) {
 
+    await verifyAdmin(request);
+    
     try {
-
 
         const {
             title,
@@ -34,156 +16,27 @@ export async function POST(
             batch,
         } = await request.json();
 
-
-
-        let usersRef;
-
-
-
-        if (batch === "all") {
-
-            usersRef =
-                collection(
-                    db,
-                    "users"
-                );
-
-        } else {
-
-            usersRef =
-                query(
-                    collection(
-                        db,
-                        "users"
-                    ),
-
-                    where(
-                        "batch",
-                        "==",
-                        batch
-                    )
-                );
-
-        }
-
-
-
-        const snapshot =
-            await getDocs(
-                usersRef
-            );
-
-
-
-        const tokens:string[] = [];
-
-
-
-        snapshot.forEach(
-            (doc)=>{
-
-                const data =
-                    doc.data();
-
-
-                if (
-                    Array.isArray(
-                        data.fcmTokens
-                    )
-                ) {
-
-                    tokens.push(
-                        ...data.fcmTokens
-                    );
-
-                }
-
-            }
-        );
-
-
-
-        if (
-            tokens.length === 0
-        ) {
-
-            return NextResponse.json({
-
-                success:false,
-
-                message:
-                    "No FCM tokens found"
-
+        const result =
+            await sendNotification({
+                title,
+                body,
+                batch,
             });
 
-        }
+        return NextResponse.json(result);
 
+    } catch (error) {
 
-
-        const result =
-            await adminMessaging
-                .sendEachForMulticast({
-
-                    tokens,
-
-
-                    notification: {
-
-                        title,
-
-                        body,
-
-                    },
-
-                });
-
-
-
-        return NextResponse.json({
-
-            success:true,
-
-            totalUsers:
-                tokens.length,
-
-
-            sent:
-                result.successCount,
-
-
-            failed:
-                result.failureCount,
-
-        });
-
-
-
-    } catch(error) {
-
-
-        console.error(
-            "Broadcast error:",
-            error
-        );
-
+        console.error(error);
 
         return NextResponse.json(
-
             {
-
-                success:false,
-
-                error:
-                    "Notification sending failed"
-
+                success: false,
+                error: "Notification failed",
             },
-
             {
-                status:500
+                status: 500,
             }
-
         );
-
     }
-
 }
