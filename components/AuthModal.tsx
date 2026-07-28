@@ -88,33 +88,33 @@ export default function AuthModal({
                 Sign in to continue with...
               </p>
 
-              <Sailboat
-                size={24}
-                strokeWidth={2.2}
-                className="mb-2 rotate-[-8deg]"
-              />
+              <div className="flex items-center justify-center gap-2">
+                <Sailboat
+                  size={24}
+                  strokeWidth={2.2}
+                  className="rotate-[-8deg]"
+                />
 
-              <div className="relative inline-block">
-                <h2 className="text-[28px] font-bold tracking-[-0.04em] leading-none text-black">
-                  NAVIK
-                </h2>
+                <div className="flex items-start">
+                  <h2 className="text-2xl font-bold tracking-[-0.04em] leading-none text-black">
+                    NAVIK
+                  </h2>
 
-                <span
-                  className="
-        absolute
-        left-full
-        ml-1
-        top-[2px]
-        text-[11px]
-        font-semibold
-        italic
-        lowercase
-        text-gray-600
-        leading-none
-      "
-                >
-                  bro
-                </span>
+                  <span
+                    className="
+          ml-1
+          mt-[2px]
+          text-[11px]
+          font-semibold
+          italic
+          lowercase
+          text-gray-600
+          leading-none
+        "
+                  >
+                    bro
+                  </span>
+                </div>
               </div>
             </div>
 
