@@ -5,6 +5,7 @@ import {
     updateDoc,
     serverTimestamp,
     increment,
+    arrayUnion,
 } from "firebase/firestore";
 
 import {
@@ -360,6 +361,35 @@ export async function updateUserSubscription(
             updatedAt:
                 serverTimestamp(),
 
+        }
+    );
+
+}
+
+/**
+ * Save Firebase Cloud Messaging token
+ */
+export async function saveFCMToken(
+    uid: string,
+    token: string
+) {
+
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
+
+
+    await updateDoc(
+        userRef,
+        {
+            fcmTokens:
+                arrayUnion(token),
+
+            updatedAt:
+                serverTimestamp(),
         }
     );
 

@@ -7,6 +7,10 @@ import {
 } from "firebase/auth";
 
 import {
+    requestNotificationPermission,
+} from "@/lib/firebaseMessaging";
+
+import {
     doc,
     getDoc,
 } from "firebase/firestore";
@@ -31,6 +35,7 @@ import {
     createUserProfile,
     updateUserLogin,
     getUserProfile,
+    saveFCMToken,
 } from "@/services/userService";
 
 
@@ -216,11 +221,29 @@ export function AuthProvider({
 
                         if (profile) {
 
-
                             await updateUserLogin(
                                 firebaseUser.uid
                             );
 
+                        }
+
+
+                        const fcmToken =
+                            await requestNotificationPermission();
+
+
+                        if (fcmToken) {
+
+                            console.log(
+                                "FCM TOKEN:",
+                                fcmToken
+                            );
+
+
+                            await saveFCMToken(
+                                firebaseUser.uid,
+                                fcmToken
+                            );
 
                         }
 
