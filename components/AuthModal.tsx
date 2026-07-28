@@ -82,23 +82,40 @@ export default function AuthModal({
             {/* Drag Handle */}
             <div className="mx-auto mb-6 h-1.5 w-12 rounded-full bg-gray-300" />
 
-            {/* Logo */}
+            {/* Header */}
             <div className="flex flex-col items-center">
-              <div className="flex items-center gap-3">
-                <Sailboat
-                  size={30}
-                  strokeWidth={2.2}
-                  className="rotate-[-8deg]"
-                />
+              <p className="mb-6 text-center text-sm text-gray-500">
+                Sign in to continue with...
+              </p>
 
-                <h2 className="text-3xl font-bold tracking-tight">
+              <Sailboat
+                size={24}
+                strokeWidth={2.2}
+                className="mb-2 rotate-[-8deg]"
+              />
+
+              <div className="relative inline-block">
+                <h2 className="text-[28px] font-bold tracking-[-0.04em] leading-none text-black">
                   NAVIK
                 </h2>
-              </div>
 
-              <p className="mt-3 text-sm text-gray-500">
-                Sign in to continue
-              </p>
+                <span
+                  className="
+        absolute
+        left-full
+        ml-1
+        top-[2px]
+        text-[11px]
+        font-semibold
+        italic
+        lowercase
+        text-gray-600
+        leading-none
+      "
+                >
+                  bro
+                </span>
+              </div>
             </div>
 
             {/* Google Button */}

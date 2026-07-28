@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
@@ -27,22 +28,44 @@ export default function CategoryCard({
   updatedAt = null,
   onRequireLogin,
 }: CategoryCardProps) {
-
   const router = useRouter();
   const { user } = useAuth();
 
+  const [clicked, setClicked] = useState(false);
+
   const handleClick = () => {
+    setClicked(true);
+
     if (user) {
       router.push(href);
     } else {
       onRequireLogin();
+      setClicked(false);
     }
   };
 
   return (
     <button
       onClick={handleClick}
-      className="group flex aspect-square w-full flex-col rounded-3xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-gray-300 hover:shadow-lg active:scale-[0.98]"
+      className={`
+        group
+        flex
+        aspect-square
+        w-full
+        flex-col
+        rounded-3xl
+        border
+        p-4
+        text-left
+        shadow-sm
+        transition-all
+        duration-200
+        active:scale-[0.98]
+        ${clicked
+          ? "bg-slate-100 border-slate-300"
+          : "bg-white border-gray-200 hover:-translate-y-1 hover:border-gray-300 hover:shadow-lg"
+        }
+      `}
     >
       {/* Badge */}
       {badge && (
@@ -52,16 +75,55 @@ export default function CategoryCard({
       )}
 
       {/* Icon */}
-      <div className="mt-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 transition-colors group-hover:bg-gray-200 md:h-12 md:w-12">
+      <div
+        className={`
+          mt-4
+          flex
+          h-11
+          w-11
+          items-center
+          justify-center
+          rounded-xl
+          transition-colors
+          md:h-12
+          md:w-12
+          ${clicked
+            ? "bg-gray-200"
+            : "bg-gray-100 group-hover:bg-gray-200"
+          }
+        `}
+      >
         <Icon
           size={26}
           strokeWidth={1.8}
-          className="text-gray-700 transition-transform duration-300 group-hover:scale-110 md:h-7 md:w-7"
+          className={`
+            transition-transform
+            duration-300
+            md:h-7
+            md:w-7
+            ${clicked
+              ? "text-gray-800"
+              : "text-gray-700 group-hover:scale-110"
+            }
+          `}
         />
       </div>
 
       {/* Title */}
-      <h3 className="mt-4 text-[15px] font-bold leading-tight text-gray-900 md:text-[17px] lg:text-[18px]">
+      <h3
+        className={`
+          mt-4
+          text-[15px]
+          font-bold
+          leading-tight
+          md:text-[17px]
+          lg:text-[18px]
+          ${clicked
+            ? "text-gray-800"
+            : "text-gray-900"
+          }
+        `}
+      >
         {title}
       </h3>
 
@@ -80,7 +142,12 @@ export default function CategoryCard({
       <div className="flex-1" />
 
       {/* Footer */}
-      <div className="border-t border-gray-100 pt-3">
+      <div
+        className={`pt-3 ${clicked
+            ? "border-t border-gray-200"
+            : "border-t border-gray-100"
+          }`}
+      >
         <p className="text-[10px] text-gray-400 md:text-[11px]">
           Updated •{" "}
           {updatedAt
