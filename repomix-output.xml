@@ -1,10 +1,10 @@
-This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
 
 <file_summary>
 This section contains a summary of this file.
 
 <purpose>
-This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+This file contains a packed representation of the entire repository's contents.
 It is designed to be easily consumable by AI systems for analysis, code review,
 or other automated processes.
 </purpose>
@@ -32,7 +32,6 @@ The content is organized as follows:
 <notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
-- Files matching these patterns are excluded: .env.local, node_modules, .next
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
 - Files are sorted by Git change count (files with more changes are at the bottom)
@@ -89,8 +88,6 @@ app/
     revalidate-written/
       route.ts
     send-broadcast/
-      route.ts
-    send-notification/
       route.ts
   context/
     AuthContext.tsx
@@ -152,6 +149,7 @@ services/
   adminService.ts
   adminUserService.ts
   firestore.ts
+  notificationService.ts
   oralBatch.service.ts
   userService.ts
   written.service.ts
@@ -1382,378 +1380,6 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
-}
-</file>
-
-<file path="app/api/send-broadcast/route.ts">
-import {
-    NextResponse,
-} from "next/server";
-
-import {
-    adminMessaging,
-} from "@/lib/firebase-admin";
-
-
-import {
-    db,
-} from "@/lib/firebase";
-
-
-import {
-    collection,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-
-
-
-export async function POST(
-    request: Request
-) {
-
-    try {
-
-
-        const {
-            title,
-            body,
-            batch,
-        } = await request.json();
-
-
-
-        let usersRef;
-
-
-
-        if (batch === "all") {
-
-            usersRef =
-                collection(
-                    db,
-                    "users"
-                );
-
-        } else {
-
-            usersRef =
-                query(
-                    collection(
-                        db,
-                        "users"
-                    ),
-
-                    where(
-                        "batch",
-                        "==",
-                        batch
-                    )
-                );
-
-        }
-
-
-
-        const snapshot =
-            await getDocs(
-                usersRef
-            );
-
-
-
-        const tokens:string[] = [];
-
-
-
-        snapshot.forEach(
-            (doc)=>{
-
-                const data =
-                    doc.data();
-
-
-                if (
-                    Array.isArray(
-                        data.fcmTokens
-                    )
-                ) {
-
-                    tokens.push(
-                        ...data.fcmTokens
-                    );
-
-                }
-
-            }
-        );
-
-
-
-        if (
-            tokens.length === 0
-        ) {
-
-            return NextResponse.json({
-
-                success:false,
-
-                message:
-                    "No FCM tokens found"
-
-            });
-
-        }
-
-
-
-        const result =
-            await adminMessaging
-                .sendEachForMulticast({
-
-                    tokens,
-
-
-                    notification: {
-
-                        title,
-
-                        body,
-
-                    },
-
-                });
-
-
-
-        return NextResponse.json({
-
-            success:true,
-
-            totalUsers:
-                tokens.length,
-
-
-            sent:
-                result.successCount,
-
-
-            failed:
-                result.failureCount,
-
-        });
-
-
-
-    } catch(error) {
-
-
-        console.error(
-            "Broadcast error:",
-            error
-        );
-
-
-        return NextResponse.json(
-
-            {
-
-                success:false,
-
-                error:
-                    "Notification sending failed"
-
-            },
-
-            {
-                status:500
-            }
-
-        );
-
-    }
-
-}
-</file>
-
-<file path="app/api/send-notification/route.ts">
-import {
-    NextResponse,
-} from "next/server";
-
-
-import {
-    adminMessaging,
-} from "@/lib/firebase-admin";
-
-
-import {
-    db,
-} from "@/lib/firebase";
-
-
-import {
-    collection,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-
-
-
-export async function POST(
-    request: Request
-) {
-
-
-    try {
-
-
-        const {
-            title,
-            body,
-            batch,
-        } =
-        await request.json();
-
-
-
-        let usersQuery;
-
-
-        if(batch === "all") {
-
-            usersQuery =
-                collection(
-                    db,
-                    "users"
-                );
-
-
-        } else {
-
-
-            usersQuery =
-                query(
-                    collection(
-                        db,
-                        "users"
-                    ),
-
-                    where(
-                        "batch",
-                        "==",
-                        batch
-                    )
-                );
-
-        }
-
-
-
-        const snapshot =
-            await getDocs(
-                usersQuery
-            );
-
-
-
-        const tokens:string[] = [];
-
-
-
-        snapshot.forEach(
-            (doc)=>{
-
-                const data =
-                    doc.data();
-
-
-                if(data.fcmTokens) {
-
-                    tokens.push(
-                        ...data.fcmTokens
-                    );
-
-                }
-
-            }
-        );
-
-
-
-        if(tokens.length === 0) {
-
-
-            return NextResponse.json({
-
-                success:false,
-
-                message:
-                "No notification tokens found"
-
-            });
-
-        }
-
-
-
-        const response =
-            await adminMessaging
-            .sendEachForMulticast({
-
-                tokens,
-
-
-                notification:{
-
-                    title,
-
-                    body,
-
-                }
-
-            });
-
-
-
-        return NextResponse.json({
-
-            success:true,
-
-            sent:
-            response.successCount,
-
-
-            failed:
-            response.failureCount,
-
-        });
-
-
-
-    } catch(error) {
-
-
-        console.error(error);
-
-
-        return NextResponse.json(
-
-            {
-                success:false,
-                error:"Notification failed"
-            },
-
-            {
-                status:500
-            }
-
-        );
-
-    }
-
 }
 </file>
 
@@ -3671,6 +3297,77 @@ async function updateUserInPage(
 }
 </file>
 
+<file path="services/notificationService.ts">
+import {
+    collection,
+    getDocs,
+    query,
+    where,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+import { adminMessaging } from "@/lib/firebase-admin";
+
+interface SendNotificationParams {
+    title: string;
+    body: string;
+    batch: string;
+}
+
+export async function sendNotification({
+    title,
+    body,
+    batch,
+}: SendNotificationParams) {
+
+    let usersQuery;
+
+    if (batch === "all") {
+        usersQuery = collection(db, "users");
+    } else {
+        usersQuery = query(
+            collection(db, "users"),
+            where("batch", "==", batch)
+        );
+    }
+
+    const snapshot = await getDocs(usersQuery);
+
+    const tokens: string[] = [];
+
+    snapshot.forEach((doc) => {
+        const data = doc.data();
+
+        if (Array.isArray(data.fcmTokens)) {
+            tokens.push(...data.fcmTokens);
+        }
+    });
+
+    if (tokens.length === 0) {
+        return {
+            success: false,
+            message: "No FCM tokens found",
+        };
+    }
+
+    const result =
+        await adminMessaging.sendEachForMulticast({
+            tokens,
+            notification: {
+                title,
+                body,
+            },
+        });
+
+    return {
+        success: true,
+        totalUsers: tokens.length,
+        sent: result.successCount,
+        failed: result.failureCount,
+    };
+}
+</file>
+
 <file path="types/admin.ts">
 import { Timestamp } from "firebase/firestore";
 
@@ -4086,6 +3783,51 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
+}
+</file>
+
+<file path="app/api/send-broadcast/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { sendNotification } from "@/services/notificationService";
+import { verifyAdmin } from "@/lib/verifyAdmin";
+
+export async function POST(
+    request: NextRequest
+) {
+
+    await verifyAdmin(request);
+    
+    try {
+
+        const {
+            title,
+            body,
+            batch,
+        } = await request.json();
+
+        const result =
+            await sendNotification({
+                title,
+                body,
+                batch,
+            });
+
+        return NextResponse.json(result);
+
+    } catch (error) {
+
+        console.error(error);
+
+        return NextResponse.json(
+            {
+                success: false,
+                error: "Notification failed",
+            },
+            {
+                status: 500,
+            }
+        );
+    }
 }
 </file>
 
@@ -8808,6 +8550,22 @@ export default function AdminPage() {
 }
 </file>
 
+<file path="app/page.tsx">
+import HomeClient from "@/components/HomeClient";
+import { getHomeStats } from "@/lib/home-cache";
+
+export default async function HomePage() {
+  const { oralStats, writtenStats } = await getHomeStats();
+
+  return (
+    <HomeClient
+      oralStats={oralStats}
+      writtenStats={writtenStats}
+    />
+  );
+}
+</file>
+
 <file path="components/AuthModal.tsx">
 "use client";
 
@@ -8899,33 +8657,33 @@ export default function AuthModal({
                 Sign in to continue with...
               </p>
 
-              <Sailboat
-                size={24}
-                strokeWidth={2.2}
-                className="mb-2 rotate-[-8deg]"
-              />
+              <div className="flex items-center justify-center gap-2">
+                <Sailboat
+                  size={24}
+                  strokeWidth={2.2}
+                  className="rotate-[-8deg]"
+                />
 
-              <div className="relative inline-block">
-                <h2 className="text-[28px] font-bold tracking-[-0.04em] leading-none text-black">
-                  NAVIK
-                </h2>
+                <div className="flex items-start">
+                  <h2 className="text-2xl font-bold tracking-[-0.04em] leading-none text-black">
+                    NAVIK
+                  </h2>
 
-                <span
-                  className="
-        absolute
-        left-full
-        ml-1
-        top-[2px]
-        text-[11px]
-        font-semibold
-        italic
-        lowercase
-        text-gray-600
-        leading-none
-      "
-                >
-                  bro
-                </span>
+                  <span
+                    className="
+          ml-1
+          mt-[2px]
+          text-[11px]
+          font-semibold
+          italic
+          lowercase
+          text-gray-600
+          leading-none
+        "
+                  >
+                    bro
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -8947,22 +8705,6 @@ export default function AuthModal({
         </>
       )}
     </AnimatePresence>
-  );
-}
-</file>
-
-<file path="app/page.tsx">
-import HomeClient from "@/components/HomeClient";
-import { getHomeStats } from "@/lib/home-cache";
-
-export default async function HomePage() {
-  const { oralStats, writtenStats } = await getHomeStats();
-
-  return (
-    <HomeClient
-      oralStats={oralStats}
-      writtenStats={writtenStats}
-    />
   );
 }
 </file>

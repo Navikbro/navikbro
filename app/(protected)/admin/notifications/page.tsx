@@ -4,6 +4,8 @@ import {
     useState,
 } from "react";
 
+import { getAuth } from "firebase/auth";
+
 
 export default function AdminNotificationsPage() {
 
@@ -28,99 +30,60 @@ export default function AdminNotificationsPage() {
         useState("");
 
 
-
     async function sendNotification() {
-
-
         if (!title || !message) {
-
-            setResult(
-                "Please fill all fields"
-            );
-
+            setResult("Please fill all fields");
             return;
-
         }
-
 
         try {
-
             setLoading(true);
-
             setResult("");
 
+            const user = getAuth().currentUser;
 
-
-            const response =
-                await fetch(
-                    "/api/send-broadcast",
-                    {
-
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-
-
-                        body:
-                            JSON.stringify({
-
-                                title,
-
-                                body:
-                                    message,
-
-                                batch:
-                                    audience,
-
-                            }),
-
-                    }
-                );
-
-
-
-            const data =
-                await response.json();
-
-
-
-            if (data.success) {
-
-                setResult(
-                    `Sent: ${data.sent}, Failed: ${data.failed}`
-                );
-
-            } else {
-
-                setResult(
-                    data.message ||
-                    "Failed"
-                );
-
+            if (!user) {
+                throw new Error("Please sign in again.");
             }
 
+            const token = await user.getIdToken();
 
+            const response = await fetch("/api/send-broadcast", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    title,
+                    body: message,
+                    batch: audience,
+                }),
+            });
 
-        } catch(error) {
+            const data = await response.json();
 
+            if (!response.ok) {
+                throw new Error(data.error || data.message || "Request failed");
+            }
 
+            if (data.success) {
+                setResult(`Sent: ${data.sent}, Failed: ${data.failed}`);
+            } else {
+                setResult(data.message || data.error || "Failed");
+            }
+
+        } catch (error) {
             console.error(error);
 
-
             setResult(
-                "Something went wrong"
+                error instanceof Error
+                    ? error.message
+                    : "Something went wrong"
             );
-
-
         } finally {
-
             setLoading(false);
-
         }
-
     }
 
 
@@ -152,10 +115,10 @@ export default function AdminNotificationsPage() {
                         value={title}
 
                         onChange={
-                            (e)=>
-                            setTitle(
-                                e.target.value
-                            )
+                            (e) =>
+                                setTitle(
+                                    e.target.value
+                                )
                         }
 
                         className="
@@ -185,10 +148,10 @@ export default function AdminNotificationsPage() {
                         value={message}
 
                         onChange={
-                            (e)=>
-                            setMessage(
-                                e.target.value
-                            )
+                            (e) =>
+                                setMessage(
+                                    e.target.value
+                                )
                         }
 
 
@@ -221,10 +184,10 @@ export default function AdminNotificationsPage() {
                         value={audience}
 
                         onChange={
-                            (e)=>
-                            setAudience(
-                                e.target.value
-                            )
+                            (e) =>
+                                setAudience(
+                                    e.target.value
+                                )
                         }
 
 
@@ -290,8 +253,8 @@ export default function AdminNotificationsPage() {
 
                     {
                         loading
-                        ? "Sending..."
-                        : "Send"
+                            ? "Sending..."
+                            : "Send"
                     }
 
                 </button>

@@ -2,13 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendNotification } from "@/services/notificationService";
 import { verifyAdmin } from "@/lib/verifyAdmin";
 
-export async function POST(
-    request: NextRequest
-) {
-
-    await verifyAdmin(request);
-    
+export async function POST(request: NextRequest) {
     try {
+        await verifyAdmin(request);
 
         const {
             title,
@@ -16,23 +12,24 @@ export async function POST(
             batch,
         } = await request.json();
 
-        const result =
-            await sendNotification({
-                title,
-                body,
-                batch,
-            });
+        const result = await sendNotification({
+            title,
+            body,
+            batch,
+        });
 
         return NextResponse.json(result);
 
     } catch (error) {
-
-        console.error(error);
+        console.error("Send notification error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                error: "Notification failed",
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : "Notification failed",
             },
             {
                 status: 500,
