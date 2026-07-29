@@ -212,7 +212,9 @@ export default function BulkUploadPage() {
             console.error(error);
 
             alert(
-                "Upload failed."
+                error instanceof Error
+                    ? error.message
+                    : "Upload failed."
             );
 
         }

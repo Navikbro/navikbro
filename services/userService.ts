@@ -394,3 +394,159 @@ export async function saveFCMToken(
     );
 
 }
+
+export async function initializeUser(
+    firebaseUser: FirebaseUserData
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        firebaseUser.uid
+    );
+
+    // ONE AND ONLY READ
+    const snapshot = await getDoc(userRef);
+
+    // ===========================
+    // EXISTING USER
+    // ===========================
+    if (snapshot.exists()) {
+
+        const existingUser = snapshot.data();
+
+        await updateDoc(
+            userRef,
+            {
+                updatedAt: serverTimestamp(),
+
+                role:
+                    existingUser.role === "admin"
+                        ? "admin"
+                        : "student",
+
+                isBlocked:
+                    existingUser.isBlocked ?? false,
+
+                subscription:
+                    typeof existingUser.subscription === "object"
+                        ? existingUser.subscription
+                        : {
+                              plan: "free",
+                              status: "inactive",
+                              startDate: null,
+                              endDate: null,
+                              paymentId: null,
+                              autoRenew: false,
+                          },
+
+                "stats.loginCount": increment(1),
+
+                "stats.lastLogin": serverTimestamp(),
+            }
+        );
+
+        return {
+            uid: firebaseUser.uid,
+
+            name:
+                existingUser.name ??
+                firebaseUser.displayName ??
+                "Anonymous",
+
+            email:
+                existingUser.email ??
+                firebaseUser.email ??
+                "",
+
+            photoURL:
+                existingUser.photoURL ??
+                firebaseUser.photoURL ??
+                null,
+
+            role:
+                existingUser.role === "admin"
+                    ? "admin"
+                    : "student",
+
+            isBlocked:
+                existingUser.isBlocked ?? false,
+
+            subscription:
+                typeof existingUser.subscription === "object"
+                    ? existingUser.subscription
+                    : {
+                          plan: "free",
+                          status: "inactive",
+                          startDate: null,
+                          endDate: null,
+                          paymentId: null,
+                          autoRenew: false,
+                      },
+        };
+    }
+
+    // ===========================
+    // NEW USER
+    // ===========================
+
+    const newUser = {
+        uid: firebaseUser.uid,
+
+        name:
+            firebaseUser.displayName ||
+            "Anonymous",
+
+        email:
+            firebaseUser.email || "",
+
+        photoURL:
+            firebaseUser.photoURL || null,
+
+        role: "student",
+
+        createdAt: serverTimestamp(),
+
+        updatedAt: serverTimestamp(),
+
+        isBlocked: false,
+
+        subscription: {
+            plan: "free",
+            status: "inactive",
+            startDate: null,
+            endDate: null,
+            paymentId: null,
+            autoRenew: false,
+        },
+
+        stats: {
+            loginCount: 1,
+            lastLogin: serverTimestamp(),
+        },
+    };
+
+    await setDoc(
+        userRef,
+        newUser
+    );
+
+    await incrementTotalUsers();
+
+    await addUserToAdminCache({
+        uid: firebaseUser.uid,
+        name:
+            firebaseUser.displayName ||
+            "Anonymous",
+        email:
+            firebaseUser.email || "",
+        photoURL:
+            firebaseUser.photoURL || null,
+        plan: "free",
+        status: "inactive",
+        endDate: null,
+        isBlocked: false,
+    });
+
+    return newUser;
+}

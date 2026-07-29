@@ -779,3 +779,44 @@ export async function getAllOralBatchQuestions(
 
     return allQuestions;
 }
+
+export async function getOralQuestionsForExport(
+    category: string
+) {
+    const questions = await getAllOralBatchQuestions(category);
+
+    return questions.map((q) => ({
+        Category: q.category.toUpperCase(),
+        Class: q.class,
+        Date: q.examDate,
+        MMD: q.mmd,
+        Surveyor: q.surveyor,
+        Topic: q.topic,
+        Question: q.question,
+        Answer: q.answer,
+    }));
+}
+
+export async function getAllOralQuestionCounts(): Promise<Record<string, number>> {
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            FN3: 0,
+            FN4B: 0,
+            FN5: 0,
+            FN6: 0,
+        };
+    }
+
+    const data = snapshot.data();
+
+    return {
+        FN3: data.fn3?.questionCount ?? 0,
+        FN4B: data.fn4b?.questionCount ?? 0,
+        FN5: data.fn5?.questionCount ?? 0,
+        FN6: data.fn6?.questionCount ?? 0,
+    };
+}

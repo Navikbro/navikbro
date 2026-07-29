@@ -7,8 +7,8 @@ export async function verifyAdmin(request: NextRequest) {
   if (!authHeader?.startsWith("Bearer ")) {
     throw new Error("Unauthorized");
   }
-
-  const token = authHeader.split("Bearer ")[1];
+  
+  const token = authHeader.replace("Bearer ", "");
 
   const decoded = await adminAuth.verifyIdToken(token);
 

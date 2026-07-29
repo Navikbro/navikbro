@@ -11,15 +11,6 @@ import {
 } from "@/lib/firebaseMessaging";
 
 import {
-    doc,
-    getDoc,
-} from "firebase/firestore";
-
-import {
-    db,
-} from "@/lib/firebase";
-
-import {
     createContext,
     useContext,
     useEffect,
@@ -32,9 +23,7 @@ import {
 
 
 import {
-    createUserProfile,
-    updateUserLogin,
-    getUserProfile,
+    initializeUser,
     saveFCMToken,
 } from "@/services/userService";
 
@@ -115,35 +104,6 @@ export function AuthProvider({
                     try {
 
 
-                        const userRef =
-                            doc(
-                                db,
-                                "users",
-                                firebaseUser.uid
-                            );
-
-
-                        const userSnap =
-                            await getDoc(userRef);
-
-
-                        if (
-                            userSnap.exists() &&
-                            userSnap.data().isBlocked === true
-                        ) {
-
-                            await signOut(auth);
-
-                            setUser(null);
-
-                            setRole("student");
-
-                            setLoading(false);
-
-                            return;
-
-                        }
-
                         const token =
                             await firebaseUser
                                 .getIdTokenResult(true);
@@ -161,49 +121,15 @@ export function AuthProvider({
                                 : "student"
                         );
 
-
-
-
-                        /*
-                         Create user profile
-                         if first login
-
-                         Otherwise update
-                         login statistics
-                        */
-
-
                         const profile =
-                            await createUserProfile(
-                                {
+                            await initializeUser({
+                                uid: firebaseUser.uid,
+                                displayName: firebaseUser.displayName,
+                                email: firebaseUser.email,
+                                photoURL: firebaseUser.photoURL,
+                            });
 
-                                    uid:
-                                        firebaseUser.uid,
-
-
-                                    displayName:
-                                        firebaseUser.displayName,
-
-
-                                    email:
-                                        firebaseUser.email,
-
-
-                                    photoURL:
-                                        firebaseUser.photoURL,
-
-                                }
-                            );
-
-                        const userProfile =
-                            await getUserProfile(
-                                firebaseUser.uid
-                            );
-
-
-                        if (
-                            userProfile?.isBlocked === true
-                        ) {
+                        if (profile.isBlocked) {
 
                             await signOut(auth);
 
@@ -214,16 +140,6 @@ export function AuthProvider({
                             setLoading(false);
 
                             return;
-
-                        }
-
-
-
-                        if (profile) {
-
-                            await updateUserLogin(
-                                firebaseUser.uid
-                            );
 
                         }
 

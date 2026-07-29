@@ -6,8 +6,17 @@ interface Props {
   category: string;
   userName: string;
   answer: string;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onApprove: (
+    id: string,
+    category: string,
+    questionId: string
+  ) => void;
+
+  onReject: (
+    id: string,
+    category: string,
+    questionId: string
+  ) => void;
 }
 
 export default function AdminAnswerCard({
@@ -54,14 +63,26 @@ export default function AdminAnswerCard({
       <div className="mt-6 flex gap-3">
 
         <button
-          onClick={() => onApprove(id)}
+          onClick={() =>
+            onApprove(
+              id,
+              category,
+              questionId
+            )
+          }
           className="rounded-xl bg-green-600 px-5 py-2 text-white transition hover:bg-green-700"
         >
           ✅ Approve
         </button>
 
         <button
-          onClick={() => onReject(id)}
+          onClick={() =>
+            onReject(
+              id,
+              category,
+              questionId
+            )
+          }
           className="rounded-xl bg-red-600 px-5 py-2 text-white transition hover:bg-red-700"
         >
           ❌ Reject
