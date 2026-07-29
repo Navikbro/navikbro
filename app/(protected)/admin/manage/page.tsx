@@ -156,6 +156,7 @@ export default function ManageWrittenQuestionsPage() {
                     id
                 );
 
+                await refreshOralCache();
             }
 
 
@@ -236,6 +237,8 @@ export default function ManageWrittenQuestionsPage() {
                     }
                 );
 
+                await refreshOralCache();
+
             }
 
 
@@ -308,6 +311,24 @@ export default function ManageWrittenQuestionsPage() {
 
         }
 
+    }
+
+    async function refreshOralCache() {
+        if (type !== "oral") return;
+
+        const res = await fetch("/api/revalidate/oral", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                categories: [category],
+            }),
+        });
+
+        if (!res.ok) {
+            throw new Error("Oral cache revalidation failed");
+        }
     }
 
 

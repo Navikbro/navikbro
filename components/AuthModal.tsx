@@ -103,13 +103,13 @@ export default function AuthModal({
                   <span
                     className="
           ml-1
-          mt-[2px]
-          text-[11px]
-          font-semibold
-          italic
-          lowercase
-          text-gray-600
-          leading-none
+    top-0
+    text-[10px]
+    font-bold
+    italic
+    lowercase
+    text-gray-700
+    leading-none
         "
                   >
                     bro

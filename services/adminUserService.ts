@@ -104,7 +104,12 @@ export async function getAdminUserPage(
         return null;
     }
 
-    return snapshot.data();
+    return snapshot.data() as {
+        pageNumber: number;
+        totalUsers: number;
+        users: CachedUser[];
+    };
+
 }
 
 export async function toggleCachedUserBlock(
@@ -118,9 +123,9 @@ export async function toggleCachedUserBlock(
             users.map((user) =>
                 user.uid === uid
                     ? {
-                          ...user,
-                          isBlocked,
-                      }
+                        ...user,
+                        isBlocked,
+                    }
                     : user
             )
     );
@@ -139,11 +144,11 @@ export async function updateCachedSubscription(
             users.map((user) =>
                 user.uid === uid
                     ? {
-                          ...user,
-                          plan,
-                          status,
-                          endDate,
-                      }
+                        ...user,
+                        plan,
+                        status,
+                        endDate,
+                    }
                     : user
             )
     );
@@ -181,10 +186,13 @@ async function updateUserInPage(
         return;
     }
 
-    const data = snapshot.data();
+    const data = snapshot.data() as {
+        users: CachedUser[];
+    };
 
     const users: CachedUser[] =
         data.users ?? [];
+
 
     const updatedUsers =
         updater(users);
