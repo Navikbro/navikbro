@@ -8,7 +8,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-import QuestionCard from "./QuestionCard";
+import QuestionCard from "@/components/QuestionCard";
 
 interface Question {
   id: string;
@@ -334,7 +334,7 @@ export default function QuestionsList({
             </h3>
 
             <p className="mt-2 text-sm text-gray-500">
-              Try changing your search or filters.
+              Try changing your search, filters or bookmarks.
             </p>
 
             <button

@@ -389,7 +389,7 @@ export default function WrittensClient({
             </h3>
 
             <p className="mt-2 text-sm text-gray-500">
-              Try changing your search or filters.
+              Try changing your search, filters or bookmarks.
             </p>
 
             <button

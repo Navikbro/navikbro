@@ -165,14 +165,6 @@ function QuestionCard({
     "
             >
 
-                <div className="mb-4 flex items-center gap-2">
-
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                        Question ({order})
-                    </span>
-
-                </div>
-
                 <div
                     className="
     flex
