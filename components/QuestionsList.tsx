@@ -135,7 +135,9 @@ export default function QuestionsList({
     setSelectedSurveyor("All");
     setSelectedTopic("All");
     setSelectedClass("All");
+    setShowBookmarksOnly(false);
   };
+
 
   useEffect(() => {
     const saved = localStorage.getItem("bookmarkedQuestions");
@@ -199,7 +201,12 @@ export default function QuestionsList({
             : "border-gray-200 bg-white hover:border-black"
             }`}
         >
-          🔖 Bookmarks ({bookmarks.length})
+          🔖 Bookmarks (
+          {
+            filteredQuestions.filter((q) =>
+              bookmarks.includes(q.id)
+            ).length
+          })
         </button>
 
       </div>
@@ -269,7 +276,14 @@ export default function QuestionsList({
 
             </div>
 
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                onClick={() => setShowFilters(false)}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                ✕ Close
+              </button>
+
               <button
                 onClick={clearFilters}
                 className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
@@ -292,15 +306,15 @@ export default function QuestionsList({
           Questions
         </h2>
 
-        <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
-          <span className="text-gray-500">Current:</span>{" "}
+        <div className="text-right text-xs sm:text-sm font-medium text-gray-700">
+          {" "}
           <span className="font-bold text-black">
-            <span className="font-bold text-black">
-              {totalQuestions}
-            </span>
-          </span>
-
-          <span className="mx-2 text-gray-300">|</span>
+            {filteredQuestions.length}
+          </span>{" "}
+          /{" "}
+          <span className="font-bold text-black">
+            {totalQuestions}
+          </span>{" "}
 
         </div>
 
@@ -309,10 +323,32 @@ export default function QuestionsList({
       {/* QUESTIONS */}
       <div className="space-y-4">
 
-        {filteredQuestions.map((q) => {
+        {filteredQuestions.length === 0 ? (
 
+          <div className="rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
 
-          return (
+            <div className="text-5xl">🔍</div>
+
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">
+              No questions found
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Try changing your search or filters.
+            </p>
+
+            <button
+              onClick={clearFilters}
+              className="mt-6 rounded-xl bg-black px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+            >
+              Clear Filters
+            </button>
+
+          </div>
+
+        ) : (
+
+          filteredQuestions.map((q) => (
             <QuestionCard
               key={q.id}
               questionId={q.id}
@@ -323,6 +359,7 @@ export default function QuestionsList({
               surveyor={q.surveyor}
               topic={q.topic}
               examDate={q.examDate}
+              order={q.order}
               showMmd={showMmd}
               showSurveyor={showSurveyor}
               showTopic={showTopic}
@@ -346,8 +383,10 @@ export default function QuestionsList({
                 });
               }}
             />
-          );
-        })}
+          ))
+
+        )}
+
       </div>
 
     </>

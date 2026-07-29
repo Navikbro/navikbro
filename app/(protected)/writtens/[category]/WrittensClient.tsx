@@ -47,18 +47,16 @@ export default function WrittensClient({
   const bookmarkStorageKey = `bookmarkedWrittenQuestions_${category}`;
 
   const years = useMemo(() => {
-    return [...new Set(
-      questions
-        .map((q) => q.year)
-        .filter(Boolean)
-    )].sort((a, b) => b - a);
-
+    return [...new Set(questions.map((q) => q.year))]
+      .sort((a, b) => b - a);
   }, [questions]);
 
   const topics = useMemo(() => {
-    return [...new Set(questions.map((q) => q.topic))]
-      .filter(Boolean)
-      .sort();
+    return [...new Set(
+      questions
+        .map((q) => q.topic)
+        .filter(Boolean)
+    )].sort();
   }, [questions]);
 
   const bookmarkCount = useMemo(() => {
@@ -217,6 +215,24 @@ export default function WrittensClient({
     });
   };
 
+  useEffect(() => {
+    const closeFilters = () => {
+      setShowFilters(false);
+    };
+
+    window.addEventListener(
+      "close-written-filters",
+      closeFilters
+    );
+
+    return () => {
+      window.removeEventListener(
+        "close-written-filters",
+        closeFilters
+      );
+    };
+  }, []);
+
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
       <div className="mx-auto max-w-7xl px-5 py-8">
@@ -363,62 +379,69 @@ export default function WrittensClient({
         </div>
 
         {filteredQuestions.length === 0 ? (
-          <div className="mt-8 rounded-3xl bg-white p-12 text-center shadow-sm">
-            No Questions Found.
+
+          <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+
+            <div className="text-5xl">🔍</div>
+
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">
+              No questions found
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Try changing your search or filters.
+            </p>
+
+            <button
+              onClick={clearFilters}
+              className="mt-6 rounded-xl bg-black px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+            >
+              Clear Filters
+            </button>
+
           </div>
+
         ) : (
+
           <div className="mt-8 space-y-6">
-            {currentQuestion && (
-              <>
-                <div id="question-card">
-                  <WrittenCard
-                    question={currentQuestion}
-                    isBookmarked={bookmarks.includes(currentQuestion.id)}
-                    onBookmark={() => toggleBookmark(currentQuestion.id)}
-                  />
-                </div>
 
-                {/* Navigation */}
-                <div className="mt-6 flex items-center justify-between">
+            <div id="question-card">
+              <WrittenCard
+                question={currentQuestion}
+                isBookmarked={bookmarks.includes(currentQuestion.id)}
+                onBookmark={() => toggleBookmark(currentQuestion.id)}
+              />
+            </div>
 
-                  <button
-                    onClick={() =>
-                      setCurrentIndex((prev) => prev - 1)
-                    }
-                    disabled={currentIndex === 0}
-                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
-                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                      : "bg-black text-white hover:bg-gray-800"
-                      }`}
-                  >
-                    ◀ Previous
-                  </button>
+            {/* Navigation */}
+            <div className="mt-6 flex items-center justify-between">
 
-                  <button
-                    onClick={() =>
-                      setCurrentIndex((prev) => prev + 1)
-                    }
-                    disabled={currentIndex === filteredQuestions.length - 1}
-                    className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
-                      ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                      : "bg-black text-white hover:bg-gray-800"
-                      }`}
-                  >
-                    Next ▶
-                  </button>
+              <button
+                onClick={() => setCurrentIndex((prev) => prev - 1)}
+                disabled={currentIndex === 0}
+                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
+                  ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                  : "bg-black text-white hover:bg-gray-800"
+                  }`}
+              >
+                ◀ Previous
+              </button>
 
-                </div>
-              </>
-            )}
+              <button
+                onClick={() => setCurrentIndex((prev) => prev + 1)}
+                disabled={currentIndex === filteredQuestions.length - 1}
+                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
+                  ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
+                  : "bg-black text-white hover:bg-gray-800"
+                  }`}
+              >
+                Next ▶
+              </button>
 
-            {filteredQuestions.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
-                <p className="text-gray-500">
-                  No Questions Found.
-                </p>
-              </div>
-            )}
+            </div>
+
           </div>
+
         )}
 
       </div>

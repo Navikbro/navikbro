@@ -120,7 +120,14 @@ export default function WrittenFilters({
 
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex items-center justify-between">
+        <button
+          onClick={() => window.dispatchEvent(new Event("close-written-filters"))}
+          className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium transition hover:bg-gray-100"
+        >
+          ✕ Close
+        </button>
+
         <button
           onClick={onClearFilters}
           className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium transition hover:bg-gray-100"
