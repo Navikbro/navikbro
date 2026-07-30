@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-
+import { SubscriptionProvider } from "@/app/context/SubscriptionContext";
 import { AuthProvider } from "@/app/context/AuthContext";
 import InitialLoader from "@/components/InitialLoader";
 export const metadata: Metadata = {
@@ -26,9 +26,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AuthProvider>
-          <InitialLoader>
-            {children}
-          </InitialLoader>
+          <SubscriptionProvider>
+            <InitialLoader>
+              {children}
+            </InitialLoader>
+          </SubscriptionProvider>
         </AuthProvider>
       </body>
     </html>

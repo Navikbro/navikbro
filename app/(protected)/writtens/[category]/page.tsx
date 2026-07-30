@@ -1,6 +1,6 @@
 import WrittensClient from "../[category]/WrittensClient";
 import { getCachedWrittenQuestions } from "@/lib/written-cache";
-
+import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
 export default async function WrittenPage({
   params,
 }: {
@@ -17,9 +17,13 @@ export default async function WrittenPage({
   );
 
   return (
-    <WrittensClient
-      initialQuestions={questions}
-      category={normalizedCategory}
-    />
+    <SubscriptionGuard>
+
+      <WrittensClient
+        initialQuestions={questions}
+        category={normalizedCategory}
+      />
+
+    </SubscriptionGuard>
   );
 }

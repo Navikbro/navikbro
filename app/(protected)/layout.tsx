@@ -1,4 +1,5 @@
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SubscriptionRoute from "@/components/SubscriptionRoute";
 
 export default function ProtectedLayout({
   children,
@@ -7,7 +8,11 @@ export default function ProtectedLayout({
 }) {
   return (
     <ProtectedRoute>
-      {children}
+
+      <SubscriptionRoute>
+        {children}
+      </SubscriptionRoute>
+
     </ProtectedRoute>
   );
 }

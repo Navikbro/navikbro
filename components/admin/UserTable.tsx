@@ -200,7 +200,11 @@ export default function UserTable({
                                 </th>
 
                                 <th className="px-6 py-4 font-semibold">
-                                    Status
+                                    Subscription
+                                </th>
+
+                                <th className="px-6 py-4 font-semibold">
+                                    Account
                                 </th>
 
                                 <th className="px-6 py-4 font-semibold">
@@ -283,10 +287,20 @@ export default function UserTable({
 
                                     <td className="px-6 py-4">
 
+                                        <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
+
+                                            {user.status}
+
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
                                         <span
                                             className={`rounded-full px-3 py-1 text-sm ${user.isBlocked
-                                                ? "bg-red-100 text-red-700"
-                                                : "bg-green-100 text-green-700"
+                                                    ? "bg-red-100 text-red-700"
+                                                    : "bg-green-100 text-green-700"
                                                 }`}
                                         >
 
@@ -399,17 +413,7 @@ export default function UserTable({
                                 )
                                 : null;
 
-                        await updateUserSubscription(
 
-                            selectedUser.uid,
-
-                            plan,
-
-                            status,
-
-                            timestamp?.toDate() ?? null,
-
-                        );
 
                         await updateCachedSubscription(
 

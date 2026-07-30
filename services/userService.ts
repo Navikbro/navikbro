@@ -74,17 +74,33 @@ export async function createUserProfile(
                     existingUser.isBlocked ?? false,
 
 
-                subscription:
-                    typeof existingUser.subscription === "object"
+                subscription: {
+                    plan: "free",
+
+                    status: "inactive",
+
+                    trialStartDate: null,
+
+                    trialEndDate: null,
+
+                    startDate: null,
+
+                    endDate: null,
+
+                    paymentId: null,
+
+                    autoRenew: false,
+
+                    amount: 149,
+
+                    lockedPrice: 149,
+
+                    currency: "INR",
+
+                    ...(typeof existingUser.subscription === "object"
                         ? existingUser.subscription
-                        : {
-                            plan: "free",
-                            status: "inactive",
-                            startDate: null,
-                            endDate: null,
-                            paymentId: null,
-                            autoRenew: false,
-                        },
+                        : {}),
+                },
 
 
                 "stats.loginCount":
@@ -134,10 +150,13 @@ export async function createUserProfile(
 
 
         subscription: {
-
             plan: "free",
 
             status: "inactive",
+
+            trialStartDate: null,
+
+            trialEndDate: null,
 
             startDate: null,
 
@@ -147,6 +166,11 @@ export async function createUserProfile(
 
             autoRenew: false,
 
+            amount: 149,
+
+            lockedPrice: 149,
+
+            currency: "INR",
         },
 
 
@@ -326,44 +350,25 @@ export async function unblockUser(
 
 export async function updateUserSubscription(
     uid: string,
-    plan: string,
-    status: string,
-    endDate: Date | null
+    subscription: Partial<AppUser["subscription"]>
 ) {
+    const userRef = doc(db, "users", uid);
 
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
+    // Read existing document
+    const snapshot = await getDoc(userRef);
 
-    await updateDoc(
-        userRef,
-        {
+    // Get current subscription
+    const existing =
+        snapshot.data()?.subscription ?? {};
 
-            subscription: {
-
-                plan,
-
-                status,
-
-                startDate:
-                    serverTimestamp(),
-
-                endDate,
-
-                paymentId: null,
-
-                autoRenew: false,
-
-            },
-
-            updatedAt:
-                serverTimestamp(),
-
-        }
-    );
-
+    // Merge and save
+    await updateDoc(userRef, {
+        subscription: {
+            ...existing,
+            ...subscription,
+        },
+        updatedAt: serverTimestamp(),
+    });
 }
 
 /**
@@ -428,17 +433,33 @@ export async function initializeUser(
                 isBlocked:
                     existingUser.isBlocked ?? false,
 
-                subscription:
-                    typeof existingUser.subscription === "object"
+                subscription: {
+                    plan: "free",
+
+                    status: "inactive",
+
+                    trialStartDate: null,
+
+                    trialEndDate: null,
+
+                    startDate: null,
+
+                    endDate: null,
+
+                    paymentId: null,
+
+                    autoRenew: false,
+
+                    amount: 149,
+
+                    lockedPrice: 149,
+
+                    currency: "INR",
+
+                    ...(typeof existingUser.subscription === "object"
                         ? existingUser.subscription
-                        : {
-                              plan: "free",
-                              status: "inactive",
-                              startDate: null,
-                              endDate: null,
-                              paymentId: null,
-                              autoRenew: false,
-                          },
+                        : {}),
+                },
 
                 "stats.loginCount": increment(1),
 
@@ -476,13 +497,26 @@ export async function initializeUser(
                 typeof existingUser.subscription === "object"
                     ? existingUser.subscription
                     : {
-                          plan: "free",
-                          status: "inactive",
-                          startDate: null,
-                          endDate: null,
-                          paymentId: null,
-                          autoRenew: false,
-                      },
+                        plan: "free",
+
+                        status: "inactive",
+
+                        trialStartDate: null,
+
+                        trialEndDate: null,
+
+                        startDate: null,
+
+                        endDate: null,
+
+                        paymentId: null,
+
+                        autoRenew: false,
+
+                        amount: 149,
+
+                        lockedPrice: 149,
+                    },
         };
     }
 
@@ -513,11 +547,24 @@ export async function initializeUser(
 
         subscription: {
             plan: "free",
+
             status: "inactive",
+
+            trialStartDate: null,
+
+            trialEndDate: null,
+
             startDate: null,
+
             endDate: null,
+
             paymentId: null,
+
             autoRenew: false,
+
+            amount: 149,
+
+            lockedPrice: 149,
         },
 
         stats: {

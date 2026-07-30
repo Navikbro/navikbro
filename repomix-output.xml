@@ -1,10 +1,10 @@
-This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
 
 <file_summary>
 This section contains a summary of this file.
 
 <purpose>
-This file contains a packed representation of the entire repository's contents.
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
 It is designed to be easily consumable by AI systems for analysis, code review,
 or other automated processes.
 </purpose>
@@ -32,6 +32,8 @@ The content is organized as follows:
 <notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: app/**/*.{ts,tsx}, components/**/*.{ts,tsx}, services/**/*.{ts,tsx}, lib/**/*.{ts,tsx}, context/**/*.{ts,tsx}, types/**/*.{ts,tsx}, middleware.ts, next.config.*, package.json
+- Files matching these patterns are excluded: node_modules/**, .next/**, .git/**, .env*, public/**, scripts/**, README.md
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
 - Files are sorted by Git change count (files with more changes are at the bottom)
@@ -95,8 +97,7 @@ app/
       route.ts
   context/
     AuthContext.tsx
-  favicon.ico
-  globals.css
+    SubscriptionContext.tsx
   layout.tsx
   loading.tsx
   manifest.ts
@@ -105,6 +106,8 @@ components/
   admin/
     EditSubscriptionModal.tsx
     UserTable.tsx
+  subscription/
+    SubscriptionGuard.tsx
   AdminAnswerCard.tsx
   AdminRoute.tsx
   AuthModal.tsx
@@ -123,10 +126,14 @@ components/
   QuestionsList.tsx
   QuestionTable.tsx
   SectionHeading.tsx
+  SubscriptionModal.tsx
+  SubscriptionRoute.tsx
   UserGreeting.tsx
   WrittenCard.tsx
   WrittenFilters.tsx
 lib/
+  subscription/
+    config.ts
   adminFetch.ts
   community-cache.ts
   firebase-admin.ts
@@ -135,20 +142,10 @@ lib/
   home-cache.ts
   oral-cache.ts
   orals.ts
+  subscription.ts
   verifyAdmin.ts
   written-cache.ts
   writtens.ts
-public/
-  templates/
-    oral-template.xlsx
-    written-template.xlsx
-  apple-icon.png
-  firebase-messaging-sw.js
-  icon-192.png
-  icon-512.png
-scripts/
-  createAdminCache.ts
-  testAdminUser.ts
 services/
   admin.ts
   adminService.ts
@@ -156,6 +153,7 @@ services/
   firestore.ts
   notificationService.ts
   oralBatch.service.ts
+  subscription.service.ts
   userService.ts
   written.service.ts
   writtenBatch.service.ts
@@ -163,13 +161,8 @@ types/
   admin.ts
   question.ts
   user.ts
-.gitignore
-eslint.config.mjs
 next.config.ts
 package.json
-postcss.config.mjs
-README.md
-tsconfig.json
 </directory_structure>
 
 <files>
@@ -177,6 +170,7 @@ This section contains the contents of the repository's files.
 
 <file path="app/(protected)/layout.tsx">
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SubscriptionRoute from "@/components/SubscriptionRoute";
 
 export default function ProtectedLayout({
   children,
@@ -185,194 +179,241 @@ export default function ProtectedLayout({
 }) {
   return (
     <ProtectedRoute>
-      {children}
+
+      <SubscriptionRoute>
+        {children}
+      </SubscriptionRoute>
+
     </ProtectedRoute>
   );
 }
 </file>
 
-<file path="app/actions/communityActions.ts">
-"use server";
+<file path="app/context/SubscriptionContext.tsx">
+"use client";
 
-import { revalidateTag } from "next/cache";
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
 
-import { adminDb } from "@/lib/firebase-admin";
+import { useAuth } from "./AuthContext";
 
-export async function approveCommunityAnswer(
-  id: string,
-  category: string,
-  questionId: string
-) {
-  await adminDb
-    .collection("communityAnswers")
-    .doc(id)
-    .update({
-      status: "approved",
+import {
+    isTrialExpired,
+    isSubscriptionExpired,
+} from "@/lib/subscription";
+
+import {
+    getUserSubscription,
+} from "@/services/subscription.service";
+
+import type {
+    UserSubscription,
+} from "@/types/user";
+
+interface SubscriptionContextType {
+    loading: boolean;
+
+    active: boolean;
+
+    hasAccess: boolean;
+
+    showTrialModal: boolean;
+
+    showSubscriptionModal: boolean;
+
+    status:
+        | "inactive"
+        | "trial"
+        | "active"
+        | "expired"
+        | "cancelled";
+
+    subscription: UserSubscription | null;
+}
+
+const SubscriptionContext =
+    createContext<SubscriptionContextType>({
+        loading: true,
+
+        active: false,
+
+        hasAccess: false,
+
+        showTrialModal: false,
+
+        showSubscriptionModal: false,
+
+        status: "inactive",
+
+        subscription: null,
     });
 
-  revalidateTag(
-    `community-${category.toLowerCase()}-${questionId}`,
-    "max"
-  );
+export function SubscriptionProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const { user } = useAuth();
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [subscription, setSubscription] =
+        useState<UserSubscription | null>(
+            null
+        );
+
+    useEffect(() => {
+        async function loadSubscription() {
+            if (!user) {
+                setSubscription(null);
+                setLoading(false);
+                return;
+            }
+
+            const data =
+                await getUserSubscription(
+                    user.uid
+                );
+
+            setSubscription(data);
+            setLoading(false);
+        }
+
+        loadSubscription();
+    }, [user]);
+
+    const trialExpired =
+        subscription
+            ? isTrialExpired(subscription)
+            : false;
+
+    const subscriptionExpired =
+        subscription
+            ? isSubscriptionExpired(
+                  subscription
+              )
+            : false;
+
+    const hasAccess =
+        !!subscription &&
+        (
+            subscription.status ===
+                "active" ||
+            subscription.status ===
+                "trial"
+        ) &&
+        !trialExpired &&
+        !subscriptionExpired;
+
+    const showTrialModal =
+        !!subscription &&
+        subscription.status ===
+            "trial" &&
+        !trialExpired;
+
+    const showSubscriptionModal =
+        !!subscription &&
+        (
+            subscription.status ===
+                "inactive" ||
+            subscription.status ===
+                "expired" ||
+            subscription.status ===
+                "cancelled" ||
+            trialExpired ||
+            subscriptionExpired
+        );
+
+    return (
+        <SubscriptionContext.Provider
+            value={{
+                loading,
+
+                active: hasAccess,
+
+                hasAccess,
+
+                showTrialModal,
+
+                showSubscriptionModal,
+
+                status:
+                    subscription?.status ??
+                    "inactive",
+
+                subscription,
+            }}
+        >
+            {children}
+        </SubscriptionContext.Provider>
+    );
 }
 
-export async function rejectCommunityAnswer(
-  id: string,
-  category: string,
-  questionId: string
-) {
-  await adminDb
-    .collection("communityAnswers")
-    .doc(id)
-    .delete();
-
-  revalidateTag(
-    `community-${category.toLowerCase()}-${questionId}`,
-    "max"
-  );
+export function useSubscription() {
+    return useContext(
+        SubscriptionContext
+    );
 }
 </file>
 
-<file path="app/actions/communityReadActions.ts">
-"use server";
-
-import { getCachedApprovedAnswers } from "@/lib/community-cache";
-
-export async function loadApprovedCommunityAnswers(
-  category: string,
-  questionId: string
-) {
-  return getCachedApprovedAnswers(
-    category,
-    questionId
-  );
-}
-</file>
-
-<file path="components/AdminAnswerCard.tsx">
+<file path="components/subscription/SubscriptionGuard.tsx">
 "use client";
 
-interface Props {
-  id: string;
-  questionId: string;
-  category: string;
-  userName: string;
-  answer: string;
-  onApprove: (
-    id: string,
-    category: string,
-    questionId: string
-  ) => void;
+import { ReactNode } from "react";
 
-  onReject: (
-    id: string,
-    category: string,
-    questionId: string
-  ) => void;
-}
+import { useSubscription } from "@/app/context/SubscriptionContext";
 
-export default function AdminAnswerCard({
-  id,
-  questionId,
-  category,
-  userName,
-  answer,
-  onApprove,
-  onReject,
-}: Props) {
-  return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+import SubscriptionModal from "@/components/SubscriptionModal";
 
-      <div className="space-y-2">
-
-        <p>
-          <span className="font-semibold">
-            Question ID:
-          </span>{" "}
-          {questionId}
-        </p>
-
-        <p>
-          <span className="font-semibold">
-            Category:
-          </span>{" "}
-          {category.toUpperCase()}
-        </p>
-
-        <p>
-          <span className="font-semibold">
-            Submitted By:
-          </span>{" "}
-          {userName}
-        </p>
-
-      </div>
-
-      <div className="mt-5 rounded-2xl bg-gray-50 p-4 whitespace-pre-wrap">
-        {answer}
-      </div>
-
-      <div className="mt-6 flex gap-3">
-
-        <button
-          onClick={() =>
-            onApprove(
-              id,
-              category,
-              questionId
-            )
-          }
-          className="rounded-xl bg-green-600 px-5 py-2 text-white transition hover:bg-green-700"
-        >
-          ✅ Approve
-        </button>
-
-        <button
-          onClick={() =>
-            onReject(
-              id,
-              category,
-              questionId
-            )
-          }
-          className="rounded-xl bg-red-600 px-5 py-2 text-white transition hover:bg-red-700"
-        >
-          ❌ Reject
-        </button>
-
-      </div>
-
-    </div>
-  );
-}
-</file>
-
-<file path="components/CommunityAnswer.tsx">
-"use client";
+import { SUBSCRIPTIONS_ENABLED } from "@/lib/subscription/config";
 
 interface Props {
-  userName: string;
-  answer: string;
-  likes: number;
+    children: ReactNode;
 }
 
-export default function CommunityAnswer({
-  userName,
-  answer,
-  likes,
+export default function SubscriptionGuard({
+    children,
 }: Props) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-      <div className="flex items-center justify-between">
-        <h4 className="font-semibold">{userName}</h4>
-        
-      </div>
 
-      <p className="mt-3 whitespace-pre-wrap text-gray-700">
-        {answer}
-      </p>
-    </div>
-  );
+    const {
+        loading,
+        hasAccess,
+        showTrialModal,
+        showSubscriptionModal,
+    } = useSubscription();
+
+    // Development Mode
+    if (!SUBSCRIPTIONS_ENABLED) {
+        return <>{children}</>;
+    }
+
+    if (loading) {
+        return null;
+    }
+
+    return (
+        <>
+            {children}
+
+            {showTrialModal && (
+                <SubscriptionModal
+                    mode="trial"
+                />
+            )}
+
+            {!hasAccess &&
+                showSubscriptionModal && (
+                    <SubscriptionModal
+                        mode="expired"
+                    />
+                )}
+        </>
+    );
 }
 </file>
 
@@ -489,41 +530,206 @@ export default function ProtectedRoute({
 }
 </file>
 
-<file path="lib/community-cache.ts">
-import { unstable_cache } from "next/cache";
+<file path="components/SectionHeading.tsx">
+interface Props {
+  title: string;
+}
+
+export default function SectionHeading({
+  title,
+}: Props) {
+  return (
+    <h2 className="text-sm font-bold tracking-[2px] text-gray-500 mb-4">
+      {title}
+    </h2>
+  );
+}
+</file>
+
+<file path="components/SubscriptionModal.tsx">
+"use client";
+
+interface SubscriptionModalProps {
+    mode:
+        | "trial"
+        | "expired";
+}
+
+
+export default function SubscriptionModal({
+    mode,
+}: SubscriptionModalProps) {
+
+
+    if (mode === "trial") {
+
+        return (
+
+            <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+
+                <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-xl">
+
+
+                    <h2 className="text-2xl font-bold mb-3">
+                        🎉 Welcome to NAVIK!
+                    </h2>
+
+
+                    <p className="text-gray-600 mb-6">
+                        Your complimentary 24-hour trial has started.
+                        Enjoy unlimited access.
+                    </p>
+
+
+                    <button
+                        className="
+                            w-full
+                            rounded-xl
+                            bg-black
+                            text-white
+                            py-3
+                            font-semibold
+                        "
+                    >
+                        Continue
+                    </button>
+
+
+                </div>
+
+            </div>
+
+        );
+
+    }
+
+
+
+    return (
+
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+
+            <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-xl">
+
+
+                <h2 className="text-2xl font-bold mb-3">
+                    🚀 Unlock NAVIK Pro
+                </h2>
+
+
+                <p className="text-gray-600 mb-2">
+                    Continue your preparation with unlimited access.
+                </p>
+
+
+                <p className="text-xl font-bold mb-6">
+                    $149/month
+                </p>
+
+
+                <button
+                    className="
+                        w-full
+                        rounded-xl
+                        bg-black
+                        text-white
+                        py-3
+                        font-semibold
+                    "
+                >
+                    Unlock NAVIK Pro
+                </button>
+
+
+            </div>
+
+        </div>
+
+    );
+
+}
+</file>
+
+<file path="components/SubscriptionRoute.tsx">
+"use client";
+
+import React from "react";
 
 import {
-  getApprovedAnswers,
-} from "@/services/firestore";
+    useSubscription,
+} from "@/app/context/SubscriptionContext";
 
-export async function getCachedApprovedAnswers(
-  category: string,
-  questionId: string
-) {
-  const normalizedCategory =
-    category.trim().toLowerCase();
+import SubscriptionModal from "./SubscriptionModal";
 
-  const cached = unstable_cache(
-    async () => {
-      return getApprovedAnswers(
-        normalizedCategory,
-        questionId
-      );
-    },
-    [
-      "community-approved-answers",
-      normalizedCategory,
-      questionId,
-    ],
-    {
-      tags: [
-        `community-${normalizedCategory}-${questionId}`,
-      ],
+
+export default function SubscriptionRoute({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+
+
+    const {
+        loading,
+        active,
+    } = useSubscription();
+
+
+
+    if (loading) {
+
+        return null;
+
     }
-  );
 
-  return cached();
+
+
+    const subscriptionsEnabled =
+        process.env.NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED === "true";
+
+
+
+    // Subscription system OFF
+    // NAVIK remains completely free
+    if (!subscriptionsEnabled) {
+
+        return (
+            <>
+                {children}
+            </>
+        );
+
+    }
+
+
+
+    // Active subscription or trial
+    if (active) {
+
+        return (
+            <>
+                {children}
+            </>
+        );
+
+    }
+
+
+
+    // Future subscription blocking
+    return (
+
+        <SubscriptionModal
+            mode="expired"
+        />
+
+    );
+
 }
+</file>
+
+<file path="lib/subscription/config.ts">
+export const SUBSCRIPTIONS_ENABLED = false;
 </file>
 
 <file path="lib/firebase.ts">
@@ -549,6 +755,53 @@ export const db = getFirestore(app);
 export default app;
 </file>
 
+<file path="lib/subscription.ts">
+import type {
+    UserSubscription,
+} from "@/types/user";
+
+
+export function isTrialExpired(
+    subscription: UserSubscription
+) {
+
+    if (
+        !subscription.trialEndDate
+    ) {
+        return false;
+    }
+
+
+    return (
+        subscription.trialEndDate.toDate()
+        <
+        new Date()
+    );
+
+}
+
+
+
+export function isSubscriptionExpired(
+    subscription: UserSubscription
+) {
+
+    if (
+        !subscription.endDate
+    ) {
+        return false;
+    }
+
+
+    return (
+        subscription.endDate.toDate()
+        <
+        new Date()
+    );
+
+}
+</file>
+
 <file path="services/admin.ts">
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -566,6 +819,123 @@ export async function isUserAdmin(uid: string) {
 }
 </file>
 
+<file path="services/subscription.service.ts">
+import {
+    doc,
+    getDoc,
+    updateDoc,
+    serverTimestamp,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+import type {
+    AppUser,
+} from "@/types/user";
+
+import {
+    isTrialExpired,
+    isSubscriptionExpired,
+} from "@/lib/subscription";
+
+
+export async function getUserSubscription(
+    uid: string
+) {
+
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
+
+
+    const snapshot =
+        await getDoc(userRef);
+
+
+    if (!snapshot.exists()) {
+        return null;
+    }
+
+
+    const user =
+        snapshot.data() as AppUser;
+
+
+    return user.subscription;
+
+}
+
+export async function updateSubscription(
+    uid: string,
+    data: Partial<AppUser["subscription"]>
+) {
+
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
+
+
+    const snapshot =
+        await getDoc(userRef);
+
+
+    if (!snapshot.exists()) {
+        return;
+    }
+
+
+    const user =
+        snapshot.data() as AppUser;
+
+
+    await updateDoc(
+        userRef,
+        {
+            subscription: {
+                ...user.subscription,
+                ...data,
+            },
+
+            updatedAt:
+                serverTimestamp(),
+        }
+    );
+
+}
+
+export async function hasActiveSubscription(
+    uid: string
+) {
+
+    const subscription =
+        await getUserSubscription(uid);
+
+
+    if (!subscription) {
+        return false;
+    }
+
+
+    return (
+        (
+            subscription.status === "active" ||
+            subscription.status === "trial"
+        )
+        &&
+        !isTrialExpired(subscription)
+        &&
+        !isSubscriptionExpired(subscription)
+    );
+
+}
+</file>
+
 <file path="types/question.ts">
 export interface Question {
   id: string;
@@ -580,27 +950,6 @@ export interface Question {
 }
 </file>
 
-<file path="eslint.config.mjs">
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
-
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ]),
-]);
-
-export default eslintConfig;
-</file>
-
 <file path="next.config.ts">
 import type { NextConfig } from "next";
 
@@ -610,92 +959,6 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-</file>
-
-<file path="postcss.config.mjs">
-const config = {
-  plugins: {
-    "@tailwindcss/postcss": {},
-  },
-};
-
-export default config;
-</file>
-
-<file path="README.md">
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-</file>
-
-<file path="tsconfig.json">
-{
-  "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
-  },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-  ],
-  "exclude": ["node_modules"]
-}
 </file>
 
 <file path="app/(protected)/admin/test/page.tsx">
@@ -950,6 +1213,64 @@ export default function Loading() {
 }
 </file>
 
+<file path="app/actions/communityActions.ts">
+"use server";
+
+import { revalidateTag } from "next/cache";
+
+import { adminDb } from "@/lib/firebase-admin";
+
+export async function approveCommunityAnswer(
+  id: string,
+  category: string,
+  questionId: string
+) {
+  await adminDb
+    .collection("communityAnswers")
+    .doc(id)
+    .update({
+      status: "approved",
+    });
+
+  revalidateTag(
+    `community-${category.toLowerCase()}-${questionId}`,
+    "max"
+  );
+}
+
+export async function rejectCommunityAnswer(
+  id: string,
+  category: string,
+  questionId: string
+) {
+  await adminDb
+    .collection("communityAnswers")
+    .doc(id)
+    .delete();
+
+  revalidateTag(
+    `community-${category.toLowerCase()}-${questionId}`,
+    "max"
+  );
+}
+</file>
+
+<file path="app/actions/communityReadActions.ts">
+"use server";
+
+import { getCachedApprovedAnswers } from "@/lib/community-cache";
+
+export async function loadApprovedCommunityAnswers(
+  category: string,
+  questionId: string
+) {
+  return getCachedApprovedAnswers(
+    category,
+    questionId
+  );
+}
+</file>
+
 <file path="app/api/revalidate/written/route.ts">
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
@@ -1080,13 +1401,18 @@ import { useState } from "react";
 
 import { CachedUser } from "@/types/admin";
 
+import type {
+    SubscriptionPlan,
+    SubscriptionStatus,
+} from "@/types/user";
+
 interface EditSubscriptionModalProps {
     user: CachedUser | null;
     open: boolean;
     onClose: () => void;
     onSave: (
-        plan: string,
-        status: string,
+        plan: SubscriptionPlan,
+        status: SubscriptionStatus,
         endDate: string | null
     ) => Promise<void>;
 }
@@ -1099,10 +1425,14 @@ export default function EditSubscriptionModal({
 }: EditSubscriptionModalProps) {
 
     const [plan, setPlan] =
-        useState(user?.plan ?? "free");
+        useState<SubscriptionPlan>(
+            (user?.plan as SubscriptionPlan) ?? "free"
+        );
 
     const [status, setStatus] =
-        useState(user?.status ?? "inactive");
+        useState<SubscriptionStatus>(
+            (user?.status as SubscriptionStatus) ?? "inactive"
+        );
 
     const [endDate, setEndDate] =
         useState("");
@@ -1132,16 +1462,21 @@ export default function EditSubscriptionModal({
                         <select
                             value={plan}
                             onChange={(e) =>
-                                setPlan(e.target.value)
+                                setPlan(e.target.value as SubscriptionPlan)
                             }
+
                             className="w-full rounded-lg border p-2"
                         >
                             <option value="free">
                                 Free
                             </option>
 
-                            <option value="premium">
-                                Premium
+                            <option value="trial">
+                                Trial
+                            </option>
+
+                            <option value="monthly">
+                                Monthly
                             </option>
 
                         </select>
@@ -1157,7 +1492,7 @@ export default function EditSubscriptionModal({
                         <select
                             value={status}
                             onChange={(e) =>
-                                setStatus(e.target.value)
+                                setStatus(e.target.value as SubscriptionStatus)
                             }
                             className="w-full rounded-lg border p-2"
                         >
@@ -1432,7 +1767,11 @@ export default function UserTable({
                                 </th>
 
                                 <th className="px-6 py-4 font-semibold">
-                                    Status
+                                    Subscription
+                                </th>
+
+                                <th className="px-6 py-4 font-semibold">
+                                    Account
                                 </th>
 
                                 <th className="px-6 py-4 font-semibold">
@@ -1515,10 +1854,20 @@ export default function UserTable({
 
                                     <td className="px-6 py-4">
 
+                                        <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
+
+                                            {user.status}
+
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
                                         <span
                                             className={`rounded-full px-3 py-1 text-sm ${user.isBlocked
-                                                ? "bg-red-100 text-red-700"
-                                                : "bg-green-100 text-green-700"
+                                                    ? "bg-red-100 text-red-700"
+                                                    : "bg-green-100 text-green-700"
                                                 }`}
                                         >
 
@@ -1631,17 +1980,7 @@ export default function UserTable({
                                 )
                                 : null;
 
-                        await updateUserSubscription(
 
-                            selectedUser.uid,
-
-                            plan,
-
-                            status,
-
-                            timestamp?.toDate() ?? null,
-
-                        );
 
                         await updateCachedSubscription(
 
@@ -1686,6 +2025,104 @@ export default function UserTable({
 
     );
 
+}
+</file>
+
+<file path="components/AdminAnswerCard.tsx">
+"use client";
+
+interface Props {
+  id: string;
+  questionId: string;
+  category: string;
+  userName: string;
+  answer: string;
+  onApprove: (
+    id: string,
+    category: string,
+    questionId: string
+  ) => void;
+
+  onReject: (
+    id: string,
+    category: string,
+    questionId: string
+  ) => void;
+}
+
+export default function AdminAnswerCard({
+  id,
+  questionId,
+  category,
+  userName,
+  answer,
+  onApprove,
+  onReject,
+}: Props) {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+
+      <div className="space-y-2">
+
+        <p>
+          <span className="font-semibold">
+            Question ID:
+          </span>{" "}
+          {questionId}
+        </p>
+
+        <p>
+          <span className="font-semibold">
+            Category:
+          </span>{" "}
+          {category.toUpperCase()}
+        </p>
+
+        <p>
+          <span className="font-semibold">
+            Submitted By:
+          </span>{" "}
+          {userName}
+        </p>
+
+      </div>
+
+      <div className="mt-5 rounded-2xl bg-gray-50 p-4 whitespace-pre-wrap">
+        {answer}
+      </div>
+
+      <div className="mt-6 flex gap-3">
+
+        <button
+          onClick={() =>
+            onApprove(
+              id,
+              category,
+              questionId
+            )
+          }
+          className="rounded-xl bg-green-600 px-5 py-2 text-white transition hover:bg-green-700"
+        >
+          ✅ Approve
+        </button>
+
+        <button
+          onClick={() =>
+            onReject(
+              id,
+              category,
+              questionId
+            )
+          }
+          className="rounded-xl bg-red-600 px-5 py-2 text-white transition hover:bg-red-700"
+        >
+          ❌ Reject
+        </button>
+
+      </div>
+
+    </div>
+  );
 }
 </file>
 
@@ -1738,6 +2175,35 @@ export default function AdminRoute({
     }
 
     return <>{children}</>;
+}
+</file>
+
+<file path="components/CommunityAnswer.tsx">
+"use client";
+
+interface Props {
+  userName: string;
+  answer: string;
+  likes: number;
+}
+
+export default function CommunityAnswer({
+  userName,
+  answer,
+  likes,
+}: Props) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <div className="flex items-center justify-between">
+        <h4 className="font-semibold">{userName}</h4>
+        
+      </div>
+
+      <p className="mt-3 whitespace-pre-wrap text-gray-700">
+        {answer}
+      </p>
+    </div>
+  );
 }
 </file>
 
@@ -1958,22 +2424,6 @@ export default function QuestionTable({
 }
 </file>
 
-<file path="components/SectionHeading.tsx">
-interface Props {
-  title: string;
-}
-
-export default function SectionHeading({
-  title,
-}: Props) {
-  return (
-    <h2 className="text-sm font-bold tracking-[2px] text-gray-500 mb-4">
-      {title}
-    </h2>
-  );
-}
-</file>
-
 <file path="components/UserGreeting.tsx">
 "use client";
 
@@ -2024,6 +2474,43 @@ export async function adminFetch(
     ...init,
     headers,
   });
+}
+</file>
+
+<file path="lib/community-cache.ts">
+import { unstable_cache } from "next/cache";
+
+import {
+  getApprovedAnswers,
+} from "@/services/firestore";
+
+export async function getCachedApprovedAnswers(
+  category: string,
+  questionId: string
+) {
+  const normalizedCategory =
+    category.trim().toLowerCase();
+
+  const cached = unstable_cache(
+    async () => {
+      return getApprovedAnswers(
+        normalizedCategory,
+        questionId
+      );
+    },
+    [
+      "community-approved-answers",
+      normalizedCategory,
+      questionId,
+    ],
+    {
+      tags: [
+        `community-${normalizedCategory}-${questionId}`,
+      ],
+    }
+  );
+
+  return cached();
 }
 </file>
 
@@ -2081,26 +2568,30 @@ export async function requestNotificationPermission() {
 }
 </file>
 
-<file path="lib/verifyAdmin.ts">
-import { NextRequest } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
+<file path="lib/orals.ts">
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-export async function verifyAdmin(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
+export async function getOralStats(category: string) {
+  const ref = doc(db, "orals", category);
 
-  if (!authHeader?.startsWith("Bearer ")) {
-    throw new Error("Unauthorized");
+  const snapshot = await getDoc(ref);
+
+  if (!snapshot.exists()) {
+    return {
+      questions: 0,
+      topics: 0,
+      updatedAt: null,
+    };
   }
 
-  const token = authHeader.split("Bearer ")[1];
+  const data = snapshot.data();
 
-  const decoded = await adminAuth.verifyIdToken(token);
-
-  if (decoded.admin !== true) {
-    throw new Error("Forbidden");
-  }
-
-  return decoded;
+  return {
+    questions: data.questionCount ?? 0,
+    topics: data.topicCount ?? 0,
+    updatedAt: data.updatedAt?.toDate?.() ?? null,
+  };
 }
 </file>
 
@@ -2133,141 +2624,31 @@ export async function getCachedWrittenQuestions(
 }
 </file>
 
-<file path="public/firebase-messaging-sw.js">
-importScripts(
-    "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"
-);
+<file path="lib/writtens.ts">
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-importScripts(
-    "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"
-);
+export async function getWrittenStats(category: string) {
+  const ref = doc(db, "writtens", category);
 
+  const snapshot = await getDoc(ref);
 
-firebase.initializeApp({
-    apiKey: "AIzaSyA-oP5hm_hVFd_lShfSAqSblkH5HVI4E3Q",
-    authDomain: "navik-bro.firebaseapp.com",
-    projectId: "navik-bro",
-    storageBucket: "navik-bro.firebasestorage.app",
-    messagingSenderId: "864304238896",
-    appId: "1:864304238896:web:33728bfabaf5bcfc5f78f5",
-    measurementId: "G-L0P830TCQJ"
-});
+  if (!snapshot.exists()) {
+    return {
+      questions: 0,
+      topics: 0,
+      updatedAt: null,
+    };
+  }
 
+  const data = snapshot.data();
 
-const messaging =
-    firebase.messaging();
-
-
-messaging.onBackgroundMessage(
-    function (payload) {
-
-        console.log(
-            "Background message received:",
-            payload
-        );
-
-
-        const notificationTitle =
-            payload.notification.title;
-
-
-        const notificationOptions = {
-
-            body:
-                payload.notification.body,
-
-            icon:
-                "/icon.png",
-
-        };
-
-
-        self.registration.showNotification(
-            notificationTitle,
-            notificationOptions
-        );
-
-    }
-);
-</file>
-
-<file path="scripts/createAdminCache.ts">
-import {
-    doc,
-    setDoc,
-    serverTimestamp,
-} from "firebase/firestore";
-
-import { db } from "../lib/firebase";
-
-
-async function createAdminCache() {
-
-    const pageRef = doc(
-        db,
-        "adminCache",
-        "users",
-        "pages",
-        "page_1"
-    );
-
-
-    await setDoc(pageRef, {
-
-        pageNumber: 1,
-
-        totalUsers: 0,
-
-        users: [],
-
-        updatedAt: serverTimestamp(),
-
-    });
-
-
-    console.log("Admin cache created successfully");
-
-    process.exit(0);
+  return {
+    questions: data.questionCount ?? 0,
+    topics: data.topicCount ?? 0,
+    updatedAt: data.updatedAt?.toDate?.() ?? null,
+  };
 }
-
-
-createAdminCache();
-</file>
-
-<file path="scripts/testAdminUser.ts">
-import { addUserToAdminCache } from "../services/adminUserService";
-
-
-async function test() {
-
-    await addUserToAdminCache({
-
-        uid: "test-user-001",
-
-        name: "Test Student",
-
-        email: "test@student.com",
-
-        plan: "free",
-
-        status: "active",
-
-        endDate: null,
-
-        photoURL: null,
-
-        isBlocked: false,
-
-    });
-
-
-    console.log("Test user added to admin cache");
-
-    process.exit(0);
-}
-
-
-test();
 </file>
 
 <file path="services/adminService.ts">
@@ -2671,53 +3052,6 @@ export interface AppUser {
 
     stats: UserStats;
 }
-</file>
-
-<file path=".gitignore">
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# Firebase Admin secret
-/config/serviceAccountKey.json
 </file>
 
 <file path="app/(protected)/admin/notifications/page.tsx">
@@ -3288,57 +3622,26 @@ export default function Loading() {
 }
 </file>
 
-<file path="lib/orals.ts">
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+<file path="lib/verifyAdmin.ts">
+import { NextRequest } from "next/server";
+import { adminAuth } from "@/lib/firebase-admin";
 
-export async function getOralStats(category: string) {
-  const ref = doc(db, "orals", category);
+export async function verifyAdmin(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
 
-  const snapshot = await getDoc(ref);
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Error("Unauthorized");
+  }
+  
+  const token = authHeader.replace("Bearer ", "");
 
-  if (!snapshot.exists()) {
-    return {
-      questions: 0,
-      topics: 0,
-      updatedAt: null,
-    };
+  const decoded = await adminAuth.verifyIdToken(token);
+
+  if (decoded.admin !== true) {
+    throw new Error("Forbidden");
   }
 
-  const data = snapshot.data();
-
-  return {
-    questions: data.questionCount ?? 0,
-    topics: data.topicCount ?? 0,
-    updatedAt: data.updatedAt?.toDate?.() ?? null,
-  };
-}
-</file>
-
-<file path="lib/writtens.ts">
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-
-export async function getWrittenStats(category: string) {
-  const ref = doc(db, "writtens", category);
-
-  const snapshot = await getDoc(ref);
-
-  if (!snapshot.exists()) {
-    return {
-      questions: 0,
-      topics: 0,
-      updatedAt: null,
-    };
-  }
-
-  const data = snapshot.data();
-
-  return {
-    questions: data.questionCount ?? 0,
-    topics: data.topicCount ?? 0,
-    updatedAt: data.updatedAt?.toDate?.() ?? null,
-  };
+  return decoded;
 }
 </file>
 
@@ -3553,561 +3856,6 @@ async function updateUserInPage(
             merge: true,
         }
     );
-}
-</file>
-
-<file path="services/userService.ts">
-import {
-    doc,
-    getDoc,
-    setDoc,
-    updateDoc,
-    serverTimestamp,
-    increment,
-    arrayUnion,
-} from "firebase/firestore";
-
-import {
-    addUserToAdminCache,
-} from "@/services/adminUserService";
-
-import {
-    incrementTotalUsers,
-} from "@/services/adminService";
-
-import { db } from "@/lib/firebase";
-
-import {
-    AppUser,
-} from "@/types/user";
-
-
-interface FirebaseUserData {
-    uid: string;
-    displayName: string | null;
-    email: string | null;
-    photoURL: string | null;
-}
-
-
-/**
- * Create user profile after first login
- * If user already exists, return existing profile
- */
-export async function createUserProfile(
-    firebaseUser: FirebaseUserData
-) {
-
-    const userRef = doc(
-        db,
-        "users",
-        firebaseUser.uid
-    );
-
-
-    const snapshot = await getDoc(userRef);
-
-
-    if (snapshot.exists()) {
-
-        const existingUser = snapshot.data();
-
-
-        await updateDoc(
-            userRef,
-            {
-
-                uid: firebaseUser.uid,
-
-                updatedAt:
-                    serverTimestamp(),
-
-
-                role:
-                    existingUser.role === "admin"
-                        ? "admin"
-                        : "student",
-
-
-                isBlocked:
-                    existingUser.isBlocked ?? false,
-
-
-                subscription:
-                    typeof existingUser.subscription === "object"
-                        ? existingUser.subscription
-                        : {
-                            plan: "free",
-                            status: "inactive",
-                            startDate: null,
-                            endDate: null,
-                            paymentId: null,
-                            autoRenew: false,
-                        },
-
-
-                "stats.loginCount":
-                    existingUser.stats?.loginCount ?? 0,
-
-                "stats.lastLogin":
-                    serverTimestamp(),
-
-            }
-        );
-
-
-        return {
-            ...existingUser,
-        };
-    }
-
-
-    const newUser = {
-
-        uid: firebaseUser.uid,
-
-        name:
-            firebaseUser.displayName ||
-            "Anonymous",
-
-        email:
-            firebaseUser.email ||
-            "",
-
-        photoURL:
-            firebaseUser.photoURL ||
-            null,
-
-
-        role: "student",
-
-
-        createdAt:
-            serverTimestamp(),
-
-        updatedAt:
-            serverTimestamp(),
-
-
-        isBlocked: false,
-
-
-        subscription: {
-
-            plan: "free",
-
-            status: "inactive",
-
-            startDate: null,
-
-            endDate: null,
-
-            paymentId: null,
-
-            autoRenew: false,
-
-        },
-
-
-        stats: {
-
-            loginCount: 1,
-
-            lastLogin:
-                serverTimestamp(),
-
-        },
-
-    };
-
-
-    await setDoc(
-        userRef,
-        newUser
-    );
-
-
-    // Update admin dashboard counters
-    await incrementTotalUsers();
-
-
-    // Update admin user cache
-    await addUserToAdminCache({
-
-        uid: firebaseUser.uid,
-
-        name:
-            firebaseUser.displayName ||
-            "Anonymous",
-
-        email:
-            firebaseUser.email ||
-            "",
-
-        photoURL:
-            firebaseUser.photoURL ||
-            null,
-
-        plan: "free",
-
-        status: "inactive",
-
-        endDate: null,
-
-        isBlocked: false,
-
-    });
-
-
-    return newUser;
-
-}
-
-
-/**
- * Update user login activity
- * Called every successful login
- */
-export async function updateUserLogin(
-    uid: string
-) {
-
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
-
-
-    await updateDoc(
-        userRef,
-        {
-
-            updatedAt:
-                serverTimestamp(),
-
-            "stats.loginCount":
-                increment(1),
-
-            "stats.lastLogin":
-                serverTimestamp(),
-
-        }
-    );
-
-}
-
-
-/**
- * Get complete user profile
- */
-export async function getUserProfile(
-    uid: string
-) {
-
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
-
-
-    const snapshot =
-        await getDoc(userRef);
-
-
-    if (!snapshot.exists()) {
-        return null;
-    }
-
-
-    return snapshot.data() as AppUser;
-
-}
-
-
-/**
- * Block user from accessing app
- */
-export async function blockUser(
-    uid: string
-) {
-
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
-
-
-    await updateDoc(
-        userRef,
-        {
-
-            isBlocked: true,
-
-            updatedAt:
-                serverTimestamp(),
-
-        }
-    );
-
-}
-
-
-/**
- * Restore blocked user
- */
-export async function unblockUser(
-    uid: string
-) {
-
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
-
-
-    await updateDoc(
-        userRef,
-        {
-
-            isBlocked: false,
-
-            updatedAt:
-                serverTimestamp(),
-
-        }
-    );
-
-}
-
-export async function updateUserSubscription(
-    uid: string,
-    plan: string,
-    status: string,
-    endDate: Date | null
-) {
-
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
-
-    await updateDoc(
-        userRef,
-        {
-
-            subscription: {
-
-                plan,
-
-                status,
-
-                startDate:
-                    serverTimestamp(),
-
-                endDate,
-
-                paymentId: null,
-
-                autoRenew: false,
-
-            },
-
-            updatedAt:
-                serverTimestamp(),
-
-        }
-    );
-
-}
-
-/**
- * Save Firebase Cloud Messaging token
- */
-export async function saveFCMToken(
-    uid: string,
-    token: string
-) {
-
-    const userRef =
-        doc(
-            db,
-            "users",
-            uid
-        );
-
-
-    await updateDoc(
-        userRef,
-        {
-            fcmTokens:
-                arrayUnion(token),
-
-            updatedAt:
-                serverTimestamp(),
-        }
-    );
-
-}
-
-export async function initializeUser(
-    firebaseUser: FirebaseUserData
-) {
-
-    const userRef = doc(
-        db,
-        "users",
-        firebaseUser.uid
-    );
-
-    // ONE AND ONLY READ
-    const snapshot = await getDoc(userRef);
-
-    // ===========================
-    // EXISTING USER
-    // ===========================
-    if (snapshot.exists()) {
-
-        const existingUser = snapshot.data();
-
-        await updateDoc(
-            userRef,
-            {
-                updatedAt: serverTimestamp(),
-
-                role:
-                    existingUser.role === "admin"
-                        ? "admin"
-                        : "student",
-
-                isBlocked:
-                    existingUser.isBlocked ?? false,
-
-                subscription:
-                    typeof existingUser.subscription === "object"
-                        ? existingUser.subscription
-                        : {
-                              plan: "free",
-                              status: "inactive",
-                              startDate: null,
-                              endDate: null,
-                              paymentId: null,
-                              autoRenew: false,
-                          },
-
-                "stats.loginCount": increment(1),
-
-                "stats.lastLogin": serverTimestamp(),
-            }
-        );
-
-        return {
-            uid: firebaseUser.uid,
-
-            name:
-                existingUser.name ??
-                firebaseUser.displayName ??
-                "Anonymous",
-
-            email:
-                existingUser.email ??
-                firebaseUser.email ??
-                "",
-
-            photoURL:
-                existingUser.photoURL ??
-                firebaseUser.photoURL ??
-                null,
-
-            role:
-                existingUser.role === "admin"
-                    ? "admin"
-                    : "student",
-
-            isBlocked:
-                existingUser.isBlocked ?? false,
-
-            subscription:
-                typeof existingUser.subscription === "object"
-                    ? existingUser.subscription
-                    : {
-                          plan: "free",
-                          status: "inactive",
-                          startDate: null,
-                          endDate: null,
-                          paymentId: null,
-                          autoRenew: false,
-                      },
-        };
-    }
-
-    // ===========================
-    // NEW USER
-    // ===========================
-
-    const newUser = {
-        uid: firebaseUser.uid,
-
-        name:
-            firebaseUser.displayName ||
-            "Anonymous",
-
-        email:
-            firebaseUser.email || "",
-
-        photoURL:
-            firebaseUser.photoURL || null,
-
-        role: "student",
-
-        createdAt: serverTimestamp(),
-
-        updatedAt: serverTimestamp(),
-
-        isBlocked: false,
-
-        subscription: {
-            plan: "free",
-            status: "inactive",
-            startDate: null,
-            endDate: null,
-            paymentId: null,
-            autoRenew: false,
-        },
-
-        stats: {
-            loginCount: 1,
-            lastLogin: serverTimestamp(),
-        },
-    };
-
-    await setDoc(
-        userRef,
-        newUser
-    );
-
-    await incrementTotalUsers();
-
-    await addUserToAdminCache({
-        uid: firebaseUser.uid,
-        name:
-            firebaseUser.displayName ||
-            "Anonymous",
-        email:
-            firebaseUser.email || "",
-        photoURL:
-            firebaseUser.photoURL || null,
-        plan: "free",
-        status: "inactive",
-        endDate: null,
-        isBlocked: false,
-    });
-
-    return newUser;
 }
 </file>
 
@@ -4960,9 +4708,11 @@ export async function POST(request: NextRequest) {
 <file path="app/layout.tsx">
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-
+import { SubscriptionProvider } from "@/app/context/SubscriptionContext";
 import { AuthProvider } from "@/app/context/AuthContext";
 import InitialLoader from "@/components/InitialLoader";
+
+import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
 export const metadata: Metadata = {
   title: "NAVIK",
   description: "Sail Towards COC",
@@ -4986,9 +4736,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AuthProvider>
-          <InitialLoader>
+          <SubscriptionProvider>
+
             {children}
-          </InitialLoader>
+
+          </SubscriptionProvider>
         </AuthProvider>
       </body>
     </html>
@@ -5049,6 +4801,608 @@ export const getHomeStats = unstable_cache(
     tags: ["home-stats"],
   }
 );
+</file>
+
+<file path="services/userService.ts">
+import {
+    doc,
+    getDoc,
+    setDoc,
+    updateDoc,
+    serverTimestamp,
+    increment,
+    arrayUnion,
+} from "firebase/firestore";
+
+import {
+    addUserToAdminCache,
+} from "@/services/adminUserService";
+
+import {
+    incrementTotalUsers,
+} from "@/services/adminService";
+
+import { db } from "@/lib/firebase";
+
+import {
+    AppUser,
+} from "@/types/user";
+
+
+interface FirebaseUserData {
+    uid: string;
+    displayName: string | null;
+    email: string | null;
+    photoURL: string | null;
+}
+
+
+/**
+ * Create user profile after first login
+ * If user already exists, return existing profile
+ */
+export async function createUserProfile(
+    firebaseUser: FirebaseUserData
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        firebaseUser.uid
+    );
+
+
+    const snapshot = await getDoc(userRef);
+
+
+    if (snapshot.exists()) {
+
+        const existingUser = snapshot.data();
+
+
+        await updateDoc(
+            userRef,
+            {
+
+                uid: firebaseUser.uid,
+
+                updatedAt:
+                    serverTimestamp(),
+
+
+                role:
+                    existingUser.role === "admin"
+                        ? "admin"
+                        : "student",
+
+
+                isBlocked:
+                    existingUser.isBlocked ?? false,
+
+
+                subscription: {
+                    plan: "free",
+
+                    status: "inactive",
+
+                    trialStartDate: null,
+
+                    trialEndDate: null,
+
+                    startDate: null,
+
+                    endDate: null,
+
+                    paymentId: null,
+
+                    autoRenew: false,
+
+                    amount: 149,
+
+                    lockedPrice: 149,
+
+                    currency: "INR",
+
+                    ...(typeof existingUser.subscription === "object"
+                        ? existingUser.subscription
+                        : {}),
+                },
+
+
+                "stats.loginCount":
+                    existingUser.stats?.loginCount ?? 0,
+
+                "stats.lastLogin":
+                    serverTimestamp(),
+
+            }
+        );
+
+
+        return {
+            ...existingUser,
+        };
+    }
+
+
+    const newUser = {
+
+        uid: firebaseUser.uid,
+
+        name:
+            firebaseUser.displayName ||
+            "Anonymous",
+
+        email:
+            firebaseUser.email ||
+            "",
+
+        photoURL:
+            firebaseUser.photoURL ||
+            null,
+
+
+        role: "student",
+
+
+        createdAt:
+            serverTimestamp(),
+
+        updatedAt:
+            serverTimestamp(),
+
+
+        isBlocked: false,
+
+
+        subscription: {
+            plan: "free",
+
+            status: "inactive",
+
+            trialStartDate: null,
+
+            trialEndDate: null,
+
+            startDate: null,
+
+            endDate: null,
+
+            paymentId: null,
+
+            autoRenew: false,
+
+            amount: 149,
+
+            lockedPrice: 149,
+
+            currency: "INR",
+        },
+
+
+        stats: {
+
+            loginCount: 1,
+
+            lastLogin:
+                serverTimestamp(),
+
+        },
+
+    };
+
+
+    await setDoc(
+        userRef,
+        newUser
+    );
+
+
+    // Update admin dashboard counters
+    await incrementTotalUsers();
+
+
+    // Update admin user cache
+    await addUserToAdminCache({
+
+        uid: firebaseUser.uid,
+
+        name:
+            firebaseUser.displayName ||
+            "Anonymous",
+
+        email:
+            firebaseUser.email ||
+            "",
+
+        photoURL:
+            firebaseUser.photoURL ||
+            null,
+
+        plan: "free",
+
+        status: "inactive",
+
+        endDate: null,
+
+        isBlocked: false,
+
+    });
+
+
+    return newUser;
+
+}
+
+
+/**
+ * Update user login activity
+ * Called every successful login
+ */
+export async function updateUserLogin(
+    uid: string
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+
+    await updateDoc(
+        userRef,
+        {
+
+            updatedAt:
+                serverTimestamp(),
+
+            "stats.loginCount":
+                increment(1),
+
+            "stats.lastLogin":
+                serverTimestamp(),
+
+        }
+    );
+
+}
+
+
+/**
+ * Get complete user profile
+ */
+export async function getUserProfile(
+    uid: string
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+
+    const snapshot =
+        await getDoc(userRef);
+
+
+    if (!snapshot.exists()) {
+        return null;
+    }
+
+
+    return snapshot.data() as AppUser;
+
+}
+
+
+/**
+ * Block user from accessing app
+ */
+export async function blockUser(
+    uid: string
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+
+    await updateDoc(
+        userRef,
+        {
+
+            isBlocked: true,
+
+            updatedAt:
+                serverTimestamp(),
+
+        }
+    );
+
+}
+
+
+/**
+ * Restore blocked user
+ */
+export async function unblockUser(
+    uid: string
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+
+    await updateDoc(
+        userRef,
+        {
+
+            isBlocked: false,
+
+            updatedAt:
+                serverTimestamp(),
+
+        }
+    );
+
+}
+
+export async function updateUserSubscription(
+    uid: string,
+    subscription: Partial<AppUser["subscription"]>
+) {
+    const userRef = doc(db, "users", uid);
+
+    // Read existing document
+    const snapshot = await getDoc(userRef);
+
+    // Get current subscription
+    const existing =
+        snapshot.data()?.subscription ?? {};
+
+    // Merge and save
+    await updateDoc(userRef, {
+        subscription: {
+            ...existing,
+            ...subscription,
+        },
+        updatedAt: serverTimestamp(),
+    });
+}
+
+/**
+ * Save Firebase Cloud Messaging token
+ */
+export async function saveFCMToken(
+    uid: string,
+    token: string
+) {
+
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
+
+
+    await updateDoc(
+        userRef,
+        {
+            fcmTokens:
+                arrayUnion(token),
+
+            updatedAt:
+                serverTimestamp(),
+        }
+    );
+
+}
+
+export async function initializeUser(
+    firebaseUser: FirebaseUserData
+) {
+
+    const userRef = doc(
+        db,
+        "users",
+        firebaseUser.uid
+    );
+
+    // ONE AND ONLY READ
+    const snapshot = await getDoc(userRef);
+
+    // ===========================
+    // EXISTING USER
+    // ===========================
+    if (snapshot.exists()) {
+
+        const existingUser = snapshot.data();
+
+        await updateDoc(
+            userRef,
+            {
+                updatedAt: serverTimestamp(),
+
+                role:
+                    existingUser.role === "admin"
+                        ? "admin"
+                        : "student",
+
+                isBlocked:
+                    existingUser.isBlocked ?? false,
+
+                subscription: {
+                    plan: "free",
+
+                    status: "inactive",
+
+                    trialStartDate: null,
+
+                    trialEndDate: null,
+
+                    startDate: null,
+
+                    endDate: null,
+
+                    paymentId: null,
+
+                    autoRenew: false,
+
+                    amount: 149,
+
+                    lockedPrice: 149,
+
+                    currency: "INR",
+
+                    ...(typeof existingUser.subscription === "object"
+                        ? existingUser.subscription
+                        : {}),
+                },
+
+                "stats.loginCount": increment(1),
+
+                "stats.lastLogin": serverTimestamp(),
+            }
+        );
+
+        return {
+            uid: firebaseUser.uid,
+
+            name:
+                existingUser.name ??
+                firebaseUser.displayName ??
+                "Anonymous",
+
+            email:
+                existingUser.email ??
+                firebaseUser.email ??
+                "",
+
+            photoURL:
+                existingUser.photoURL ??
+                firebaseUser.photoURL ??
+                null,
+
+            role:
+                existingUser.role === "admin"
+                    ? "admin"
+                    : "student",
+
+            isBlocked:
+                existingUser.isBlocked ?? false,
+
+            subscription:
+                typeof existingUser.subscription === "object"
+                    ? existingUser.subscription
+                    : {
+                        plan: "free",
+
+                        status: "inactive",
+
+                        trialStartDate: null,
+
+                        trialEndDate: null,
+
+                        startDate: null,
+
+                        endDate: null,
+
+                        paymentId: null,
+
+                        autoRenew: false,
+
+                        amount: 149,
+
+                        lockedPrice: 149,
+                    },
+        };
+    }
+
+    // ===========================
+    // NEW USER
+    // ===========================
+
+    const newUser = {
+        uid: firebaseUser.uid,
+
+        name:
+            firebaseUser.displayName ||
+            "Anonymous",
+
+        email:
+            firebaseUser.email || "",
+
+        photoURL:
+            firebaseUser.photoURL || null,
+
+        role: "student",
+
+        createdAt: serverTimestamp(),
+
+        updatedAt: serverTimestamp(),
+
+        isBlocked: false,
+
+        subscription: {
+            plan: "free",
+
+            status: "inactive",
+
+            trialStartDate: null,
+
+            trialEndDate: null,
+
+            startDate: null,
+
+            endDate: null,
+
+            paymentId: null,
+
+            autoRenew: false,
+
+            amount: 149,
+
+            lockedPrice: 149,
+        },
+
+        stats: {
+            loginCount: 1,
+            lastLogin: serverTimestamp(),
+        },
+    };
+
+    await setDoc(
+        userRef,
+        newUser
+    );
+
+    await incrementTotalUsers();
+
+    await addUserToAdminCache({
+        uid: firebaseUser.uid,
+        name:
+            firebaseUser.displayName ||
+            "Anonymous",
+        email:
+            firebaseUser.email || "",
+        photoURL:
+            firebaseUser.photoURL || null,
+        plan: "free",
+        status: "inactive",
+        endDate: null,
+        isBlocked: false,
+    });
+
+    return newUser;
+}
 </file>
 
 <file path="components/HomeClient.tsx">
@@ -5376,63 +5730,20 @@ export default function WrittenFilters({
 }
 </file>
 
-<file path="lib/firebase-admin.ts">
-import {
-    cert,
-    getApps,
-    initializeApp,
-} from "firebase-admin/app";
+<file path="app/page.tsx">
+import HomeClient from "@/components/HomeClient";
+import { getHomeStats } from "@/lib/home-cache";
 
+export default async function HomePage() {
+  const { oralStats, writtenStats } = await getHomeStats();
 
-import {
-    getAuth,
-} from "firebase-admin/auth";
-
-
-import {
-    getMessaging,
-} from "firebase-admin/messaging";
-
-
-console.log("🔥 FIREBASE ADMIN FILE LOADED");
-
-
-const adminApp =
-    getApps().length === 0
-        ? initializeApp({
-
-              credential:
-                  cert({
-
-                      projectId:
-                          process.env.FIREBASE_PROJECT_ID,
-
-
-                      clientEmail:
-                          process.env.FIREBASE_CLIENT_EMAIL,
-
-
-                      privateKey:
-                          process.env.FIREBASE_PRIVATE_KEY?.replace(
-                              /\\n/g,
-                              "\n"
-                          ),
-
-                  }),
-
-          })
-
-        : getApps()[0];
-
-
-
-export const adminAuth =
-    getAuth(adminApp);
-
-
-
-export const adminMessaging =
-    getMessaging(adminApp);
+  return (
+    <HomeClient
+      oralStats={oralStats}
+      writtenStats={writtenStats}
+    />
+  );
+}
 </file>
 
 <file path="components/LoadingScreen.tsx">
@@ -5489,6 +5800,72 @@ export default function LoadingScreen({
     </div>
   );
 }
+</file>
+
+<file path="lib/firebase-admin.ts">
+import {
+    cert,
+    getApps,
+    initializeApp,
+} from "firebase-admin/app";
+
+import {
+    getFirestore,
+} from "firebase-admin/firestore";
+
+
+import {
+    getAuth,
+} from "firebase-admin/auth";
+
+
+import {
+    getMessaging,
+} from "firebase-admin/messaging";
+
+
+console.log("🔥 FIREBASE ADMIN FILE LOADED");
+
+
+const adminApp =
+    getApps().length === 0
+        ? initializeApp({
+
+            credential:
+                cert({
+
+                    projectId:
+                        process.env.FIREBASE_PROJECT_ID,
+
+
+                    clientEmail:
+                        process.env.FIREBASE_CLIENT_EMAIL,
+
+
+                    privateKey:
+                        process.env.FIREBASE_PRIVATE_KEY?.replace(
+                            /\\n/g,
+                            "\n"
+                        ),
+
+                }),
+
+        })
+
+        : getApps()[0];
+
+
+
+export const adminAuth =
+    getAuth(adminApp);
+
+
+
+export const adminMessaging =
+    getMessaging(adminApp);
+
+export const adminDb =
+    getFirestore(adminApp);
 </file>
 
 <file path="package.json">
@@ -6113,388 +6490,6 @@ export default function AdminPage() {
 }
 </file>
 
-<file path="app/context/AuthContext.tsx">
-"use client";
-
-import {
-    onAuthStateChanged,
-    User,
-    signOut,
-} from "firebase/auth";
-
-import {
-    requestNotificationPermission,
-} from "@/lib/firebaseMessaging";
-
-import {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
-
-import {
-    auth,
-} from "@/lib/firebase";
-
-
-import {
-    initializeUser,
-    saveFCMToken,
-} from "@/services/userService";
-
-
-interface AuthContextType {
-
-    user: User | null;
-
-    loading: boolean;
-
-    role: "admin" | "student";
-
-}
-
-
-
-const AuthContext =
-    createContext<AuthContextType>({
-        user: null,
-
-        loading: true,
-
-        role: "student",
-    });
-
-
-
-
-export function AuthProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-
-
-    const [user, setUser] =
-        useState<User | null>(null);
-
-
-    const [loading, setLoading] =
-        useState(true);
-
-
-    const [role, setRole] =
-        useState<"admin" | "student">(
-            "student"
-        );
-
-
-
-
-    useEffect(() => {
-
-
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                async (firebaseUser) => {
-
-
-                    setUser(firebaseUser);
-
-
-
-                    if (!firebaseUser) {
-
-
-                        setRole("student");
-
-                        setLoading(false);
-
-                        return;
-
-                    }
-
-
-
-                    try {
-
-
-                        const token =
-                            await firebaseUser
-                                .getIdTokenResult(true);
-
-
-
-                        const isAdmin =
-                            token.claims.admin === true;
-
-
-
-                        setRole(
-                            isAdmin
-                                ? "admin"
-                                : "student"
-                        );
-
-                        const profile =
-                            await initializeUser({
-                                uid: firebaseUser.uid,
-                                displayName: firebaseUser.displayName,
-                                email: firebaseUser.email,
-                                photoURL: firebaseUser.photoURL,
-                            });
-
-                        if (profile.isBlocked) {
-
-                            await signOut(auth);
-
-                            setUser(null);
-
-                            setRole("student");
-
-                            setLoading(false);
-
-                            return;
-
-                        }
-
-                        setRole(
-                            profile.role === "admin"
-                                ? "admin"
-                                : "student"
-                        );
-
-
-                        const fcmToken =
-                            await requestNotificationPermission();
-
-
-                        if (fcmToken) {
-
-                            console.log(
-                                "FCM TOKEN:",
-                                fcmToken
-                            );
-
-
-                            await saveFCMToken(
-                                firebaseUser.uid,
-                                fcmToken
-                            );
-
-                        }
-
-
-
-
-                    } catch (error) {
-
-
-                        console.error(
-                            "Authentication loading failed:",
-                            error
-                        );
-
-
-                        setRole("student");
-
-
-                    } finally {
-
-
-                        setLoading(false);
-
-                    }
-
-                }
-            );
-
-
-
-        return unsubscribe;
-
-
-    }, []);
-
-
-
-
-
-    return (
-
-        <AuthContext.Provider
-
-            value={{
-
-                user,
-
-                loading,
-
-                role,
-
-            }}
-
-        >
-
-            {children}
-
-        </AuthContext.Provider>
-
-    );
-
-}
-
-
-
-
-
-export function useAuth() {
-
-    return useContext(AuthContext);
-
-}
-</file>
-
-<file path="app/globals.css">
-@import "tailwindcss";
-@plugin "@tailwindcss/typography";
-
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-
-/* ------------------------------
-   GLOBAL MOBILE COMPACT SCALE
------------------------------- */
-
-html {
-  font-size: 16px;
-}
-
-
-@media (max-width: 640px) {
-  html {
-    font-size: 14px;
-  }
-}
-
-
-@media (max-width: 380px) {
-  html {
-    font-size: 13px;
-  }
-}
-
-
-/* ------------------------------
-   LOADING SCREEN ANIMATIONS
------------------------------- */
-
-
-/* Wave 1 */
-
-@keyframes wave1 {
-  0%, 100% {
-    transform: translateX(-20px);
-  }
-
-  50% {
-    transform: translateX(20px);
-  }
-}
-
-
-.animate-wave1 {
-  animation: wave1 5s ease-in-out infinite;
-}
-
-
-/* Wave 2 */
-
-@keyframes wave2 {
-  0%, 100% {
-    transform: translateX(20px);
-  }
-
-  50% {
-    transform: translateX(-20px);
-  }
-}
-
-
-.animate-wave2 {
-  animation: wave2 4s ease-in-out infinite;
-}
-
-
-/* Ship floating */
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-8px);
-  }
-}
-
-
-.animate-float {
-  animation: float 5s ease-in-out infinite;
-}
-
-
-/* Ship rocking */
-
-@keyframes ship {
-  0% {
-    transform: rotate(-5deg);
-  }
-
-  50% {
-    transform: rotate(3deg);
-  }
-
-  100% {
-    transform: rotate(-5deg);
-  }
-}
-
-
-.animate-ship {
-  animation: ship 9s ease-in-out infinite;
-  transform-origin: center;
-}
-</file>
-
 <file path="components/QuestionsContainer.tsx">
 "use client";
 
@@ -6530,831 +6525,6 @@ export default function QuestionsContainer({
       totalQuestions={totalQuestions}
     />
   );
-}
-</file>
-
-<file path="services/oralBatch.service.ts">
-import {
-    collection,
-    doc,
-    getDocs,
-    getDoc,
-    query,
-    runTransaction,
-    serverTimestamp,
-    updateDoc,
-    increment,
-    where,
-    writeBatch,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
-
-export const ORAL_BATCH_SIZE = 200;
-
-const CATEGORY_MAP: Record<string, string> = {
-    safety: "fn3",
-    fn3: "fn3",
-
-    motor: "fn4b",
-    fn4b: "fn4b",
-
-    electrical: "fn5",
-    fn5: "fn5",
-
-    mep: "fn6",
-    fn6: "fn6",
-};
-
-const clean = (value: unknown): string =>
-    String(value ?? "").trim();
-
-const getBatchId = (
-    category: string,
-    batchNumber: number
-): string =>
-    `${category.toLowerCase()}_batch_${String(
-        batchNumber
-    ).padStart(3, "0")}`;
-
-export interface OralBatchQuestion {
-    id: string;
-    class: string;
-    category: string;
-    examDate: string;
-    topic: string;
-    mmd: string;
-    surveyor: string;
-    question: string;
-    answer: string;
-    order: number;
-    isActive: boolean;
-}
-
-export interface OralBatchDocument {
-    batchId: string;
-    batchNumber: number;
-    category: string;
-    sourceFile: string;
-    questionCount: number;
-    topicCount: number;
-    questions: OralBatchQuestion[];
-    createdAt: unknown;
-    updatedAt: unknown;
-}
-
-export interface OralFilters {
-    topics: string[];
-    surveyors: string[];
-    mmds: string[];
-    classes: string[];
-}
-
-async function setBatchCount(
-    category: string,
-    batchCount: number,
-    questionCount: number,
-    topicCount: number,
-    topics: string[],
-    surveyors: string[],
-    mmds: string[],
-    classes: string[]
-) {
-    const counterRef = doc(
-        db,
-        "oral_batches_metadata",
-        "counters"
-    );
-
-    await runTransaction(db, async (transaction) => {
-        const snap = await transaction.get(counterRef);
-
-        if (!snap.exists()) {
-            throw new Error(
-                "oral_batches_metadata/counters document not found."
-            );
-        }
-
-        transaction.update(counterRef, {
-            [`${category}.batchCount`]: batchCount,
-            [`${category}.questionCount`]: questionCount,
-            [`${category}.topicCount`]: topicCount,
-
-            [`${category}.topics`]: topics,
-            [`${category}.surveyors`]: surveyors,
-            [`${category}.mmds`]: mmds,
-            [`${category}.classes`]: classes,
-
-            [`${category}.updatedAt`]: serverTimestamp(),
-        });
-    });
-}
-
-export async function deleteExistingBatches(
-    category: string
-) {
-    const q = query(
-        collection(db, "oral_batches"),
-        where("category", "==", category.toLowerCase())
-    );
-
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-        return;
-    }
-
-    const batch = writeBatch(db);
-
-    snapshot.docs.forEach((document) => {
-        batch.delete(document.ref);
-    });
-
-    await batch.commit();
-}
-
-export async function uploadOralBatch(
-    rows: any[],
-    sourceFile: string,
-    onProgress?: (uploaded: number, total: number) => void
-) {
-    if (!rows.length) return;
-
-    const groupedQuestions: Record<
-        string,
-        OralBatchQuestion[]
-    > = {};
-
-    rows
-        .filter((row) => row.Question)
-        .forEach((row) => {
-
-            let category = clean(row.Category)
-                .toLowerCase();
-
-            category =
-                CATEGORY_MAP[category] ?? category;
-
-            if (!groupedQuestions[category]) {
-                groupedQuestions[category] = [];
-            }
-
-            groupedQuestions[category].push({
-                id: crypto.randomUUID(),
-
-                class: clean(row.Class),
-                category,
-
-                examDate: clean(row.Date),
-
-                topic: clean(row.Topic),
-
-                mmd: clean(row.MMD),
-
-                surveyor: clean(row.Surveyor),
-
-                question: clean(row.Question),
-
-                answer: clean(row.Answer),
-
-                order:
-                    groupedQuestions[category]
-                        .length + 1,
-
-                isActive: true,
-            });
-        });
-
-    for (const category of Object.keys(groupedQuestions)) {
-
-        await deleteExistingBatches(category);
-
-        const questions =
-            groupedQuestions[category];
-
-        const topics = [...new Set(questions.map(q => q.topic))].sort();
-
-        const surveyors = [...new Set(questions.map(q => q.surveyor))].sort();
-
-        const mmds = [...new Set(questions.map(q => q.mmd))].sort();
-
-        const classes = [...new Set(questions.map(q => q.class))].sort();
-
-        const firestoreBatch = writeBatch(db);
-
-        const totalBatches = Math.ceil(
-            questions.length / ORAL_BATCH_SIZE
-        );
-
-        for (
-            let batchNumber = 1;
-            batchNumber <= totalBatches;
-            batchNumber++
-        ) {
-
-            const start =
-                (batchNumber - 1) *
-                ORAL_BATCH_SIZE;
-
-            const batchQuestions =
-                questions.slice(
-                    start,
-                    start + ORAL_BATCH_SIZE
-                );
-
-            const batchId = getBatchId(
-                category,
-                batchNumber
-            );
-
-            firestoreBatch.set(
-                doc(db, "oral_batches", batchId),
-                {
-                    batchId,
-                    batchNumber,
-                    category,
-                    sourceFile,
-
-                    questionCount: batchQuestions.length,
-
-                    topicCount: new Set(
-                        batchQuestions.map((q) => q.topic)
-                    ).size,
-
-                    questions: batchQuestions,
-
-                    createdAt: serverTimestamp(),
-
-                    updatedAt: serverTimestamp(),
-                }
-            );
-
-            console.log(
-                `Uploaded ${batchId} (${batchQuestions.length} questions)`
-            );
-        }
-
-        await firestoreBatch.commit();
-
-        await setBatchCount(
-            category,
-            totalBatches,
-            questions.length,
-            topics.length,
-            topics,
-            surveyors,
-            mmds,
-            classes
-        );
-
-        console.log(
-            `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
-        );
-    }
-}
-
-export async function getOralBatchQuestions(
-    category: string
-): Promise<OralBatchQuestion[]> {
-
-    const q = query(
-        collection(db, "oral_batches"),
-        where(
-            "category",
-            "==",
-            category.toLowerCase()
-        )
-    );
-
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-        return [];
-    }
-
-    const questions: OralBatchQuestion[] = [];
-
-    snapshot.docs
-        .sort((a, b) => {
-            const first =
-                a.data().batchNumber ?? 0;
-
-            const second =
-                b.data().batchNumber ?? 0;
-
-            return first - second;
-        })
-        .forEach((document) => {
-
-            const data =
-                document.data() as OralBatchDocument;
-
-            if (
-                Array.isArray(data.questions)
-            ) {
-                questions.push(
-                    ...data.questions
-                );
-            }
-
-        });
-
-    questions.sort(
-        (a, b) => a.order - b.order
-    );
-
-    return questions;
-}
-
-export async function getOralBatchPage(
-    category: string,
-    batchNumber: number,
-    batchCount: number
-) {
-    const currentBatchId = getBatchId(
-        category,
-        batchNumber
-    );
-
-    const currentSnapshot = await getDoc(
-        doc(
-            db,
-            "oral_batches",
-            currentBatchId
-        )
-    );
-
-    if (!currentSnapshot.exists()) {
-        return {
-            questions: [],
-            hasMore: false,
-            nextBatch: null,
-        };
-    }
-
-    const data =
-        currentSnapshot.data() as OralBatchDocument;
-
-    const hasMore = batchNumber < batchCount;
-
-    return {
-        questions: data.questions,
-        hasMore,
-        nextBatch: hasMore
-            ? batchNumber + 1
-            : null,
-    };
-}
-
-
-export async function getOralCategoryMeta(
-    category: string
-): Promise<{
-    batchCount: number;
-    questionCount: number;
-    topicCount: number;
-}> {
-    const snapshot = await getDoc(
-        doc(db, "oral_batches_metadata", "counters")
-    );
-
-    if (!snapshot.exists()) {
-        return {
-            batchCount: 0,
-            questionCount: 0,
-            topicCount: 0,
-        };
-    }
-
-    const data = snapshot.data();
-
-    const meta = data[category.toLowerCase()] ?? {};
-
-    return {
-        batchCount: meta.batchCount ?? 0,
-        questionCount: meta.questionCount ?? 0,
-        topicCount: meta.topicCount ?? 0,
-    };
-}
-
-export async function getOralCategoryData(
-    category: string
-): Promise<{
-    batchCount: number;
-    questionCount: number;
-    topicCount: number;
-    filters: OralFilters;
-}> {
-
-    const snapshot = await getDoc(
-        doc(db, "oral_batches_metadata", "counters")
-    );
-
-    if (!snapshot.exists()) {
-        return {
-            batchCount: 0,
-            questionCount: 0,
-            topicCount: 0,
-            filters: {
-                topics: [],
-                surveyors: [],
-                mmds: [],
-                classes: [],
-            },
-        };
-    }
-
-    const data = snapshot.data();
-
-    const meta = data[category.toLowerCase()] ?? {};
-
-    return {
-        batchCount: meta.batchCount ?? 0,
-        questionCount: meta.questionCount ?? 0,
-        topicCount: meta.topicCount ?? 0,
-
-        filters: {
-            topics: meta.topics ?? [],
-            surveyors: meta.surveyors ?? [],
-            mmds: meta.mmds ?? [],
-            classes: meta.classes ?? [],
-        },
-    };
-}
-
-export async function deleteOralBatchQuestion(
-    category: string,
-    questionId: string
-) {
-    const q = query(
-        collection(db, "oral_batches"),
-        where("category", "==", category.toLowerCase())
-    );
-
-    const snapshot = await getDocs(q);
-
-    for (const batchDoc of snapshot.docs) {
-
-        const data =
-            batchDoc.data() as OralBatchDocument;
-
-        const index = data.questions.findIndex(
-            q => q.id === questionId
-        );
-
-        if (index === -1) continue;
-
-        data.questions.splice(index, 1);
-
-        data.questions.forEach((q, i) => {
-            q.order = i + 1;
-        });
-
-        await updateDoc(batchDoc.ref, {
-            questions: data.questions,
-            questionCount: data.questions.length,
-            topicCount: new Set(
-                data.questions.map(q => q.topic)
-            ).size,
-            updatedAt: serverTimestamp(),
-        });
-
-        await runTransaction(db, async (transaction) => {
-
-            const counterRef = doc(
-                db,
-                "oral_batches_metadata",
-                "counters"
-            );
-
-            transaction.update(counterRef, {
-                [`${category.toLowerCase()}.questionCount`]:
-                    increment(-1),
-            });
-
-        });
-
-        return;
-    }
-
-    throw new Error("Question not found.");
-}
-
-export async function updateOralBatchQuestion(
-    category: string,
-    id: string,
-    data: {
-        question: string;
-        answer: string;
-    }
-) {
-
-    const snapshot = await getDocs(
-        query(
-            collection(db, "oral_batches"),
-            where(
-                "category",
-                "==",
-                category.toLowerCase()
-            )
-        )
-    );
-
-    for (const batchDoc of snapshot.docs) {
-
-        const batchData = batchDoc.data();
-
-        const questions = [...(batchData.questions ?? [])];
-
-        const index = questions.findIndex(
-            (q: OralBatchQuestion) => q.id === id
-        );
-
-        if (index === -1) {
-            continue;
-        }
-
-        questions[index] = {
-            ...questions[index],
-            question: data.question,
-            answer: data.answer,
-        };
-
-        await updateDoc(
-            batchDoc.ref,
-            {
-                questions,
-                updatedAt: serverTimestamp(),
-            }
-        );
-
-        return;
-    }
-
-    throw new Error("Question not found");
-}
-
-export async function deleteOralBatchQuestions(
-    category: string,
-    ids: string[]
-) {
-    const normalizedCategory = category.toLowerCase();
-
-    const snapshot = await getDocs(
-        query(
-            collection(db, "oral_batches"),
-            where(
-                "category",
-                "==",
-                normalizedCategory
-            )
-        )
-    );
-
-
-    let deletedCount = 0;
-
-
-    for (const batchDoc of snapshot.docs) {
-
-        const batchData = batchDoc.data();
-
-        const questions: OralBatchQuestion[] =
-            batchData.questions ?? [];
-
-
-        const updatedQuestions =
-            questions.filter(
-                (q: OralBatchQuestion) =>
-                    !ids.includes(q.id)
-            );
-
-
-        if (
-            updatedQuestions.length ===
-            questions.length
-        ) {
-            continue;
-        }
-
-
-        deletedCount +=
-            questions.length -
-            updatedQuestions.length;
-
-
-        updatedQuestions.forEach((q, index) => {
-            q.order = index + 1;
-        });
-
-
-        const topicCount =
-            new Set(
-                updatedQuestions.map(
-                    (q) => q.topic
-                )
-            ).size;
-
-
-        await updateDoc(
-            batchDoc.ref,
-            {
-                questions: updatedQuestions,
-
-                questionCount:
-                    updatedQuestions.length,
-
-                topicCount,
-
-                updatedAt:
-                    serverTimestamp(),
-            }
-        );
-
-
-        console.log(
-            "Updated batch:",
-            batchDoc.id
-        );
-
-    }
-
-
-
-    // Update metadata counter
-    if (deletedCount > 0) {
-
-        await runTransaction(
-            db,
-            async (transaction) => {
-
-                const counterRef =
-                    doc(
-                        db,
-                        "oral_batches_metadata",
-                        "counters"
-                    );
-
-
-                const counterSnap =
-                    await transaction.get(
-                        counterRef
-                    );
-
-
-                if (!counterSnap.exists()) {
-                    return;
-                }
-
-
-                const data =
-                    counterSnap.data();
-
-
-                const currentCount =
-                    data[normalizedCategory]
-                        ?.questionCount ?? 0;
-
-
-
-                transaction.update(
-                    counterRef,
-                    {
-
-                        [`${normalizedCategory}.questionCount`]:
-                            Math.max(
-                                currentCount -
-                                deletedCount,
-                                0
-                            ),
-
-
-                        [`${normalizedCategory}.updatedAt`]:
-                            serverTimestamp(),
-
-                    }
-                );
-
-            }
-        );
-
-    }
-
-
-}
-
-
-
-
-export async function getOralFilters(
-    category: string
-): Promise<OralFilters> {
-
-    const snapshot = await getDoc(
-        doc(db, "oral_batches_metadata", "counters")
-    );
-
-    if (!snapshot.exists()) {
-        return {
-            topics: [],
-            surveyors: [],
-            mmds: [],
-            classes: [],
-        };
-    }
-
-    const data = snapshot.data();
-
-    const meta = data[category.toLowerCase()] ?? {};
-
-    return {
-        topics: meta.topics ?? [],
-        surveyors: meta.surveyors ?? [],
-        mmds: meta.mmds ?? [],
-        classes: meta.classes ?? [],
-    };
-}
-
-export async function getAllOralBatchQuestions(
-    category: string
-): Promise<OralBatchQuestion[]> {
-
-
-    const meta =
-        await getOralCategoryMeta(category);
-
-
-    const batchCount =
-        meta.batchCount;
-
-
-    const allQuestions: OralBatchQuestion[] = [];
-
-
-    for (
-        let batchNumber = 1;
-        batchNumber <= batchCount;
-        batchNumber++
-    ) {
-
-
-        const page =
-            await getOralBatchPage(
-                category,
-                batchNumber,
-                batchCount
-            );
-
-
-        allQuestions.push(
-            ...page.questions
-        );
-
-    }
-
-
-    return allQuestions;
-}
-
-export async function getOralQuestionsForExport(
-    category: string
-) {
-    const questions = await getAllOralBatchQuestions(category);
-
-    return questions.map((q) => ({
-        Category: q.category.toUpperCase(),
-        Class: q.class,
-        Date: q.examDate,
-        MMD: q.mmd,
-        Surveyor: q.surveyor,
-        Topic: q.topic,
-        Question: q.question,
-        Answer: q.answer,
-    }));
-}
-
-export async function getAllOralQuestionCounts(): Promise<Record<string, number>> {
-    const snapshot = await getDoc(
-        doc(db, "oral_batches_metadata", "counters")
-    );
-
-    if (!snapshot.exists()) {
-        return {
-            FN3: 0,
-            FN4B: 0,
-            FN5: 0,
-            FN6: 0,
-        };
-    }
-
-    const data = snapshot.data();
-
-    return {
-        FN3: data.fn3?.questionCount ?? 0,
-        FN4B: data.fn4b?.questionCount ?? 0,
-        FN5: data.fn5?.questionCount ?? 0,
-        FN6: data.fn6?.questionCount ?? 0,
-    };
 }
 </file>
 
@@ -8229,97 +7399,398 @@ export default function ManageWrittenQuestionsPage() {
 }
 </file>
 
-<file path="app/page.tsx">
-import HomeClient from "@/components/HomeClient";
-import { getHomeStats } from "@/lib/home-cache";
+<file path="app/context/AuthContext.tsx">
+"use client";
 
-export default async function HomePage() {
-  const { oralStats, writtenStats } = await getHomeStats();
+import {
+    onAuthStateChanged,
+    User,
+    signOut,
+} from "firebase/auth";
 
-  return (
-    <HomeClient
-      oralStats={oralStats}
-      writtenStats={writtenStats}
-    />
-  );
+import {
+    requestNotificationPermission,
+} from "@/lib/firebaseMessaging";
+
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+
+import {
+    auth,
+} from "@/lib/firebase";
+
+
+import {
+    initializeUser,
+    saveFCMToken,
+} from "@/services/userService";
+
+
+interface AuthContextType {
+
+    user: User | null;
+
+    loading: boolean;
+
+    role: "admin" | "student";
+
+}
+
+
+
+const AuthContext =
+    createContext<AuthContextType>({
+        user: null,
+
+        loading: true,
+
+        role: "student",
+    });
+
+
+
+
+export function AuthProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+
+
+    const [user, setUser] =
+        useState<User | null>(null);
+
+
+    const [loading, setLoading] =
+        useState(true);
+
+
+    const [role, setRole] =
+        useState<"admin" | "student">(
+            "student"
+        );
+
+
+
+
+    useEffect(() => {
+
+
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                async (firebaseUser) => {
+
+
+                    setUser(firebaseUser);
+
+
+
+                    if (!firebaseUser) {
+
+
+                        setRole("student");
+
+                        setLoading(false);
+
+                        return;
+
+                    }
+
+
+
+                    try {
+
+
+                        const token =
+                            await firebaseUser
+                                .getIdTokenResult(true);
+
+
+
+                        const isAdmin =
+                            token.claims.admin === true;
+
+
+
+                        setRole(
+                            isAdmin
+                                ? "admin"
+                                : "student"
+                        );
+
+                        const profile =
+                            await initializeUser({
+                                uid: firebaseUser.uid,
+                                displayName: firebaseUser.displayName,
+                                email: firebaseUser.email,
+                                photoURL: firebaseUser.photoURL,
+                            });
+
+                        if (profile.isBlocked) {
+
+                            await signOut(auth);
+
+                            setUser(null);
+
+                            setRole("student");
+
+                            setLoading(false);
+
+                            return;
+
+                        }
+
+
+                        const fcmToken =
+                            await requestNotificationPermission();
+
+
+                        if (fcmToken) {
+
+                            console.log(
+                                "FCM TOKEN:",
+                                fcmToken
+                            );
+
+
+                            await saveFCMToken(
+                                firebaseUser.uid,
+                                fcmToken
+                            );
+
+                        }
+
+
+
+
+                    } catch (error) {
+
+
+                        console.error(
+                            "Authentication loading failed:",
+                            error
+                        );
+
+
+                        setRole("student");
+
+
+                    } finally {
+
+
+                        setLoading(false);
+
+                    }
+
+                }
+            );
+
+
+
+        return unsubscribe;
+
+
+    }, []);
+
+
+
+
+
+    return (
+
+        <AuthContext.Provider
+
+            value={{
+
+                user,
+
+                loading,
+
+                role,
+
+            }}
+
+        >
+
+            {children}
+
+        </AuthContext.Provider>
+
+    );
+
+}
+
+
+
+
+
+export function useAuth() {
+
+    return useContext(AuthContext);
+
 }
 </file>
 
-<file path="lib/oral-cache.ts">
-import { unstable_cache } from "next/cache";
+<file path="components/CategoryCard.tsx">
+"use client";
 
-import {
-  getAllOralBatchQuestions,
-  getOralCategoryData,
-} from "@/services/oralBatch.service";
+import { LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
 
+interface CategoryCardProps {
+  href: string;
+  title: string;
+  icon: LucideIcon;
+  badge?: string;
 
-export async function getCachedAllOralQuestions(
-  category: string
-) {
+  questions?: number;
+  topics?: number;
 
-  const normalizedCategory =
-    category.trim().toLowerCase();
-
-
-  const cached =
-    unstable_cache(
-      async () => {
-
-        return getAllOralBatchQuestions(
-          normalizedCategory
-        );
-
-      },
-      [
-        "oral-all-questions",
-        normalizedCategory,
-      ],
-      {
-        tags: [
-          `oral-${normalizedCategory}`,
-        ],
-      }
-    );
-
-
-  return cached();
-
+  updatedAt?: Date | string | null;
+  onRequireLogin: () => void;
 }
 
+export default function CategoryCard({
+  href,
+  title,
+  icon: Icon,
+  badge,
+  questions = 0,
+  topics = 0,
+  updatedAt = null,
+  onRequireLogin,
+}: CategoryCardProps) {
+  const router = useRouter();
+  const { user } = useAuth();
 
+  const handleClick = () => {
+    if (user) {
+      router.push(href);
+    } else {
+      onRequireLogin();
+    }
+  };
 
-export async function getCachedOralCategoryData(
-  category: string
-) {
+  return (
+    <button
+      onClick={handleClick}
+      className="
+        group
+        flex
+        aspect-square
+        w-full
+        flex-col
+        rounded-3xl
+        border
+        border-gray-200
+        bg-white
+        p-4
+        text-left
+        shadow-sm
+        transition-all
+        duration-150
+        hover:-translate-y-1
+        hover:border-gray-300
+        hover:shadow-lg
+        active:scale-[0.98]
+        active:bg-zinc-100
+        active:border-zinc-400
+      "
+    >
+      {/* Badge */}
+      {badge && (
+        <div className="inline-flex w-fit rounded-md bg-black px-2.5 py-1 text-[9px] font-semibold tracking-wide text-white md:text-[10px]">
+          {badge}
+        </div>
+      )}
 
-  const normalizedCategory =
-    category.trim().toLowerCase();
+      {/* Icon */}
+      <div
+        className="
+          mt-4
+          flex
+          h-11
+          w-11
+          items-center
+          justify-center
+          rounded-xl
+          bg-gray-100
+          transition-all
+          duration-150
+          group-hover:bg-gray-200
+          group-active:bg-blue-100
+          md:h-12
+          md:w-12
+        "
+      >
+        <Icon
+          size={26}
+          strokeWidth={1.8}
+          className="
+            text-gray-700
+            transition-all
+            duration-150
+            group-hover:scale-110
+            group-active:scale-105
+            group-active:text-blue-700
+            md:h-7
+            md:w-7
+          "
+        />
+      </div>
 
+      {/* Title */}
+      <h3
+        className="
+          mt-4
+          text-[15px]
+          font-bold
+          leading-tight
+          text-gray-900
+          transition-colors
+          duration-150
+          group-active:text-blue-900
+          md:text-[17px]
+          lg:text-[18px]
+        "
+      >
+        {title}
+      </h3>
 
-  const cached =
-    unstable_cache(
-      async () => {
+      {/* Stats */}
+      <div className="mt-2 space-y-1 transition-colors duration-150 group-active:text-blue-700">
+        <p className="text-[11px] font-medium text-gray-600 md:text-xs">
+          {questions.toLocaleString()} Questions
+        </p>
 
-        return getOralCategoryData(
-          normalizedCategory
-        );
+        <p className="text-[11px] font-medium text-gray-600 md:text-xs">
+          {topics.toLocaleString()} Topics
+        </p>
+      </div>
 
-      },
-      [
-        "oral-category-data",
-        normalizedCategory,
-      ],
-      {
-        tags: [
-          `oral-${normalizedCategory}-meta`,
-        ],
-      }
-    );
+      {/* Push Footer Down */}
+      <div className="flex-1" />
 
-
-  return cached();
-
+      {/* Footer */}
+      <div className="border-t border-gray-100 pt-3 transition-colors duration-150 group-active:border-blue-200">
+        <p className="text-[10px] text-gray-400 md:text-[11px]">
+          Updated •{" "}
+          {updatedAt
+            ? new Date(updatedAt).toLocaleDateString("en-IN", {
+              month: "short",
+              year: "numeric",
+            })
+            : "-"}
+        </p>
+      </div>
+    </button>
+  );
 }
 </file>
 
@@ -8699,6 +8170,909 @@ export default function Header({
     );
 
 
+}
+</file>
+
+<file path="lib/oral-cache.ts">
+import { unstable_cache } from "next/cache";
+
+import {
+  getAllOralBatchQuestions,
+  getOralCategoryData,
+} from "@/services/oralBatch.service";
+
+
+export async function getCachedAllOralQuestions(
+  category: string
+) {
+
+  const normalizedCategory =
+    category.trim().toLowerCase();
+
+
+  const cached =
+    unstable_cache(
+      async () => {
+
+        return getAllOralBatchQuestions(
+          normalizedCategory
+        );
+
+      },
+      [
+        "oral-all-questions",
+        normalizedCategory,
+      ],
+      {
+        tags: [
+          `oral-${normalizedCategory}`,
+        ],
+      }
+    );
+
+
+  return cached();
+
+}
+
+
+
+export async function getCachedOralCategoryData(
+  category: string
+) {
+
+  const normalizedCategory =
+    category.trim().toLowerCase();
+
+
+  const cached =
+    unstable_cache(
+      async () => {
+
+        return getOralCategoryData(
+          normalizedCategory
+        );
+
+      },
+      [
+        "oral-category-data",
+        normalizedCategory,
+      ],
+      {
+        tags: [
+          `oral-${normalizedCategory}-meta`,
+        ],
+      }
+    );
+
+
+  return cached();
+
+}
+</file>
+
+<file path="services/oralBatch.service.ts">
+import {
+    collection,
+    doc,
+    getDocs,
+    getDoc,
+    query,
+    runTransaction,
+    serverTimestamp,
+    updateDoc,
+    increment,
+    where,
+    writeBatch,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+
+export const ORAL_BATCH_SIZE = 200;
+
+const CATEGORY_MAP: Record<string, string> = {
+    safety: "fn3",
+    fn3: "fn3",
+
+    motor: "fn4b",
+    fn4b: "fn4b",
+
+    electrical: "fn5",
+    fn5: "fn5",
+
+    mep: "fn6",
+    fn6: "fn6",
+};
+
+const clean = (value: unknown): string =>
+    String(value ?? "").trim();
+
+const getBatchId = (
+    category: string,
+    batchNumber: number
+): string =>
+    `${category.toLowerCase()}_batch_${String(
+        batchNumber
+    ).padStart(3, "0")}`;
+
+export interface OralBatchQuestion {
+    id: string;
+    class: string;
+    category: string;
+    examDate: string;
+    topic: string;
+    mmd: string;
+    surveyor: string;
+    question: string;
+    answer: string;
+    order: number;
+    isActive: boolean;
+}
+
+export interface OralBatchDocument {
+    batchId: string;
+    batchNumber: number;
+    category: string;
+    sourceFile: string;
+    questionCount: number;
+    topicCount: number;
+    questions: OralBatchQuestion[];
+    createdAt: unknown;
+    updatedAt: unknown;
+}
+
+export interface OralFilters {
+    topics: string[];
+    surveyors: string[];
+    mmds: string[];
+    classes: string[];
+}
+
+async function setBatchCount(
+    category: string,
+    batchCount: number,
+    questionCount: number,
+    topicCount: number,
+    topics: string[],
+    surveyors: string[],
+    mmds: string[],
+    classes: string[]
+) {
+    const counterRef = doc(
+        db,
+        "oral_batches_metadata",
+        "counters"
+    );
+
+    await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(counterRef);
+
+        if (!snap.exists()) {
+            throw new Error(
+                "oral_batches_metadata/counters document not found."
+            );
+        }
+
+        transaction.update(counterRef, {
+            [`${category}.batchCount`]: batchCount,
+            [`${category}.questionCount`]: questionCount,
+            [`${category}.topicCount`]: topicCount,
+
+            [`${category}.topics`]: topics,
+            [`${category}.surveyors`]: surveyors,
+            [`${category}.mmds`]: mmds,
+            [`${category}.classes`]: classes,
+
+            [`${category}.updatedAt`]: serverTimestamp(),
+        });
+    });
+}
+
+export async function deleteExistingBatches(
+    category: string
+) {
+    const q = query(
+        collection(db, "oral_batches"),
+        where("category", "==", category.toLowerCase())
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return;
+    }
+
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach((document) => {
+        batch.delete(document.ref);
+    });
+
+    await batch.commit();
+}
+
+export async function uploadOralBatch(
+    rows: any[],
+    sourceFile: string,
+    onProgress?: (uploaded: number, total: number) => void
+) {
+    if (!rows.length) return;
+
+    const groupedQuestions: Record<
+        string,
+        OralBatchQuestion[]
+    > = {};
+
+    rows
+        .filter((row) => row.Question)
+        .forEach((row) => {
+
+            let category = clean(row.Category)
+                .toLowerCase();
+
+            category =
+                CATEGORY_MAP[category] ?? category;
+
+            if (!groupedQuestions[category]) {
+                groupedQuestions[category] = [];
+            }
+
+            groupedQuestions[category].push({
+                id: crypto.randomUUID(),
+
+                class: clean(row.Class),
+                category,
+
+                examDate: clean(row.Date),
+
+                topic: clean(row.Topic),
+
+                mmd: clean(row.MMD),
+
+                surveyor: clean(row.Surveyor),
+
+                question: clean(row.Question),
+
+                answer: clean(row.Answer),
+
+                order:
+                    groupedQuestions[category]
+                        .length + 1,
+
+                isActive: true,
+            });
+        });
+
+    for (const category of Object.keys(groupedQuestions)) {
+
+        await deleteExistingBatches(category);
+
+        const questions =
+            groupedQuestions[category];
+
+        const topics = [...new Set(questions.map(q => q.topic))].sort();
+
+        const surveyors = [...new Set(questions.map(q => q.surveyor))].sort();
+
+        const mmds = [...new Set(questions.map(q => q.mmd))].sort();
+
+        const classes = [...new Set(questions.map(q => q.class))].sort();
+
+        const firestoreBatch = writeBatch(db);
+
+        const totalBatches = Math.ceil(
+            questions.length / ORAL_BATCH_SIZE
+        );
+
+        for (
+            let batchNumber = 1;
+            batchNumber <= totalBatches;
+            batchNumber++
+        ) {
+
+            const start =
+                (batchNumber - 1) *
+                ORAL_BATCH_SIZE;
+
+            const batchQuestions =
+                questions.slice(
+                    start,
+                    start + ORAL_BATCH_SIZE
+                );
+
+            const batchId = getBatchId(
+                category,
+                batchNumber
+            );
+
+            firestoreBatch.set(
+                doc(db, "oral_batches", batchId),
+                {
+                    batchId,
+                    batchNumber,
+                    category,
+                    sourceFile,
+
+                    questionCount: batchQuestions.length,
+
+                    topicCount: new Set(
+                        batchQuestions.map((q) => q.topic)
+                    ).size,
+
+                    questions: batchQuestions,
+
+                    createdAt: serverTimestamp(),
+
+                    updatedAt: serverTimestamp(),
+                }
+            );
+
+            console.log(
+                `Uploaded ${batchId} (${batchQuestions.length} questions)`
+            );
+        }
+
+        await firestoreBatch.commit();
+
+        await setBatchCount(
+            category,
+            totalBatches,
+            questions.length,
+            topics.length,
+            topics,
+            surveyors,
+            mmds,
+            classes
+        );
+
+        console.log(
+            `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
+        );
+    }
+}
+
+export async function getOralBatchQuestions(
+    category: string
+): Promise<OralBatchQuestion[]> {
+
+    const q = query(
+        collection(db, "oral_batches"),
+        where(
+            "category",
+            "==",
+            category.toLowerCase()
+        )
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return [];
+    }
+
+    const questions: OralBatchQuestion[] = [];
+
+    snapshot.docs
+        .sort((a, b) => {
+            const first =
+                a.data().batchNumber ?? 0;
+
+            const second =
+                b.data().batchNumber ?? 0;
+
+            return first - second;
+        })
+        .forEach((document) => {
+
+            const data =
+                document.data() as OralBatchDocument;
+
+            if (
+                Array.isArray(data.questions)
+            ) {
+                questions.push(
+                    ...data.questions
+                );
+            }
+
+        });
+
+    questions.sort(
+        (a, b) => a.order - b.order
+    );
+
+    return questions;
+}
+
+export async function getOralBatchPage(
+    category: string,
+    batchNumber: number,
+    batchCount: number
+) {
+    const currentBatchId = getBatchId(
+        category,
+        batchNumber
+    );
+
+    const currentSnapshot = await getDoc(
+        doc(
+            db,
+            "oral_batches",
+            currentBatchId
+        )
+    );
+
+    if (!currentSnapshot.exists()) {
+        return {
+            questions: [],
+            hasMore: false,
+            nextBatch: null,
+        };
+    }
+
+    const data =
+        currentSnapshot.data() as OralBatchDocument;
+
+    const hasMore = batchNumber < batchCount;
+
+    return {
+        questions: data.questions,
+        hasMore,
+        nextBatch: hasMore
+            ? batchNumber + 1
+            : null,
+    };
+}
+
+
+export async function getOralCategoryMeta(
+    category: string
+): Promise<{
+    batchCount: number;
+    questionCount: number;
+    topicCount: number;
+}> {
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            batchCount: 0,
+            questionCount: 0,
+            topicCount: 0,
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        batchCount: meta.batchCount ?? 0,
+        questionCount: meta.questionCount ?? 0,
+        topicCount: meta.topicCount ?? 0,
+    };
+}
+
+export async function getOralCategoryData(
+    category: string
+): Promise<{
+    batchCount: number;
+    questionCount: number;
+    topicCount: number;
+    filters: OralFilters;
+}> {
+
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            batchCount: 0,
+            questionCount: 0,
+            topicCount: 0,
+            filters: {
+                topics: [],
+                surveyors: [],
+                mmds: [],
+                classes: [],
+            },
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        batchCount: meta.batchCount ?? 0,
+        questionCount: meta.questionCount ?? 0,
+        topicCount: meta.topicCount ?? 0,
+
+        filters: {
+            topics: meta.topics ?? [],
+            surveyors: meta.surveyors ?? [],
+            mmds: meta.mmds ?? [],
+            classes: meta.classes ?? [],
+        },
+    };
+}
+
+export async function deleteOralBatchQuestion(
+    category: string,
+    questionId: string
+) {
+    const q = query(
+        collection(db, "oral_batches"),
+        where("category", "==", category.toLowerCase())
+    );
+
+    const snapshot = await getDocs(q);
+
+    for (const batchDoc of snapshot.docs) {
+
+        const data =
+            batchDoc.data() as OralBatchDocument;
+
+        const index = data.questions.findIndex(
+            q => q.id === questionId
+        );
+
+        if (index === -1) continue;
+
+        data.questions.splice(index, 1);
+
+        data.questions.forEach((q, i) => {
+            q.order = i + 1;
+        });
+
+        await updateDoc(batchDoc.ref, {
+            questions: data.questions,
+            questionCount: data.questions.length,
+            topicCount: new Set(
+                data.questions.map(q => q.topic)
+            ).size,
+            updatedAt: serverTimestamp(),
+        });
+
+        await runTransaction(db, async (transaction) => {
+
+            const counterRef = doc(
+                db,
+                "oral_batches_metadata",
+                "counters"
+            );
+
+            transaction.update(counterRef, {
+                [`${category.toLowerCase()}.questionCount`]:
+                    increment(-1),
+            });
+
+        });
+
+        return;
+    }
+
+    throw new Error("Question not found.");
+}
+
+export async function updateOralBatchQuestion(
+    category: string,
+    id: string,
+    data: {
+        question: string;
+        answer: string;
+    }
+) {
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where(
+                "category",
+                "==",
+                category.toLowerCase()
+            )
+        )
+    );
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        const questions = [...(batchData.questions ?? [])];
+
+        const index = questions.findIndex(
+            (q: OralBatchQuestion) => q.id === id
+        );
+
+        if (index === -1) {
+            continue;
+        }
+
+        questions[index] = {
+            ...questions[index],
+            question: data.question,
+            answer: data.answer,
+        };
+
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions,
+                updatedAt: serverTimestamp(),
+            }
+        );
+
+        return;
+    }
+
+    throw new Error("Question not found");
+}
+
+export async function deleteOralBatchQuestions(
+    category: string,
+    ids: string[]
+) {
+    const normalizedCategory = category.toLowerCase();
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            )
+        )
+    );
+
+
+    let deletedCount = 0;
+
+
+    for (const batchDoc of snapshot.docs) {
+
+        const batchData = batchDoc.data();
+
+        const questions: OralBatchQuestion[] =
+            batchData.questions ?? [];
+
+
+        const updatedQuestions =
+            questions.filter(
+                (q: OralBatchQuestion) =>
+                    !ids.includes(q.id)
+            );
+
+
+        if (
+            updatedQuestions.length ===
+            questions.length
+        ) {
+            continue;
+        }
+
+
+        deletedCount +=
+            questions.length -
+            updatedQuestions.length;
+
+
+        updatedQuestions.forEach((q, index) => {
+            q.order = index + 1;
+        });
+
+
+        const topicCount =
+            new Set(
+                updatedQuestions.map(
+                    (q) => q.topic
+                )
+            ).size;
+
+
+        await updateDoc(
+            batchDoc.ref,
+            {
+                questions: updatedQuestions,
+
+                questionCount:
+                    updatedQuestions.length,
+
+                topicCount,
+
+                updatedAt:
+                    serverTimestamp(),
+            }
+        );
+
+
+        console.log(
+            "Updated batch:",
+            batchDoc.id
+        );
+
+    }
+
+
+
+    // Update metadata counter
+    if (deletedCount > 0) {
+
+        await runTransaction(
+            db,
+            async (transaction) => {
+
+                const counterRef =
+                    doc(
+                        db,
+                        "oral_batches_metadata",
+                        "counters"
+                    );
+
+
+                const counterSnap =
+                    await transaction.get(
+                        counterRef
+                    );
+
+
+                if (!counterSnap.exists()) {
+                    return;
+                }
+
+
+                const data =
+                    counterSnap.data();
+
+
+                const currentCount =
+                    data[normalizedCategory]
+                        ?.questionCount ?? 0;
+
+
+
+                transaction.update(
+                    counterRef,
+                    {
+
+                        [`${normalizedCategory}.questionCount`]:
+                            Math.max(
+                                currentCount -
+                                deletedCount,
+                                0
+                            ),
+
+
+                        [`${normalizedCategory}.updatedAt`]:
+                            serverTimestamp(),
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+
+}
+
+
+
+
+export async function getOralFilters(
+    category: string
+): Promise<OralFilters> {
+
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            topics: [],
+            surveyors: [],
+            mmds: [],
+            classes: [],
+        };
+    }
+
+    const data = snapshot.data();
+
+    const meta = data[category.toLowerCase()] ?? {};
+
+    return {
+        topics: meta.topics ?? [],
+        surveyors: meta.surveyors ?? [],
+        mmds: meta.mmds ?? [],
+        classes: meta.classes ?? [],
+    };
+}
+
+export async function getAllOralBatchQuestions(
+    category: string
+): Promise<OralBatchQuestion[]> {
+
+
+    const meta =
+        await getOralCategoryMeta(category);
+
+
+    const batchCount =
+        meta.batchCount;
+
+
+    const allQuestions: OralBatchQuestion[] = [];
+
+
+    for (
+        let batchNumber = 1;
+        batchNumber <= batchCount;
+        batchNumber++
+    ) {
+
+
+        const page =
+            await getOralBatchPage(
+                category,
+                batchNumber,
+                batchCount
+            );
+
+
+        allQuestions.push(
+            ...page.questions
+        );
+
+    }
+
+
+    return allQuestions;
+}
+
+export async function getOralQuestionsForExport(
+    category: string
+) {
+    const questions = await getAllOralBatchQuestions(category);
+
+    return questions.map((q) => ({
+        Category: q.category.toUpperCase(),
+        Class: q.class,
+        Date: q.examDate,
+        MMD: q.mmd,
+        Surveyor: q.surveyor,
+        Topic: q.topic,
+        Question: q.question,
+        Answer: q.answer,
+    }));
+}
+
+export async function getAllOralQuestionCounts(): Promise<Record<string, number>> {
+    const snapshot = await getDoc(
+        doc(db, "oral_batches_metadata", "counters")
+    );
+
+    if (!snapshot.exists()) {
+        return {
+            FN3: 0,
+            FN4B: 0,
+            FN5: 0,
+            FN6: 0,
+        };
+    }
+
+    const data = snapshot.data();
+
+    return {
+        FN3: data.fn3?.questionCount ?? 0,
+        FN4B: data.fn4b?.questionCount ?? 0,
+        FN5: data.fn5?.questionCount ?? 0,
+        FN6: data.fn6?.questionCount ?? 0,
+    };
 }
 </file>
 
@@ -9257,7 +9631,7 @@ export default memo(QuestionCard);
 <file path="app/(protected)/writtens/[category]/page.tsx">
 import WrittensClient from "../[category]/WrittensClient";
 import { getCachedWrittenQuestions } from "@/lib/written-cache";
-
+import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
 export default async function WrittenPage({
   params,
 }: {
@@ -9274,10 +9648,14 @@ export default async function WrittenPage({
   );
 
   return (
-    <WrittensClient
-      initialQuestions={questions}
-      category={normalizedCategory}
-    />
+    <SubscriptionGuard>
+
+      <WrittensClient
+        initialQuestions={questions}
+        category={normalizedCategory}
+      />
+
+    </SubscriptionGuard>
   );
 }
 </file>
@@ -9425,164 +9803,6 @@ export default function AuthModal({
 }
 </file>
 
-<file path="components/CategoryCard.tsx">
-"use client";
-
-import { LucideIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/app/context/AuthContext";
-
-interface CategoryCardProps {
-  href: string;
-  title: string;
-  icon: LucideIcon;
-  badge?: string;
-
-  questions?: number;
-  topics?: number;
-
-  updatedAt?: Date | string | null;
-  onRequireLogin: () => void;
-}
-
-export default function CategoryCard({
-  href,
-  title,
-  icon: Icon,
-  badge,
-  questions = 0,
-  topics = 0,
-  updatedAt = null,
-  onRequireLogin,
-}: CategoryCardProps) {
-  const router = useRouter();
-  const { user } = useAuth();
-
-  const handleClick = () => {
-    if (user) {
-      router.push(href);
-    } else {
-      onRequireLogin();
-    }
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      className="
-        group
-        flex
-        aspect-square
-        w-full
-        flex-col
-        rounded-3xl
-        border
-        border-gray-200
-        bg-white
-        p-4
-        text-left
-        shadow-sm
-        transition-all
-        duration-150
-        hover:-translate-y-1
-        hover:border-gray-300
-        hover:shadow-lg
-        active:scale-[0.98]
-        active:bg-zinc-100
-        active:border-zinc-400
-      "
-    >
-      {/* Badge */}
-      {badge && (
-        <div className="inline-flex w-fit rounded-md bg-black px-2.5 py-1 text-[9px] font-semibold tracking-wide text-white md:text-[10px]">
-          {badge}
-        </div>
-      )}
-
-      {/* Icon */}
-      <div
-        className="
-          mt-4
-          flex
-          h-11
-          w-11
-          items-center
-          justify-center
-          rounded-xl
-          bg-gray-100
-          transition-all
-          duration-150
-          group-hover:bg-gray-200
-          group-active:bg-blue-100
-          md:h-12
-          md:w-12
-        "
-      >
-        <Icon
-          size={26}
-          strokeWidth={1.8}
-          className="
-            text-gray-700
-            transition-all
-            duration-150
-            group-hover:scale-110
-            group-active:scale-105
-            group-active:text-blue-700
-            md:h-7
-            md:w-7
-          "
-        />
-      </div>
-
-      {/* Title */}
-      <h3
-        className="
-          mt-4
-          text-[15px]
-          font-bold
-          leading-tight
-          text-gray-900
-          transition-colors
-          duration-150
-          group-active:text-blue-900
-          md:text-[17px]
-          lg:text-[18px]
-        "
-      >
-        {title}
-      </h3>
-
-      {/* Stats */}
-      <div className="mt-2 space-y-1 transition-colors duration-150 group-active:text-blue-700">
-        <p className="text-[11px] font-medium text-gray-600 md:text-xs">
-          {questions.toLocaleString()} Questions
-        </p>
-
-        <p className="text-[11px] font-medium text-gray-600 md:text-xs">
-          {topics.toLocaleString()} Topics
-        </p>
-      </div>
-
-      {/* Push Footer Down */}
-      <div className="flex-1" />
-
-      {/* Footer */}
-      <div className="border-t border-gray-100 pt-3 transition-colors duration-150 group-active:border-blue-200">
-        <p className="text-[10px] text-gray-400 md:text-[11px]">
-          Updated •{" "}
-          {updatedAt
-            ? new Date(updatedAt).toLocaleDateString("en-IN", {
-              month: "short",
-              year: "numeric",
-            })
-            : "-"}
-        </p>
-      </div>
-    </button>
-  );
-}
-</file>
-
 <file path="components/InitialLoader.tsx">
 "use client";
 
@@ -9618,6 +9838,201 @@ export default function InitialLoader({
 
 
   return children;
+}
+</file>
+
+<file path="components/WrittenCard.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Bookmark,
+  BookmarkCheck,
+} from "lucide-react";
+import { WrittenQuestion } from "@/services/written.service";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
+
+interface Props {
+  question: WrittenQuestion;
+  isBookmarked: boolean;
+  onBookmark: () => void;
+}
+
+export default function WrittenCard({
+  question,
+  isBookmarked,
+  onBookmark,
+}: Props) {
+
+  const [showAnswer, setShowAnswer] = useState(false);
+
+  useEffect(() => {
+    setShowAnswer(false);
+  }, [question.id]);
+
+  return (
+    <div
+      className="
+    flex
+    flex-col
+    h-[550px]
+    rounded-3xl
+    border
+    border-gray-200
+    bg-white
+    p-4
+    sm:p-5
+    md:p-6
+    shadow-sm
+    transition
+    hover:shadow-lg
+  "
+    >
+
+      {/* Header */}
+
+      <div className="mb-5 flex items-start justify-between gap-4">
+
+        <div className="flex flex-wrap gap-2">
+
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs sm:text-sm font-semibold text-blue-700">
+            {question.class}
+          </span>
+
+          <span className="rounded-full bg-green-100 px-3 py-1 text-xs sm:text-sm font-semibold text-green-700">
+            {question.year}
+          </span>
+
+          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs sm:text-sm font-semibold text-purple-700">
+            {question.month}
+          </span>
+
+          <span className="max-w-full truncate rounded-full bg-orange-100 px-3 py-1 text-xs sm:text-sm font-semibold text-orange-700">
+            {question.topic}
+          </span>
+
+        </div>
+
+        <button
+          onClick={onBookmark}
+          className="rounded-full p-2 hover:bg-gray-100 transition"
+        >
+          {isBookmarked ? (
+            <Bookmark
+              size={22}
+              className="fill-yellow-400 text-yellow-500"
+            />
+          ) : (
+            <Bookmark size={22} />
+          )}
+        </button>
+
+      </div>
+
+      {/* Scroll Area */}
+
+      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+
+        {/* Question */}
+
+        <h2
+          className="
+      whitespace-pre-wrap
+      break-words
+      text-base
+      sm:text-lg
+      md:text-xl
+      font-medium
+      leading-7
+      sm:leading-8
+      text-gray-900
+    "
+        >
+          {question.question}
+        </h2>
+
+        {showAnswer && (
+          <div
+            className="
+      mt-5
+      rounded-2xl
+      border
+      border-green-200
+      bg-green-50
+      p-4
+      sm:p-5
+    "
+          >
+
+            <h3
+              className="
+        mb-3
+        text-sm
+        sm:text-base
+        font-bold
+        text-green-700
+      "
+            >
+              Official Answer
+            </h3>
+
+            <MarkdownRenderer
+              content={question.answer}
+            />
+
+
+          </div>
+        )}
+
+      </div>
+
+      {/* Answer Button */}
+
+      <button
+        onClick={() => setShowAnswer(!showAnswer)}
+        className="
+    mt-6
+    flex
+    shrink-0
+    w-full
+    sm:w-auto
+    sm:ml-auto
+    items-center
+    justify-center
+    gap-2
+    rounded-xl
+    bg-black
+    px-5
+    py-3
+    text-sm
+    sm:text-base
+    font-semibold
+    text-white
+    transition
+    hover:bg-gray-800
+"
+      >
+
+        {showAnswer ? (
+          <>
+            <ChevronUp size={18} />
+            Hide Answer
+          </>
+        ) : (
+          <>
+            <ChevronDown size={18} />
+            Show Answer
+          </>
+        )}
+
+      </button>
+
+
+
+    </div>
+  );
 }
 </file>
 
@@ -10095,201 +10510,6 @@ export default function BulkUploadPage() {
 
         </main>
     );
-}
-</file>
-
-<file path="components/WrittenCard.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  Bookmark,
-  BookmarkCheck,
-} from "lucide-react";
-import { WrittenQuestion } from "@/services/written.service";
-import MarkdownRenderer from "@/components/MarkdownRenderer";
-
-interface Props {
-  question: WrittenQuestion;
-  isBookmarked: boolean;
-  onBookmark: () => void;
-}
-
-export default function WrittenCard({
-  question,
-  isBookmarked,
-  onBookmark,
-}: Props) {
-
-  const [showAnswer, setShowAnswer] = useState(false);
-
-  useEffect(() => {
-    setShowAnswer(false);
-  }, [question.id]);
-
-  return (
-    <div
-      className="
-    flex
-    flex-col
-    h-[550px]
-    rounded-3xl
-    border
-    border-gray-200
-    bg-white
-    p-4
-    sm:p-5
-    md:p-6
-    shadow-sm
-    transition
-    hover:shadow-lg
-  "
-    >
-
-      {/* Header */}
-
-      <div className="mb-5 flex items-start justify-between gap-4">
-
-        <div className="flex flex-wrap gap-2">
-
-          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs sm:text-sm font-semibold text-blue-700">
-            {question.class}
-          </span>
-
-          <span className="rounded-full bg-green-100 px-3 py-1 text-xs sm:text-sm font-semibold text-green-700">
-            {question.year}
-          </span>
-
-          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs sm:text-sm font-semibold text-purple-700">
-            {question.month}
-          </span>
-
-          <span className="max-w-full truncate rounded-full bg-orange-100 px-3 py-1 text-xs sm:text-sm font-semibold text-orange-700">
-            {question.topic}
-          </span>
-
-        </div>
-
-        <button
-          onClick={onBookmark}
-          className="rounded-full p-2 hover:bg-gray-100 transition"
-        >
-          {isBookmarked ? (
-            <Bookmark
-              size={22}
-              className="fill-yellow-400 text-yellow-500"
-            />
-          ) : (
-            <Bookmark size={22} />
-          )}
-        </button>
-
-      </div>
-
-      {/* Scroll Area */}
-
-      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
-
-        {/* Question */}
-
-        <h2
-          className="
-      whitespace-pre-wrap
-      break-words
-      text-base
-      sm:text-lg
-      md:text-xl
-      font-medium
-      leading-7
-      sm:leading-8
-      text-gray-900
-    "
-        >
-          {question.question}
-        </h2>
-
-        {showAnswer && (
-          <div
-            className="
-      mt-5
-      rounded-2xl
-      border
-      border-green-200
-      bg-green-50
-      p-4
-      sm:p-5
-    "
-          >
-
-            <h3
-              className="
-        mb-3
-        text-sm
-        sm:text-base
-        font-bold
-        text-green-700
-      "
-            >
-              Official Answer
-            </h3>
-
-            <MarkdownRenderer
-              content={question.answer}
-            />
-
-
-          </div>
-        )}
-
-      </div>
-
-      {/* Answer Button */}
-
-      <button
-        onClick={() => setShowAnswer(!showAnswer)}
-        className="
-    mt-6
-    flex
-    shrink-0
-    w-full
-    sm:w-auto
-    sm:ml-auto
-    items-center
-    justify-center
-    gap-2
-    rounded-xl
-    bg-black
-    px-5
-    py-3
-    text-sm
-    sm:text-base
-    font-semibold
-    text-white
-    transition
-    hover:bg-gray-800
-"
-      >
-
-        {showAnswer ? (
-          <>
-            <ChevronUp size={18} />
-            Hide Answer
-          </>
-        ) : (
-          <>
-            <ChevronDown size={18} />
-            Show Answer
-          </>
-        )}
-
-      </button>
-
-
-
-    </div>
-  );
 }
 </file>
 
@@ -11172,6 +11392,7 @@ export async function getQuestionsByOrder(
 import UserGreeting from "@/components/UserGreeting";
 import QuestionsContainer from "@/components/QuestionsContainer";
 import Link from "next/link";
+import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
 import { ArrowLeft, Sailboat } from "lucide-react";
 import InsightSwitcher from "@/components/InsightSwitcher";
 import {
@@ -11253,90 +11474,93 @@ export default async function OralCategoryPage({
   };
 
   return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-5xl px-5 py-8">
+    <SubscriptionGuard>
+      <main className="min-h-screen bg-[#f5f5f5]">
+        <div className="mx-auto max-w-5xl px-5 py-8">
 
-        {/* HEADER */}
-        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          {/* HEADER */}
+          <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
 
-          {/* Top Row */}
-          <div className="flex items-center justify-between">
+            {/* Top Row */}
+            <div className="flex items-center justify-between">
 
-            <Link
-              href="/"
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
-            >
-              <ArrowLeft size={20} />
-            </Link>
+              <Link
+                href="/"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
+              >
+                <ArrowLeft size={20} />
+              </Link>
 
-            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
-              <Sailboat
-                size={30}
-                strokeWidth={2}
-                className="text-black"
-              />
+              <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+                <Sailboat
+                  size={30}
+                  strokeWidth={2}
+                  className="text-black"
+                />
+              </div>
+
+            </div>
+
+            {/* Greeting */}
+            <div className="mt-7">
+              <UserGreeting />
+            </div>
+
+            {/* Quote */}
+            <div className="mt-6 border-l-4 border-black pl-4">
+
+              <p className="text-sm italic leading-6 text-gray-600">
+                {page.quote}
+              </p>
+
+            </div>
+
+            {/* Badge */}
+            <div className="mt-6">
+
+              <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
+                {page.title}
+              </span>
+
+            </div>
+
+            {/* Category */}
+            <div className="mt-5">
+
+              <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
+                {page.subtitle}
+              </h1>
+
+            </div>
+
+            {/* Stats */}
+            <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
+              <span>{meta.questionCount} Questions</span>
+
+              <span>•</span>
+
+              <span>{meta.topicCount} Topics</span>
             </div>
 
           </div>
 
-          {/* Greeting */}
-          <div className="mt-7">
-            <UserGreeting />
-          </div>
+          <InsightSwitcher
+            category={normalizedCategory}
+            current="questions"
+          />
 
-          {/* Quote */}
-          <div className="mt-6 border-l-4 border-black pl-4">
-
-            <p className="text-sm italic leading-6 text-gray-600">
-              {page.quote}
-            </p>
-
-          </div>
-
-          {/* Badge */}
-          <div className="mt-6">
-
-            <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
-              {page.title}
-            </span>
-
-          </div>
-
-          {/* Category */}
-          <div className="mt-5">
-
-            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
-              {page.subtitle}
-            </h1>
-
-          </div>
-
-          {/* Stats */}
-          <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
-            <span>{meta.questionCount} Questions</span>
-
-            <span>•</span>
-
-            <span>{meta.topicCount} Topics</span>
-          </div>
+          {/* Questions */}
+          <QuestionsContainer
+            category={normalizedCategory}
+            initialQuestions={questions}
+            filters={filters}
+            totalQuestions={meta.questionCount}
+          />
 
         </div>
+      </main>
 
-        <InsightSwitcher
-          category={normalizedCategory}
-          current="questions"
-        />
-
-        {/* Questions */}
-        <QuestionsContainer
-          category={normalizedCategory}
-          initialQuestions={questions}
-          filters={filters}
-          totalQuestions={meta.questionCount}
-        />
-
-      </div>
-    </main>
+    </SubscriptionGuard>
   );
 }
 </file>

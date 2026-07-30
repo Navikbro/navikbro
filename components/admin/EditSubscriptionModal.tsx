@@ -4,13 +4,18 @@ import { useState } from "react";
 
 import { CachedUser } from "@/types/admin";
 
+import type {
+    SubscriptionPlan,
+    SubscriptionStatus,
+} from "@/types/user";
+
 interface EditSubscriptionModalProps {
     user: CachedUser | null;
     open: boolean;
     onClose: () => void;
     onSave: (
-        plan: string,
-        status: string,
+        plan: SubscriptionPlan,
+        status: SubscriptionStatus,
         endDate: string | null
     ) => Promise<void>;
 }
@@ -23,10 +28,14 @@ export default function EditSubscriptionModal({
 }: EditSubscriptionModalProps) {
 
     const [plan, setPlan] =
-        useState(user?.plan ?? "free");
+        useState<SubscriptionPlan>(
+            (user?.plan as SubscriptionPlan) ?? "free"
+        );
 
     const [status, setStatus] =
-        useState(user?.status ?? "inactive");
+        useState<SubscriptionStatus>(
+            (user?.status as SubscriptionStatus) ?? "inactive"
+        );
 
     const [endDate, setEndDate] =
         useState("");
@@ -56,16 +65,21 @@ export default function EditSubscriptionModal({
                         <select
                             value={plan}
                             onChange={(e) =>
-                                setPlan(e.target.value)
+                                setPlan(e.target.value as SubscriptionPlan)
                             }
+
                             className="w-full rounded-lg border p-2"
                         >
                             <option value="free">
                                 Free
                             </option>
 
-                            <option value="premium">
-                                Premium
+                            <option value="trial">
+                                Trial
+                            </option>
+
+                            <option value="monthly">
+                                Monthly
                             </option>
 
                         </select>
@@ -81,7 +95,7 @@ export default function EditSubscriptionModal({
                         <select
                             value={status}
                             onChange={(e) =>
-                                setStatus(e.target.value)
+                                setStatus(e.target.value as SubscriptionStatus)
                             }
                             className="w-full rounded-lg border p-2"
                         >

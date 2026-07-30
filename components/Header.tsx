@@ -108,19 +108,7 @@ export default function Header({
 
         <div
 
-            className="
-            bg-white
-            border
-            border-gray-200
-            rounded-3xl
-            pl-3
-            pr-5
-            py-4
-            md:pl-4
-            md:pr-6
-            md:py-5
-            shadow-sm
-            "
+            className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm"
 
         >
 
@@ -128,11 +116,7 @@ export default function Header({
 
             <div
 
-                className="
-                flex
-                items-center
-                justify-between
-                "
+                className="flex items-center justify-between"
 
             >
 
