@@ -5,11 +5,12 @@ import {
     serverTimestamp,
 } from "firebase/firestore";
 
-import { db } from "@/lib/firebase";
-
 import type {
     AppUser,
+    UserSubscription,
 } from "@/types/user";
+
+import { db } from "@/lib/firebase";
 
 import {
     isTrialExpired,
@@ -35,7 +36,7 @@ export async function startTrial(uid: string) {
 
 export async function getUserSubscription(
     uid: string
-) {
+): Promise<UserSubscription | null> {
 
     const userRef =
         doc(
