@@ -14,17 +14,11 @@ export async function startSubscriptionPayment() {
         method: "POST",
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-        console.error("CREATE ORDER ERROR RESPONSE:", data);
-
-        throw new Error(
-            typeof data.message === "string"
-                ? data.message
-                : JSON.stringify(data.message ?? data)
-        );
+        throw new Error("Unable to create payment order.");
     }
+
+    const data = await response.json();
 
     const options = {
         key: data.keyId,
@@ -58,7 +52,7 @@ export async function startSubscriptionPayment() {
                 if (!verifyResponse.ok || !result.success) {
                     alert(
                         result.message ??
-                        "Payment verification failed."
+                            "Payment verification failed."
                     );
                     return;
                 }

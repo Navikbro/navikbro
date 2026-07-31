@@ -74,13 +74,8 @@ export default function SubscriptionModal({
                         try {
                             await startSubscriptionPayment();
                         } catch (error) {
-                            console.error("PAYMENT ERROR:", error);
-
-                            alert(
-                                error instanceof Error
-                                    ? error.message
-                                    : JSON.stringify(error)
-                            );
+                            console.error(error);
+                            alert("Unable to start payment.");
                         }
                     }}
                     className="w-full rounded-xl bg-black py-3 font-semibold text-white disabled:opacity-50"
