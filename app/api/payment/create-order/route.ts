@@ -33,15 +33,12 @@ export async function POST(request: NextRequest) {
             keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         });
     } catch (error) {
-        console.error("CREATE ORDER ERROR:", error);
+        console.error(error);
 
         return NextResponse.json(
             {
                 success: false,
-                error:
-                    error instanceof Error
-                        ? error.message
-                        : String(error),
+                message: "Unable to create payment order.",
             },
             {
                 status: 500,
