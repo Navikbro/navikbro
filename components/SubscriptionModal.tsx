@@ -1,6 +1,8 @@
 "use client";
 
 import { useSubscription } from "@/app/context/SubscriptionContext";
+import { useRazorpay } from "@/hooks/useRazorpay";
+import { startSubscriptionPayment } from "@/lib/payment";
 
 interface SubscriptionModalProps {
     mode: "trial" | "expired";
@@ -13,6 +15,8 @@ export default function SubscriptionModal({
     const {
         closeTrialModal,
     } = useSubscription();
+
+    const razorpayLoaded = useRazorpay();
 
     if (mode === "trial") {
 
@@ -65,9 +69,18 @@ export default function SubscriptionModal({
                 </p>
 
                 <button
-                    className="w-full rounded-xl bg-black py-3 font-semibold text-white"
+                    disabled={!razorpayLoaded}
+                    onClick={async () => {
+                        try {
+                            await startSubscriptionPayment();
+                        } catch (error) {
+                            console.error(error);
+                            alert("Unable to start payment.");
+                        }
+                    }}
+                    className="w-full rounded-xl bg-black py-3 font-semibold text-white disabled:opacity-50"
                 >
-                    Unlock NAVIK Pro
+                    {razorpayLoaded ? "Unlock NAVIK Pro" : "Loading..."}
                 </button>
 
             </div>
