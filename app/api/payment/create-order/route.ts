@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
         const order = await razorpay.orders.create({
             amount: SUBSCRIPTION.MONTHLY.amount * 100,
-            currency: "INR",
+            currency: SUBSCRIPTION.MONTHLY.currency,
             receipt,
 
             notes: {

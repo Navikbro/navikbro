@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
+import { SUBSCRIPTION } from "@/config/subscription";
 
 import {
     adminDb,
@@ -62,10 +63,70 @@ export async function POST(
         }
 
         // Fetch Razorpay Order
+        const payment =
+            await razorpay.payments.fetch(
+                razorpay_payment_id
+            );
+
         const order =
             await razorpay.orders.fetch(
                 razorpay_order_id
             );
+
+        if (payment.status !== "captured") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Payment has not been captured.",
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
+
+        // Verify payment amount
+        const expectedAmount =
+            SUBSCRIPTION.MONTHLY.amount * 100;
+
+        if (payment.amount !== expectedAmount) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Invalid payment amount.",
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
+
+        if (
+            payment.currency !==
+            SUBSCRIPTION.MONTHLY.currency
+        ) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Invalid payment currency.",
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
+
+        if (payment.order_id !== razorpay_order_id) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Payment does not belong to this order.",
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
 
         if (
             order.notes?.uid !== user.uid
@@ -151,15 +212,16 @@ export async function POST(
                     verificationRef,
                     {
                         uid: user.uid,
+                        paymentId: razorpay_payment_id,
+                        orderId: razorpay_order_id,
 
-                        paymentId:
-                            razorpay_payment_id,
+                        amount: payment.amount,
+                        currency: payment.currency,
+                        status: payment.status,
+                        email: payment.email ?? null,
+                        contact: payment.contact ?? null,
 
-                        orderId:
-                            razorpay_order_id,
-
-                        verifiedAt:
-                            FieldValue.serverTimestamp(),
+                        verifiedAt: FieldValue.serverTimestamp(),
                     }
                 );
 
