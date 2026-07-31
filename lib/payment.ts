@@ -17,8 +17,12 @@ export async function startSubscriptionPayment() {
     const data = await response.json();
 
     if (!response.ok) {
+        console.error("CREATE ORDER ERROR RESPONSE:", data);
+
         throw new Error(
-            data.message || "Unable to create payment order."
+            typeof data.message === "string"
+                ? data.message
+                : JSON.stringify(data.message ?? data)
         );
     }
 
