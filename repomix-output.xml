@@ -82,6 +82,13 @@ app/
     orals/
       batch/
         route.ts
+    payment/
+      create-order/
+        route.ts
+      verify/
+        route.ts
+      webhook/
+        route.ts
     revalidate/
       written/
         route.ts
@@ -131,8 +138,14 @@ components/
   UserGreeting.tsx
   WrittenCard.tsx
   WrittenFilters.tsx
+config/
+  subscription.ts
+hooks/
+  useRazorpay.ts
 lib/
   adminFetch.ts
+  authFetch.ts
+  checkSubscription.ts
   community-cache.ts
   firebase-admin.ts
   firebase.ts
@@ -140,6 +153,10 @@ lib/
   home-cache.ts
   oral-cache.ts
   orals.ts
+  payment.ts
+  razorpay.ts
+  serverAuth.ts
+  serverSubscription.ts
   subscription.ts
   verifyAdmin.ts
   written-cache.ts
@@ -811,6 +828,499 @@ export async function loadApprovedCommunityAnswers(
     category,
     questionId
   );
+}
+</file>
+
+<file path="app/api/payment/create-order/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+
+import { getAuthenticatedUser } from "@/lib/serverAuth";
+
+import { razorpay } from "@/lib/razorpay";
+import { SUBSCRIPTION } from "@/config/subscription";
+
+export async function POST(request: NextRequest) {
+
+    const user = await getAuthenticatedUser(request);
+
+    const uid = user.uid;
+
+    try {
+        const receipt = crypto.randomUUID().replace(/-/g, "");
+
+        const order = await razorpay.orders.create({
+            amount: SUBSCRIPTION.MONTHLY.amount * 100,
+            currency: "INR",
+            receipt,
+
+            notes: {
+                uid,
+            },
+        });
+
+        return NextResponse.json({
+            success: true,
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        });
+    } catch (error) {
+        console.error(error);
+
+        return NextResponse.json(
+            {
+                success: false,
+                message: "Unable to create payment order.",
+            },
+            {
+                status: 500,
+            }
+        );
+    }
+}
+</file>
+
+<file path="app/api/payment/verify/route.ts">
+import crypto from "crypto";
+import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
+
+import {
+    adminDb,
+} from "@/lib/firebase-admin";
+
+import {
+    razorpay,
+} from "@/lib/razorpay";
+
+import {
+    getAuthenticatedUser,
+} from "@/lib/serverAuth";
+
+import {
+    buildMonthlySubscription,
+} from "@/lib/serverSubscription";
+
+export async function POST(
+    request: NextRequest
+) {
+    try {
+
+        // Authenticate Firebase User
+        const user =
+            await getAuthenticatedUser(request);
+
+        const {
+            razorpay_payment_id,
+            razorpay_order_id,
+            razorpay_signature,
+        } = await request.json();
+
+        // Verify Signature
+        const expectedSignature = crypto
+            .createHmac(
+                "sha256",
+                process.env.RAZORPAY_KEY_SECRET!
+            )
+            .update(
+                `${razorpay_order_id}|${razorpay_payment_id}`
+            )
+            .digest("hex");
+
+        if (
+            expectedSignature !==
+            razorpay_signature
+        ) {
+
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Invalid payment signature.",
+                },
+                {
+                    status: 400,
+                }
+            );
+
+        }
+
+        // Fetch Razorpay Order
+        const order =
+            await razorpay.orders.fetch(
+                razorpay_order_id
+            );
+
+        if (
+            order.notes?.uid !== user.uid
+        ) {
+
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Unauthorized payment.",
+                },
+                {
+                    status: 403,
+                }
+            );
+
+        }
+
+        const verificationRef =
+            adminDb
+                .collection(
+                    "paymentVerifications"
+                )
+                .doc(
+                    razorpay_payment_id
+                );
+
+        const userRef =
+            adminDb
+                .collection("users")
+                .doc(user.uid);
+
+        await adminDb.runTransaction(
+            async (transaction) => {
+
+                // Prevent duplicate processing
+                const verificationDoc =
+                    await transaction.get(
+                        verificationRef
+                    );
+
+                if (
+                    verificationDoc.exists
+                ) {
+                    return;
+                }
+
+                // Read latest user
+                const userDoc =
+                    await transaction.get(
+                        userRef
+                    );
+
+                if (
+                    !userDoc.exists
+                ) {
+                    throw new Error(
+                        "User not found."
+                    );
+                }
+
+                const userData =
+                    userDoc.data();
+
+                const subscription =
+                    buildMonthlySubscription(
+                        userData?.subscription ?? {},
+                        razorpay_payment_id
+                    );
+
+                // Update Subscription
+                transaction.update(
+                    userRef,
+                    {
+                        subscription,
+
+                        updatedAt:
+                            FieldValue.serverTimestamp(),
+                    }
+                );
+
+                // Save Verification
+                transaction.set(
+                    verificationRef,
+                    {
+                        uid: user.uid,
+
+                        paymentId:
+                            razorpay_payment_id,
+
+                        orderId:
+                            razorpay_order_id,
+
+                        verifiedAt:
+                            FieldValue.serverTimestamp(),
+                    }
+                );
+
+            }
+        );
+
+        return NextResponse.json({
+            success: true,
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Payment Verification Error:",
+            error
+        );
+
+        return NextResponse.json(
+            {
+                success: false,
+                message: "Payment verification failed.",
+            },
+            {
+                status: 500,
+            }
+        );
+
+    }
+}
+</file>
+
+<file path="app/api/payment/webhook/route.ts">
+import crypto from "crypto";
+import { NextRequest, NextResponse } from "next/server";
+
+import { FieldValue } from "firebase-admin/firestore";
+
+import { adminDb } from "@/lib/firebase-admin";
+import { buildMonthlySubscription } from "@/lib/serverSubscription";
+
+
+export async function POST(request: NextRequest) {
+
+    try {
+
+        const body = await request.text();
+
+
+        const signature =
+            request.headers.get(
+                "x-razorpay-signature"
+            );
+
+
+        if (!signature) {
+
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Missing webhook signature.",
+                },
+                {
+                    status: 400,
+                }
+            );
+
+        }
+
+
+        // Verify Razorpay webhook signature
+
+        const expectedSignature =
+            crypto
+                .createHmac(
+                    "sha256",
+                    process.env.RAZORPAY_WEBHOOK_SECRET!
+                )
+                .update(body)
+                .digest("hex");
+
+
+        if (expectedSignature !== signature) {
+
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Invalid webhook signature.",
+                },
+                {
+                    status: 400,
+                }
+            );
+
+        }
+
+
+        const payload = JSON.parse(body);
+
+
+        const event = payload.event;
+
+
+        // Only process successful payments
+
+        if (event !== "payment.captured") {
+
+            return NextResponse.json({
+                success: true,
+            });
+
+        }
+
+
+        // Extract payment information
+
+        const payment =
+            payload.payload.payment.entity;
+
+
+        const paymentId = payment.id;
+
+        const orderId = payment.order_id;
+
+        const amount = payment.amount;
+
+
+        const notes =
+            payment.notes ?? {};
+
+
+        const uid = notes.uid;
+
+
+        if (!uid) {
+
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "UID not found in payment notes.",
+                },
+                {
+                    status: 400,
+                }
+            );
+
+        }
+
+
+        console.log(
+            "Webhook Event:",
+            event,
+            "Payment:",
+            paymentId,
+            "UID:",
+            uid
+        );
+
+
+        // Update subscription safely
+
+        await adminDb.runTransaction(
+            async (transaction) => {
+
+
+                const verificationRef =
+                    adminDb
+                        .collection(
+                            "paymentVerifications"
+                        )
+                        .doc(paymentId);
+
+
+                const verificationDoc =
+                    await transaction.get(
+                        verificationRef
+                    );
+
+
+                // Ignore duplicate webhook
+
+                if (verificationDoc.exists) {
+
+                    return;
+
+                }
+
+
+                const userRef =
+                    adminDb
+                        .collection("users")
+                        .doc(uid);
+
+
+                const userDoc =
+                    await transaction.get(
+                        userRef
+                    );
+
+
+                const existingSubscription =
+                    userDoc.data()?.subscription;
+
+
+                const updatedSubscription =
+                    buildMonthlySubscription(
+                        existingSubscription,
+                        paymentId
+                    );
+
+
+                // Activate subscription
+
+                transaction.update(
+                    userRef,
+                    {
+                        subscription:
+                            updatedSubscription,
+                    }
+                );
+
+
+                // Store processed payment
+
+                transaction.set(
+                    verificationRef,
+                    {
+                        uid,
+
+                        paymentId,
+
+                        orderId,
+
+                        amount,
+
+                        source:
+                            "webhook",
+
+                        verifiedAt:
+                            FieldValue.serverTimestamp(),
+                    }
+                );
+
+
+            }
+        );
+
+
+        return NextResponse.json({
+            success: true,
+        });
+
+
+    } catch (error) {
+
+
+        console.error(
+            "Webhook Error:",
+            error
+        );
+
+
+        return NextResponse.json(
+            {
+                success: false,
+                message:
+                    "Webhook processing failed.",
+            },
+            {
+                status: 500,
+            }
+        );
+
+
+    }
+
 }
 </file>
 
@@ -1597,88 +2107,6 @@ export default function QuestionTable({
 }
 </file>
 
-<file path="components/SubscriptionModal.tsx">
-"use client";
-
-import { useSubscription } from "@/app/context/SubscriptionContext";
-
-interface SubscriptionModalProps {
-    mode: "trial" | "expired";
-}
-
-export default function SubscriptionModal({
-    mode,
-}: SubscriptionModalProps) {
-
-    const {
-        closeTrialModal,
-    } = useSubscription();
-
-    if (mode === "trial") {
-
-        return (
-
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-
-                <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-xl">
-
-                    <h2 className="mb-3 text-2xl font-bold">
-                        🎉 Welcome to NAVIK!
-                    </h2>
-
-                    <p className="mb-6 text-gray-600">
-                        Your complimentary 24-hour trial has started.
-                        Enjoy unlimited access.
-                    </p>
-
-                    <button
-                        onClick={closeTrialModal}
-                        className="w-full rounded-xl bg-black py-3 font-semibold text-white"
-                    >
-                        Continue
-                    </button>
-
-                </div>
-
-            </div>
-
-        );
-
-    }
-
-    return (
-
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-
-            <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-xl">
-
-                <h2 className="mb-3 text-2xl font-bold">
-                    🚀 Unlock NAVIK Pro
-                </h2>
-
-                <p className="mb-2 text-gray-600">
-                    Continue your preparation with unlimited access.
-                </p>
-
-                <p className="mb-6 text-xl font-bold">
-                    ₹149/month
-                </p>
-
-                <button
-                    className="w-full rounded-xl bg-black py-3 font-semibold text-white"
-                >
-                    Unlock NAVIK Pro
-                </button>
-
-            </div>
-
-        </div>
-
-    );
-
-}
-</file>
-
 <file path="components/SubscriptionRoute.tsx">
 "use client";
 
@@ -1784,6 +2212,54 @@ export default function UserGreeting() {
 }
 </file>
 
+<file path="config/subscription.ts">
+export const SUBSCRIPTION = {
+    MONTHLY: {
+        id: "monthly",
+        name: "Monthly",
+        amount: 149, // INR
+        durationDays: 30,
+    },
+} as const;
+</file>
+
+<file path="hooks/useRazorpay.ts">
+"use client";
+
+import { useEffect, useState } from "react";
+
+declare global {
+    interface Window {
+        Razorpay: any;
+    }
+}
+
+export function useRazorpay() {
+    const [loaded, setLoaded] = useState(false);
+
+    useEffect(() => {
+        if (window.Razorpay) {
+            setLoaded(true);
+            return;
+        }
+
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.async = true;
+
+        script.onload = () => setLoaded(true);
+
+        script.onerror = () => {
+            console.error("Failed to load Razorpay.");
+        };
+
+        document.body.appendChild(script);
+    }, []);
+
+    return loaded;
+}
+</file>
+
 <file path="lib/adminFetch.ts">
 import { auth } from "@/lib/firebase";
 
@@ -1807,6 +2283,86 @@ export async function adminFetch(
     ...init,
     headers,
   });
+}
+</file>
+
+<file path="lib/authFetch.ts">
+"use client";
+
+import { auth } from "@/lib/firebase";
+
+export async function authFetch(
+    input: RequestInfo | URL,
+    init?: RequestInit
+) {
+    const user = auth.currentUser;
+
+    if (!user) {
+        throw new Error("User not logged in.");
+    }
+
+    const token = await user.getIdToken();
+
+    return fetch(input, {
+        ...init,
+        headers: {
+            ...(init?.headers ?? {}),
+            Authorization: `Bearer ${token}`,
+        },
+    });
+}
+</file>
+
+<file path="lib/checkSubscription.ts">
+import { adminDb } from "@/lib/firebase-admin";
+
+
+export async function hasActiveSubscription(
+    uid: string
+): Promise<boolean> {
+
+
+    const userDoc =
+        await adminDb
+            .collection("users")
+            .doc(uid)
+            .get();
+
+
+    if (!userDoc.exists) {
+        return false;
+    }
+
+
+    const subscription =
+        userDoc.data()?.subscription;
+
+
+    if (!subscription) {
+        return false;
+    }
+
+
+    if (subscription.status !== "active") {
+        return false;
+    }
+
+
+    if (!subscription.endDate) {
+        return false;
+    }
+
+
+    const expiryTime =
+        subscription.endDate.toMillis();
+
+
+    const currentTime =
+        Date.now();
+
+
+    return expiryTime > currentTime;
+
 }
 </file>
 
@@ -1925,6 +2481,176 @@ export async function getOralStats(category: string) {
     topics: data.topicCount ?? 0,
     updatedAt: data.updatedAt?.toDate?.() ?? null,
   };
+}
+</file>
+
+<file path="lib/payment.ts">
+"use client";
+
+import { authFetch } from "@/lib/authFetch";
+
+declare global {
+    interface Window {
+        Razorpay: any;
+    }
+}
+
+export async function startSubscriptionPayment() {
+    // Create Razorpay Order
+    const response = await authFetch("/api/payment/create-order", {
+        method: "POST",
+    });
+
+    if (!response.ok) {
+        throw new Error("Unable to create payment order.");
+    }
+
+    const data = await response.json();
+
+    const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency,
+
+        name: "NAVIK",
+        description: "Monthly Subscription",
+
+        order_id: data.orderId,
+
+        handler: async function (response: {
+            razorpay_payment_id: string;
+            razorpay_order_id: string;
+            razorpay_signature: string;
+        }) {
+            try {
+                const verifyResponse = await authFetch(
+                    "/api/payment/verify",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(response),
+                    }
+                );
+
+                const result = await verifyResponse.json();
+
+                if (!verifyResponse.ok || !result.success) {
+                    alert(
+                        result.message ??
+                            "Payment verification failed."
+                    );
+                    return;
+                }
+
+                alert("🎉 Subscription Activated!");
+
+                window.location.reload();
+            } catch (error) {
+                console.error(
+                    "Payment Verification Error:",
+                    error
+                );
+
+                alert(
+                    "Payment completed, but verification failed. Please contact support if your subscription is not activated."
+                );
+            }
+        },
+
+        modal: {
+            ondismiss() {
+                console.log("Payment cancelled.");
+            },
+        },
+
+        theme: {
+            color: "#000000",
+        },
+    };
+
+    const paymentObject = new window.Razorpay(options);
+
+    paymentObject.open();
+}
+</file>
+
+<file path="lib/razorpay.ts">
+import Razorpay from "razorpay";
+
+if (!process.env.RAZORPAY_KEY_ID) {
+    throw new Error("Missing RAZORPAY_KEY_ID");
+}
+
+if (!process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("Missing RAZORPAY_KEY_SECRET");
+}
+
+export const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+</file>
+
+<file path="lib/serverAuth.ts">
+import { NextRequest } from "next/server";
+
+import { adminAuth } from "@/lib/firebase-admin";
+
+export async function getAuthenticatedUser(
+    request: NextRequest
+) {
+    const authHeader = request.headers.get("Authorization");
+
+    if (!authHeader?.startsWith("Bearer ")) {
+        throw new Error("Unauthorized");
+    }
+
+    const idToken = authHeader.replace("Bearer ", "");
+
+    const decodedToken =
+        await adminAuth.verifyIdToken(idToken);
+
+    return decodedToken;
+}
+</file>
+
+<file path="lib/serverSubscription.ts">
+import {
+    Timestamp,
+} from "firebase-admin/firestore";
+
+export function buildMonthlySubscription(
+    existingSubscription: any,
+    paymentId: string
+) {
+    const now = Timestamp.now();
+
+    const endDate = Timestamp.fromMillis(
+        now.toMillis() +
+        30 * 24 * 60 * 60 * 1000
+    );
+
+    return {
+        ...(existingSubscription ?? {}),
+
+        plan: "monthly",
+        status: "active",
+
+        paymentId,
+
+        amount: 149,
+        currency: "INR",
+
+        startDate: now,
+        endDate,
+
+        autoRenew: false,
+
+        trialStartDate: null,
+        trialEndDate: null,
+    };
 }
 </file>
 
@@ -2459,139 +3185,6 @@ export async function sendNotification({
         sent: result.successCount,
         failed: result.failureCount,
     };
-}
-</file>
-
-<file path="services/subscription.service.ts">
-import {
-    doc,
-    getDoc,
-    updateDoc,
-    serverTimestamp,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
-
-import type {
-    AppUser,
-} from "@/types/user";
-
-import {
-    isTrialExpired,
-    isSubscriptionExpired,
-} from "@/lib/subscription";
-
-import { Timestamp } from "firebase/firestore";
-
-export async function startTrial(uid: string) {
-    const now = new Date();
-
-    const end = new Date(now);
-    end.setHours(end.getHours() + 24);
-
-    await updateSubscription(uid, {
-        plan: "trial",
-        status: "trial",
-        trialStartDate: Timestamp.fromDate(now),
-        trialEndDate: Timestamp.fromDate(end),
-    });
-}
-
-
-export async function getUserSubscription(
-    uid: string
-) {
-
-    const userRef =
-        doc(
-            db,
-            "users",
-            uid
-        );
-
-
-    const snapshot =
-        await getDoc(userRef);
-
-
-    if (!snapshot.exists()) {
-        return null;
-    }
-
-
-    const user =
-        snapshot.data() as AppUser;
-
-
-    return user.subscription;
-
-}
-
-export async function updateSubscription(
-    uid: string,
-    data: Partial<AppUser["subscription"]>
-) {
-
-    const userRef =
-        doc(
-            db,
-            "users",
-            uid
-        );
-
-
-    const snapshot =
-        await getDoc(userRef);
-
-
-    if (!snapshot.exists()) {
-        return;
-    }
-
-
-    const user =
-        snapshot.data() as AppUser;
-
-
-    await updateDoc(
-        userRef,
-        {
-            subscription: {
-                ...user.subscription,
-                ...data,
-            },
-
-            updatedAt:
-                serverTimestamp(),
-        }
-    );
-
-}
-
-export async function hasActiveSubscription(
-    uid: string
-) {
-
-    const subscription =
-        await getUserSubscription(uid);
-
-
-    if (!subscription) {
-        return false;
-    }
-
-
-    return (
-        (
-            subscription.status === "active" ||
-            subscription.status === "trial"
-        )
-        &&
-        !isTrialExpired(subscription)
-        &&
-        !isSubscriptionExpired(subscription)
-    );
-
 }
 </file>
 
@@ -3952,6 +4545,101 @@ export default function UserTable({
 }
 </file>
 
+<file path="components/SubscriptionModal.tsx">
+"use client";
+
+import { useSubscription } from "@/app/context/SubscriptionContext";
+import { useRazorpay } from "@/hooks/useRazorpay";
+import { startSubscriptionPayment } from "@/lib/payment";
+
+interface SubscriptionModalProps {
+    mode: "trial" | "expired";
+}
+
+export default function SubscriptionModal({
+    mode,
+}: SubscriptionModalProps) {
+
+    const {
+        closeTrialModal,
+    } = useSubscription();
+
+    const razorpayLoaded = useRazorpay();
+
+    if (mode === "trial") {
+
+        return (
+
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+
+                <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-xl">
+
+                    <h2 className="mb-3 text-2xl font-bold">
+                        🎉 Welcome to NAVIK!
+                    </h2>
+
+                    <p className="mb-6 text-gray-600">
+                        Your complimentary 24-hour trial has started.
+                        Enjoy unlimited access.
+                    </p>
+
+                    <button
+                        onClick={closeTrialModal}
+                        className="w-full rounded-xl bg-black py-3 font-semibold text-white"
+                    >
+                        Continue
+                    </button>
+
+                </div>
+
+            </div>
+
+        );
+
+    }
+
+    return (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+
+            <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-xl">
+
+                <h2 className="mb-3 text-2xl font-bold">
+                    🚀 Unlock NAVIK Pro
+                </h2>
+
+                <p className="mb-2 text-gray-600">
+                    Continue your preparation with unlimited access.
+                </p>
+
+                <p className="mb-6 text-xl font-bold">
+                    ₹149/month
+                </p>
+
+                <button
+                    disabled={!razorpayLoaded}
+                    onClick={async () => {
+                        try {
+                            await startSubscriptionPayment();
+                        } catch (error) {
+                            console.error(error);
+                            alert("Unable to start payment.");
+                        }
+                    }}
+                    className="w-full rounded-xl bg-black py-3 font-semibold text-white disabled:opacity-50"
+                >
+                    {razorpayLoaded ? "Unlock NAVIK Pro" : "Loading..."}
+                </button>
+
+            </div>
+
+        </div>
+
+    );
+
+}
+</file>
+
 <file path="lib/verifyAdmin.ts">
 import { NextRequest } from "next/server";
 import { adminAuth } from "@/lib/firebase-admin";
@@ -4186,6 +4874,140 @@ async function updateUserInPage(
             merge: true,
         }
     );
+}
+</file>
+
+<file path="services/subscription.service.ts">
+import {
+    doc,
+    getDoc,
+    updateDoc,
+    serverTimestamp,
+} from "firebase/firestore";
+
+import type {
+    AppUser,
+    UserSubscription,
+} from "@/types/user";
+
+import { db } from "@/lib/firebase";
+
+import {
+    isTrialExpired,
+    isSubscriptionExpired,
+} from "@/lib/subscription";
+
+import { Timestamp } from "firebase/firestore";
+
+export async function startTrial(uid: string) {
+    const now = new Date();
+
+    const end = new Date(now);
+    end.setHours(end.getHours() + 24);
+
+    await updateSubscription(uid, {
+        plan: "trial",
+        status: "trial",
+        trialStartDate: Timestamp.fromDate(now),
+        trialEndDate: Timestamp.fromDate(end),
+    });
+}
+
+
+export async function getUserSubscription(
+    uid: string
+): Promise<UserSubscription | null> {
+
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
+
+
+    const snapshot =
+        await getDoc(userRef);
+
+
+    if (!snapshot.exists()) {
+        return null;
+    }
+
+
+    const user =
+        snapshot.data() as AppUser;
+
+
+    return user.subscription;
+
+}
+
+export async function updateSubscription(
+    uid: string,
+    data: Partial<AppUser["subscription"]>
+) {
+
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
+
+
+    const snapshot =
+        await getDoc(userRef);
+
+
+    if (!snapshot.exists()) {
+        return;
+    }
+
+
+    const user =
+        snapshot.data() as AppUser;
+
+
+    await updateDoc(
+        userRef,
+        {
+            subscription: {
+                ...user.subscription,
+                ...data,
+            },
+
+            updatedAt:
+                serverTimestamp(),
+        }
+    );
+
+}
+
+export async function hasActiveSubscription(
+    uid: string
+) {
+
+    const subscription =
+        await getUserSubscription(uid);
+
+
+    if (!subscription) {
+        return false;
+    }
+
+
+    return (
+        (
+            subscription.status === "active" ||
+            subscription.status === "trial"
+        )
+        &&
+        !isTrialExpired(subscription)
+        &&
+        !isSubscriptionExpired(subscription)
+    );
+
 }
 </file>
 
@@ -5035,6 +5857,22 @@ export async function POST(request: NextRequest) {
 }
 </file>
 
+<file path="app/page.tsx">
+import HomeClient from "@/components/HomeClient";
+import { getHomeStats } from "@/lib/home-cache";
+
+export default async function HomePage() {
+  const { oralStats, writtenStats } = await getHomeStats();
+
+  return (
+    <HomeClient
+      oralStats={oralStats}
+      writtenStats={writtenStats}
+    />
+  );
+}
+</file>
+
 <file path="lib/home-cache.ts">
 import { unstable_cache } from "next/cache";
 import { doc, getDoc } from "firebase/firestore";
@@ -5127,22 +5965,6 @@ export default function RootLayout({
         </AuthProvider>
       </body>
     </html>
-  );
-}
-</file>
-
-<file path="app/page.tsx">
-import HomeClient from "@/components/HomeClient";
-import { getHomeStats } from "@/lib/home-cache";
-
-export default async function HomePage() {
-  const { oralStats, writtenStats } = await getHomeStats();
-
-  return (
-    <HomeClient
-      oralStats={oralStats}
-      writtenStats={writtenStats}
-    />
   );
 }
 </file>
@@ -6196,49 +7018,6 @@ export const adminDb =
     getFirestore(adminApp);
 </file>
 
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "exceljs": "^4.4.0",
-    "firebase": "^12.15.0",
-    "firebase-admin": "^14.2.0",
-    "framer-motion": "^12.42.2",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.1",
-    "typescript": "^5"
-  }
-}
-</file>
-
 <file path="app/(protected)/admin/writtens/page.tsx">
 "use client";
 
@@ -6957,6 +7736,164 @@ html {
 }
 </file>
 
+<file path="components/CategoryCard.tsx">
+"use client";
+
+import { LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
+
+interface CategoryCardProps {
+  href: string;
+  title: string;
+  icon: LucideIcon;
+  badge?: string;
+
+  questions?: number;
+  topics?: number;
+
+  updatedAt?: Date | string | null;
+  onRequireLogin: () => void;
+}
+
+export default function CategoryCard({
+  href,
+  title,
+  icon: Icon,
+  badge,
+  questions = 0,
+  topics = 0,
+  updatedAt = null,
+  onRequireLogin,
+}: CategoryCardProps) {
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const handleClick = () => {
+    if (user) {
+      router.push(href);
+    } else {
+      onRequireLogin();
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="
+        group
+        flex
+        aspect-square
+        w-full
+        flex-col
+        rounded-3xl
+        border
+        border-gray-200
+        bg-white
+        p-4
+        text-left
+        shadow-sm
+        transition-all
+        duration-150
+        hover:-translate-y-1
+        hover:border-gray-300
+        hover:shadow-lg
+        active:scale-[0.98]
+        active:bg-zinc-100
+        active:border-zinc-400
+      "
+    >
+      {/* Badge */}
+      {badge && (
+        <div className="inline-flex w-fit rounded-md bg-black px-2.5 py-1 text-[9px] font-semibold tracking-wide text-white md:text-[10px]">
+          {badge}
+        </div>
+      )}
+
+      {/* Icon */}
+      <div
+        className="
+          mt-4
+          flex
+          h-11
+          w-11
+          items-center
+          justify-center
+          rounded-xl
+          bg-gray-100
+          transition-all
+          duration-150
+          group-hover:bg-gray-200
+          group-active:bg-blue-100
+          md:h-12
+          md:w-12
+        "
+      >
+        <Icon
+          size={26}
+          strokeWidth={1.8}
+          className="
+            text-gray-700
+            transition-all
+            duration-150
+            group-hover:scale-110
+            group-active:scale-105
+            group-active:text-blue-700
+            md:h-7
+            md:w-7
+          "
+        />
+      </div>
+
+      {/* Title */}
+      <h3
+        className="
+          mt-4
+          text-[15px]
+          font-bold
+          leading-tight
+          text-gray-900
+          transition-colors
+          duration-150
+          group-active:text-blue-900
+          md:text-[17px]
+          lg:text-[18px]
+        "
+      >
+        {title}
+      </h3>
+
+      {/* Stats */}
+      <div className="mt-2 space-y-1 transition-colors duration-150 group-active:text-blue-700">
+        <p className="text-[11px] font-medium text-gray-600 md:text-xs">
+          {questions.toLocaleString()} Questions
+        </p>
+
+        <p className="text-[11px] font-medium text-gray-600 md:text-xs">
+          {topics.toLocaleString()} Topics
+        </p>
+      </div>
+
+      {/* Push Footer Down */}
+      <div className="flex-1" />
+
+      {/* Footer */}
+      <div className="border-t border-gray-100 pt-3 transition-colors duration-150 group-active:border-blue-200">
+        <p className="text-[10px] text-gray-400 md:text-[11px]">
+          Updated •{" "}
+          {updatedAt
+            ? new Date(updatedAt).toLocaleDateString("en-IN", {
+              month: "short",
+              year: "numeric",
+            })
+            : "-"}
+        </p>
+      </div>
+    </button>
+  );
+}
+</file>
+
 <file path="components/QuestionsContainer.tsx">
 "use client";
 
@@ -6992,6 +7929,50 @@ export default function QuestionsContainer({
       totalQuestions={totalQuestions}
     />
   );
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "firebase-admin": "^14.2.0",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "razorpay": "^2.9.8",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+  }
 }
 </file>
 
@@ -8100,164 +9081,6 @@ export function useAuth() {
 
     return useContext(AuthContext);
 
-}
-</file>
-
-<file path="components/CategoryCard.tsx">
-"use client";
-
-import { LucideIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/app/context/AuthContext";
-
-interface CategoryCardProps {
-  href: string;
-  title: string;
-  icon: LucideIcon;
-  badge?: string;
-
-  questions?: number;
-  topics?: number;
-
-  updatedAt?: Date | string | null;
-  onRequireLogin: () => void;
-}
-
-export default function CategoryCard({
-  href,
-  title,
-  icon: Icon,
-  badge,
-  questions = 0,
-  topics = 0,
-  updatedAt = null,
-  onRequireLogin,
-}: CategoryCardProps) {
-  const router = useRouter();
-  const { user } = useAuth();
-
-  const handleClick = () => {
-    if (user) {
-      router.push(href);
-    } else {
-      onRequireLogin();
-    }
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      className="
-        group
-        flex
-        aspect-square
-        w-full
-        flex-col
-        rounded-3xl
-        border
-        border-gray-200
-        bg-white
-        p-4
-        text-left
-        shadow-sm
-        transition-all
-        duration-150
-        hover:-translate-y-1
-        hover:border-gray-300
-        hover:shadow-lg
-        active:scale-[0.98]
-        active:bg-zinc-100
-        active:border-zinc-400
-      "
-    >
-      {/* Badge */}
-      {badge && (
-        <div className="inline-flex w-fit rounded-md bg-black px-2.5 py-1 text-[9px] font-semibold tracking-wide text-white md:text-[10px]">
-          {badge}
-        </div>
-      )}
-
-      {/* Icon */}
-      <div
-        className="
-          mt-4
-          flex
-          h-11
-          w-11
-          items-center
-          justify-center
-          rounded-xl
-          bg-gray-100
-          transition-all
-          duration-150
-          group-hover:bg-gray-200
-          group-active:bg-blue-100
-          md:h-12
-          md:w-12
-        "
-      >
-        <Icon
-          size={26}
-          strokeWidth={1.8}
-          className="
-            text-gray-700
-            transition-all
-            duration-150
-            group-hover:scale-110
-            group-active:scale-105
-            group-active:text-blue-700
-            md:h-7
-            md:w-7
-          "
-        />
-      </div>
-
-      {/* Title */}
-      <h3
-        className="
-          mt-4
-          text-[15px]
-          font-bold
-          leading-tight
-          text-gray-900
-          transition-colors
-          duration-150
-          group-active:text-blue-900
-          md:text-[17px]
-          lg:text-[18px]
-        "
-      >
-        {title}
-      </h3>
-
-      {/* Stats */}
-      <div className="mt-2 space-y-1 transition-colors duration-150 group-active:text-blue-700">
-        <p className="text-[11px] font-medium text-gray-600 md:text-xs">
-          {questions.toLocaleString()} Questions
-        </p>
-
-        <p className="text-[11px] font-medium text-gray-600 md:text-xs">
-          {topics.toLocaleString()} Topics
-        </p>
-      </div>
-
-      {/* Push Footer Down */}
-      <div className="flex-1" />
-
-      {/* Footer */}
-      <div className="border-t border-gray-100 pt-3 transition-colors duration-150 group-active:border-blue-200">
-        <p className="text-[10px] text-gray-400 md:text-[11px]">
-          Updated •{" "}
-          {updatedAt
-            ? new Date(updatedAt).toLocaleDateString("en-IN", {
-              month: "short",
-              year: "numeric",
-            })
-            : "-"}
-        </p>
-      </div>
-    </button>
-  );
 }
 </file>
 

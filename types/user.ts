@@ -4,6 +4,7 @@ export type UserRole = "student" | "admin";
 
 export type SubscriptionPlan =
     | "free"
+    | "trial"
     | "monthly"
     | "quarterly"
     | "yearly"
@@ -11,6 +12,7 @@ export type SubscriptionPlan =
 
 export type SubscriptionStatus =
     | "inactive"
+    | "trial"
     | "active"
     | "expired"
     | "cancelled";
@@ -27,6 +29,16 @@ export interface UserSubscription {
     paymentId: string | null;
 
     autoRenew: boolean;
+
+    trialStartDate: Timestamp | null;
+
+    trialEndDate: Timestamp | null;
+
+    amount: number | null;
+
+    lockedPrice: number | null;
+
+    currency?: string;
 }
 
 export interface UserStats {
