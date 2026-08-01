@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import WrittensClient from "../[category]/WrittensClient";
 import { getCachedWrittenQuestions } from "@/lib/written-cache";
 import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
