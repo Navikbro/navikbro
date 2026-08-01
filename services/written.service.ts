@@ -39,7 +39,7 @@ export async function getWrittenQuestions(
                 "==",
                 normalizedCategory
             ),
-            orderBy("batchNumber", "desc")
+            orderBy("batchNumber", "asc")
         )
     );
 
