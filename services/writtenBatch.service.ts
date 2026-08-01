@@ -133,13 +133,10 @@ export async function uploadWrittenBatch(
 
         if (!rows.length) return;
 
-
         const category =
             String(rows[0].Category)
                 .trim()
                 .toLowerCase();
-
-
 
         const questions =
             rows
@@ -205,12 +202,6 @@ export async function uploadWrittenBatch(
 
         for (const batchQuestions of batches) {
 
-            await syncWrittenHomeMetadata();
-
-            console.log(
-                "All written batches created successfully."
-            );
-
             const topicCount =
                 new Set(
                     batchQuestions.map(
@@ -238,17 +229,20 @@ export async function uploadWrittenBatch(
                 batchId
             );
 
-            await setDoc(batchRef, {
-                batchId,
-                batchNumber,
-                category,
-                sourceFile,
-                questionCount: batchQuestions.length,
-                topicCount,
-                questions: batchQuestions,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-            });
+            await setDoc(
+                batchRef,
+                {
+                    batchId,
+                    batchNumber,
+                    category,
+                    sourceFile,
+                    questionCount: batchQuestions.length,
+                    topicCount,
+                    questions: batchQuestions,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                }
+            );
 
             uploaded += batchQuestions.length;
 
@@ -257,6 +251,13 @@ export async function uploadWrittenBatch(
                 questions.length
             );
         }
+
+        // Sync homepage metadata AFTER all batches are uploaded
+        await syncWrittenHomeMetadata();
+
+        console.log(
+            "All written batches created successfully."
+        );
 
     }
     catch (error) {
