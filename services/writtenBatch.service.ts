@@ -9,6 +9,8 @@ import { syncWrittenHomeMetadata } from "@/services/writtenMetadata.service";
 
 import { db } from "@/lib/firebase";
 
+const BATCH_SIZE = 40;
+
 
 async function createWrittenBatchMetadata(
     category: string,
@@ -120,7 +122,11 @@ async function createWrittenBatchMetadata(
 
 export async function uploadWrittenBatch(
     rows: any[],
-    sourceFile: string
+    sourceFile: string,
+    onProgress?: (
+        uploaded: number,
+        total: number
+    ) => void
 ) {
 
     try {
@@ -180,92 +186,80 @@ export async function uploadWrittenBatch(
                     })
                 );
 
+        const batches: typeof questions[] = [];
 
-
-        const topicCount =
-            new Set(
-                questions.map(
-                    q => q.topic
+        for (
+            let i = 0;
+            i < questions.length;
+            i += BATCH_SIZE
+        ) {
+            batches.push(
+                questions.slice(
+                    i,
+                    i + BATCH_SIZE
                 )
-            ).size;
+            );
+        }
 
+        let uploaded = 0;
 
+        for (const batchQuestions of batches) {
 
-        console.log(
-            "Category:",
-            category
-        );
+            await syncWrittenHomeMetadata();
 
-        console.log(
-            "Questions:",
-            questions.length
-        );
-
-
-
-        /*
-            Update metadata first
-            and generate batch number
-        */
-
-        const batchNumber =
-            await createWrittenBatchMetadata(
-                category,
-                questions
+            console.log(
+                "All written batches created successfully."
             );
 
+            const topicCount =
+                new Set(
+                    batchQuestions.map(
+                        q => q.topic
+                    )
+                ).size;
 
+            const batchNumber =
+                await createWrittenBatchMetadata(
+                    category,
+                    batchQuestions
+                );
 
-        const batchId =
-            `${category}_batch_${String(batchNumber).padStart(3,"0")}`;
+            const batchId =
+                `${category}_batch_${String(batchNumber).padStart(3, "0")}`;
 
+            console.log(
+                "Creating batch:",
+                batchId
+            );
 
-
-        console.log(
-            "Creating batch:",
-            batchId
-        );
-
-
-
-        const batchRef =
-            doc(
+            const batchRef = doc(
                 db,
                 "written_batches",
                 batchId
             );
 
+            await setDoc(batchRef, {
+                batchId,
+                batchNumber,
+                category,
+                sourceFile,
+                questionCount: batchQuestions.length,
+                topicCount,
+                questions: batchQuestions,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
 
+            uploaded += batchQuestions.length;
 
-       await setDoc(
-    batchRef,
-    {
-        batchId,
-        batchNumber,
-        category,
-        sourceFile,
-        questionCount: questions.length,
-        topicCount,
-        questions,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-    }
-);
-
-
-// Update homepage metadata cache
-
-await syncWrittenHomeMetadata();
-
-
-console.log(
-    "Batch created successfully:",
-    batchId
-);
-
+            onProgress?.(
+                uploaded,
+                questions.length
+            );
+        }
 
     }
-    catch(error) {
+    catch (error) {
 
         console.error(
             "BATCH CREATION ERROR:",

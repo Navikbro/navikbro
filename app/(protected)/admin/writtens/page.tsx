@@ -20,6 +20,13 @@ export default function WrittenUploadPage() {
     const [uploading, setUploading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
+    const [uploadProgress, setUploadProgress] = useState({
+        uploaded: 0,
+        total: 0,
+    });
+
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
     function handleFile(file: File) {
         setFileName(file.name);
 
@@ -29,7 +36,7 @@ export default function WrittenUploadPage() {
             const workbook = XLSX.read(
                 e.target?.result,
                 {
-                    type: "binary",
+                    type: "array",
                 }
             );
 
@@ -53,9 +60,15 @@ export default function WrittenUploadPage() {
             }
 
             setRows(json);
+            setValidationErrors([]);
+
+            setUploadProgress({
+                uploaded: 0,
+                total: 0,
+            });
         };
 
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
     }
 
     async function handleUpload() {
@@ -68,18 +81,15 @@ export default function WrittenUploadPage() {
         const errors = validateRows(rows);
 
         if (errors.length) {
-
-            alert(
-                errors
-                    .slice(0, 10)
-                    .join("\n")
-            );
-
+            setValidationErrors(errors);
             return;
         }
 
+        setValidationErrors([]);
+
         setShowConfirm(true);
     }
+
 
     function validateRows(rows: ExcelQuestion[]) {
 
@@ -134,7 +144,16 @@ export default function WrittenUploadPage() {
 
             setUploading(true);
 
-            await uploadWrittenBatch(rows, fileName);
+            await uploadWrittenBatch(
+                rows,
+                fileName,
+                (uploaded, total) => {
+                    setUploadProgress({
+                        uploaded,
+                        total,
+                    });
+                }
+            );
 
             const category = rows[0].Category.toLowerCase();
 
@@ -158,6 +177,13 @@ export default function WrittenUploadPage() {
             setRows([]);
             setFileName("");
             setShowConfirm(false);
+
+            setValidationErrors([]);
+
+            setUploadProgress({
+                uploaded: 0,
+                total: 0,
+            });
 
 
             (
@@ -239,6 +265,22 @@ export default function WrittenUploadPage() {
                         )}
 
                     </div>
+
+                    {validationErrors.length > 0 && (
+                        <div className="mt-8 rounded-3xl border border-red-200 bg-red-50 p-6">
+                            <h2 className="text-xl font-bold text-red-700">
+                                Validation Errors
+                            </h2>
+
+                            <ul className="mt-4 list-disc space-y-2 pl-6 text-red-600">
+                                {validationErrors.map((error, index) => (
+                                    <li key={index}>
+                                        {error}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
 
                     <div className="mt-8 rounded-3xl border bg-white p-8 shadow-sm">
 

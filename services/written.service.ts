@@ -39,7 +39,7 @@ export async function getWrittenQuestions(
                 "==",
                 normalizedCategory
             ),
-            orderBy("batchNumber", "desc")
+            orderBy("batchNumber", "asc")
         )
     );
 
@@ -153,7 +153,7 @@ export async function getWrittenQuestionsForExport(
         query(
             collection(db, "written_batches"),
             where("category", "==", normalizedCategory),
-            orderBy("batchNumber", "desc")
+            orderBy("batchNumber", "asc")
         )
     );
 
