@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import {
     getAllOralQuestionCounts,
     getOralQuestionsForExport,
-} from "@/services/firestore";
+} from "@/services/oralBatch.service";
 
 import {
     getAllWrittenQuestionCounts,
@@ -201,7 +201,7 @@ export default function DownloadsPage() {
         <main className="min-h-screen bg-[#f5f5f5]">
             <div className="mx-auto max-w-6xl px-6 py-10">
 
-                <h1 className="text-4xl font-bold">
+                <h1 className="text-3xl font-bold">
                     Download Questions
                 </h1>
 
