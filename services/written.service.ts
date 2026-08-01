@@ -43,6 +43,16 @@ export async function getWrittenQuestions(
         )
     );
 
+    console.log("=== Batch Order ===");
+
+    snapshot.docs.forEach((batchDoc) => {
+        console.log(
+            batchDoc.id,
+            batchDoc.data().batchNumber,
+            typeof batchDoc.data().batchNumber
+        );
+    });
+
 
     const questions: WrittenQuestion[] = [];
 
