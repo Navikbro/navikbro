@@ -74,11 +74,10 @@ export interface OralFilters {
     classes: string[];
 }
 
-async function setBatchCount(
+async function updateOralMetadata(
     category: string,
-    batchCount: number,
-    questionCount: number,
-    topicCount: number,
+    batchCountAdded: number,
+    questions: OralBatchQuestion[],
     topics: string[],
     surveyors: string[],
     mmds: string[],
@@ -91,28 +90,74 @@ async function setBatchCount(
     );
 
     await runTransaction(db, async (transaction) => {
-        const snap = await transaction.get(counterRef);
+        const snapshot = await transaction.get(counterRef);
 
-        if (!snap.exists()) {
+        if (!snapshot.exists()) {
             throw new Error(
                 "oral_batches_metadata/counters document not found."
             );
         }
 
+        const data = snapshot.data();
+
+        const existing = data[category] ?? {};
+
+        const mergedTopics = [
+            ...new Set([
+                ...(existing.topics ?? []),
+                ...topics,
+            ]),
+        ].sort();
+
+        const mergedSurveyors = [
+            ...new Set([
+                ...(existing.surveyors ?? []),
+                ...surveyors,
+            ]),
+        ].sort();
+
+        const mergedMmds = [
+            ...new Set([
+                ...(existing.mmds ?? []),
+                ...mmds,
+            ]),
+        ].sort();
+
+        const mergedClasses = [
+            ...new Set([
+                ...(existing.classes ?? []),
+                ...classes,
+            ]),
+        ].sort();
+
         transaction.update(counterRef, {
-            [`${category}.batchCount`]: batchCount,
-            [`${category}.questionCount`]: questionCount,
-            [`${category}.topicCount`]: topicCount,
+            [`${category}.batchCount`]:
+                (existing.batchCount ?? 0) + batchCountAdded,
 
-            [`${category}.topics`]: topics,
-            [`${category}.surveyors`]: surveyors,
-            [`${category}.mmds`]: mmds,
-            [`${category}.classes`]: classes,
+            [`${category}.questionCount`]:
+                (existing.questionCount ?? 0) + questions.length,
 
-            [`${category}.updatedAt`]: serverTimestamp(),
+            [`${category}.topicCount`]:
+                mergedTopics.length,
+
+            [`${category}.topics`]:
+                mergedTopics,
+
+            [`${category}.surveyors`]:
+                mergedSurveyors,
+
+            [`${category}.mmds`]:
+                mergedMmds,
+
+            [`${category}.classes`]:
+                mergedClasses,
+
+            [`${category}.updatedAt`]:
+                serverTimestamp(),
         });
     });
 }
+
 
 export async function deleteExistingBatches(
     category: string
@@ -191,8 +236,6 @@ export async function uploadOralBatch(
 
     for (const category of Object.keys(groupedQuestions)) {
 
-        await deleteExistingBatches(category);
-
         const questions =
             groupedQuestions[category];
 
@@ -210,15 +253,23 @@ export async function uploadOralBatch(
             questions.length / ORAL_BATCH_SIZE
         );
 
+
+        const firstBatchNumber =
+            await getNextOralBatchNumber(category);
+
+
         for (
-            let batchNumber = 1;
-            batchNumber <= totalBatches;
-            batchNumber++
+            let i = 0;
+            i < totalBatches;
+            i++
         ) {
 
+            const batchNumber =
+                firstBatchNumber + i;
+
+
             const start =
-                (batchNumber - 1) *
-                ORAL_BATCH_SIZE;
+                i * ORAL_BATCH_SIZE;
 
             const batchQuestions =
                 questions.slice(
@@ -260,11 +311,10 @@ export async function uploadOralBatch(
 
         await firestoreBatch.commit();
 
-        await setBatchCount(
+        await updateOralMetadata(
             category,
             totalBatches,
-            questions.length,
-            topics.length,
+            questions,
             topics,
             surveyors,
             mmds,
@@ -275,6 +325,42 @@ export async function uploadOralBatch(
             `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
         );
     }
+}
+
+async function getNextOralBatchNumber(
+    category: string
+) {
+    const counterRef = doc(
+        db,
+        "oral_batches_metadata",
+        "counters"
+    );
+
+    return await runTransaction(
+        db,
+        async (transaction) => {
+
+            const snapshot =
+                await transaction.get(counterRef);
+
+
+            if (!snapshot.exists()) {
+                throw new Error(
+                    "oral counter missing"
+                );
+            }
+
+
+            const data =
+                snapshot.data();
+
+
+            return (
+                data[category]?.batchCount ?? 0
+            ) + 1;
+
+        }
+    );
 }
 
 export async function getOralBatchQuestions(
@@ -322,10 +408,6 @@ export async function getOralBatchQuestions(
             }
 
         });
-
-    questions.sort(
-        (a, b) => a.order - b.order
-    );
 
     return questions;
 }
@@ -755,13 +837,12 @@ export async function getAllOralBatchQuestions(
     const allQuestions: OralBatchQuestion[] = [];
 
 
+
     for (
-        let batchNumber = 1;
-        batchNumber <= batchCount;
-        batchNumber++
+        let batchNumber = batchCount;
+        batchNumber >= 1;
+        batchNumber--
     ) {
-
-
         const page =
             await getOralBatchPage(
                 category,
@@ -769,13 +850,10 @@ export async function getAllOralBatchQuestions(
                 batchCount
             );
 
-
         allQuestions.push(
             ...page.questions
         );
-
     }
-
 
     return allQuestions;
 }

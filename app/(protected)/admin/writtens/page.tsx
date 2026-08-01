@@ -95,12 +95,6 @@ export default function WrittenUploadPage() {
                 );
             }
 
-            if (!row.Category?.trim()) {
-                errors.push(
-                    `Row ${rowNumber}: Category missing`
-                );
-            }
-
             if (!row.Topic?.trim()) {
                 errors.push(
                     `Row ${rowNumber}: Topic missing`

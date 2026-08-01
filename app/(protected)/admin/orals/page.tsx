@@ -433,10 +433,12 @@ export default function BulkUploadPage() {
 
                             <div className="mt-6 space-y-3">
 
-                                <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
-                                    <b>Replace Existing Questions</b>
+                                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
+                                    <b>⚠️ Important</b>
                                     <br />
-                                    This will delete existing questions and upload all questions from Excel.
+                                    This upload will append new batches to the existing oral questions.
+                                    Existing batches will <b>not</b> be deleted or replaced.
+                                    Make sure you are not uploading duplicate questions.
                                 </div>
 
                             </div>
