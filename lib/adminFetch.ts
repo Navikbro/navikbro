@@ -13,11 +13,19 @@ export async function adminFetch(
   const token = await user.getIdToken(true);
 
   const headers = new Headers(init.headers);
-
   headers.set("Authorization", `Bearer ${token}`);
 
-  return fetch(input, {
+  const response = await fetch(input, {
     ...init,
     headers,
   });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Request failed (${response.status}): ${text}`
+    );
+  }
+
+  return response;
 }

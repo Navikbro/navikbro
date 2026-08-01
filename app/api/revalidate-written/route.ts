@@ -5,6 +5,8 @@ export async function POST(request: NextRequest) {
     try {
         const { category } = await request.json();
 
+        console.log("Revalidating:", category);
+
         revalidateTag(`written-${category}`, "max");
 
         return NextResponse.json({
