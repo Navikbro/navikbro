@@ -6,7 +6,7 @@ import UserTable from "@/components/admin/UserTable";
 
 import {
     getAdminUserPage,
-} from "@/services/adminUserService";
+} from "@/services/admin/adminUserService";
 
 import {
     CachedUser,

@@ -10,13 +10,13 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-import WrittenCard from "@/components/WrittenCard";
-import WrittenFilters from "@/components/WrittenFilters";
-import { useAuth } from "@/app/context/AuthContext";
+import WrittenCard from "@/components/questions/WrittenCard";
+import WrittenFilters from "@/components/questions/WrittenFilters";
+import { useAuth } from "@/providers/AuthContext";
 
 import {
   WrittenQuestion,
-} from "@/services/written.service";
+} from "@/services/writtens/written.service";
 
 
 export default function WrittensClient({

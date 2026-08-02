@@ -10,7 +10,7 @@ import {
     addWrittenTopic,
     deleteWrittenTopic,
     generateWrittenTopics,
-} from "@/services/written.service";
+} from "@/services/writtens/written.service";
 
 import {
     getOralBatchQuestions,
@@ -20,9 +20,9 @@ import {
     addOralTopic,
     deleteOralTopic,
     generateOralTopics,
-} from "@/services/oralBatch.service";
+} from "@/services/orals/oralBatch.service";
 
-import MarkdownRenderer from "@/components/MarkdownRenderer";
+import MarkdownRenderer from "@/components/shared/MarkdownRenderer";
 
 
 export default function ManageWrittenQuestionsPage() {
@@ -50,6 +50,9 @@ export default function ManageWrittenQuestionsPage() {
 
     const [loading, setLoading] =
         useState(true);
+
+    const [hasPendingChanges, setHasPendingChanges] =
+        useState(false);
 
 
     const [editingQuestion, setEditingQuestion] =
@@ -194,9 +197,6 @@ export default function ManageWrittenQuestionsPage() {
                 );
 
 
-                await refreshWrittenCache();
-
-
 
             } else {
 
@@ -205,8 +205,6 @@ export default function ManageWrittenQuestionsPage() {
                     category,
                     id
                 );
-
-                await refreshOralCache();
             }
 
 
@@ -217,6 +215,8 @@ export default function ManageWrittenQuestionsPage() {
                         question.id !== id
                 )
             );
+
+            setHasPendingChanges(true);
 
 
             alert(
@@ -254,10 +254,7 @@ export default function ManageWrittenQuestionsPage() {
         try {
 
 
-
             if (type === "written") {
-
-
 
                 await updateWrittenQuestion(
                     category,
@@ -269,15 +266,7 @@ export default function ManageWrittenQuestionsPage() {
                     }
                 );
 
-
-
-                await refreshWrittenCache();
-
-
-
             } else {
-
-
 
                 await updateOralBatchQuestion(
                     category,
@@ -289,16 +278,15 @@ export default function ManageWrittenQuestionsPage() {
                     }
                 );
 
-                await refreshOralCache();
-
             }
 
 
 
 
+            await loadQuestions();
             await loadTopics();
 
-
+            setHasPendingChanges(true);
 
             setEditingQuestion(null);
 
@@ -386,6 +374,28 @@ export default function ManageWrittenQuestionsPage() {
 
     console.log("Topics:", topics);
 
+    async function handleRefreshCache() {
+        try {
+
+            if (type === "written") {
+                await refreshWrittenCache();
+            } else {
+                await refreshOralCache();
+            }
+
+            setHasPendingChanges(false);
+
+            alert("Cache refreshed successfully.");
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert("Failed to refresh cache.");
+
+        }
+    }
+
 
 
     return (
@@ -400,9 +410,26 @@ export default function ManageWrittenQuestionsPage() {
                 </h1>
 
 
-                <p className="mt-2 text-gray-500">
-                    View, edit and delete questions.
-                </p>
+                <div className="mt-2 flex items-center justify-between">
+
+                    <p className="text-gray-500">
+                        View, edit and delete questions.
+                    </p>
+
+                    <button
+                        onClick={handleRefreshCache}
+                        disabled={!hasPendingChanges}
+                        className={`rounded-xl px-5 py-2 font-medium text-white ${hasPendingChanges
+                                ? "bg-green-600 hover:bg-green-700"
+                                : "bg-gray-400 cursor-not-allowed"
+                            }`}
+                    >
+                        {hasPendingChanges
+                            ? "Publish Changes"
+                            : "Everything Published"}
+                    </button>
+
+                </div>
 
                 {type === "written" && (
                     <div className="mt-4">
@@ -416,6 +443,8 @@ export default function ManageWrittenQuestionsPage() {
                                 }
 
                                 await loadTopics();
+
+                                setHasPendingChanges(true);
 
                                 alert("Topics generated successfully!");
 
@@ -614,6 +643,8 @@ export default function ManageWrittenQuestionsPage() {
 
                                                     await loadTopics();
 
+                                                    setHasPendingChanges(true);
+
                                                 }}
                                                 className="text-red-600 font-bold"
                                             >
@@ -675,6 +706,8 @@ export default function ManageWrittenQuestionsPage() {
                                             setSelectedTopic("");
 
                                             await loadTopics();
+
+                                            setHasPendingChanges(true);
 
                                         }}
                                         className="rounded-xl bg-blue-600 px-5 py-2 text-white"

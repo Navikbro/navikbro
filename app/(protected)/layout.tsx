@@ -1,5 +1,5 @@
-import ProtectedRoute from "@/components/ProtectedRoute";
-import SubscriptionRoute from "@/components/SubscriptionRoute";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import SubscriptionRoute from "@/components/subscription/SubscriptionRoute";
 
 export default function ProtectedLayout({
   children,

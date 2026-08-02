@@ -1,4 +1,4 @@
-import { addUserToAdminCache } from "../services/adminUserService";
+import { addUserToAdminCache } from "@/services/admin/adminUserService";
 
 
 async function test() {

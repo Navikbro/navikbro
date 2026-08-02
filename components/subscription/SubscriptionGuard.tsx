@@ -2,11 +2,11 @@
 
 import { ReactNode } from "react";
 
-import { useSubscription } from "@/app/context/SubscriptionContext";
+import { useSubscription } from "@/providers/SubscriptionContext";
 
-import SubscriptionModal from "@/components/SubscriptionModal";
+import SubscriptionModal from "@/components/subscription/SubscriptionModal";
 
-import { subscriptionsEnabled } from "@/lib/subscription";
+import { subscriptionsEnabled } from "@/lib/subscriptions/subscription";
 
 interface Props {
     children: ReactNode;

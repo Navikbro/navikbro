@@ -1,7 +1,7 @@
 const PAGE_LOCKED = true;
 
-import UserGreeting from "@/components/UserGreeting";
-import InsightSwitcher from "@/components/InsightSwitcher";
+import UserGreeting from "@/components/home/UserGreeting";
+import InsightSwitcher from "@/components/home/InsightSwitcher";
 
 import Link from "next/link";
 import { ArrowLeft, Sailboat } from "lucide-react";

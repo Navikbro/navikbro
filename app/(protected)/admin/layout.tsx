@@ -1,4 +1,4 @@
-import AdminRoute from "@/components/AdminRoute";
+import AdminRoute from "@/components/admin/AdminRoute";
 
 export default function AdminLayout({
   children,

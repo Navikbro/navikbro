@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { SubscriptionProvider } from "@/app/context/SubscriptionContext";
-import { AuthProvider } from "@/app/context/AuthContext";
-import InitialLoader from "@/components/InitialLoader";
+import { SubscriptionProvider } from "@/providers/SubscriptionContext";
+import { AuthProvider } from "@/providers/AuthContext";
+import InitialLoader from "@/components/shared/InitialLoader";
 export const metadata: Metadata = {
   title: "NAVIK",
   description: "Sail Towards COC",

@@ -1,15 +1,15 @@
 
 
-import UserGreeting from "@/components/UserGreeting";
-import QuestionsContainer from "@/components/QuestionsContainer";
+import UserGreeting from "@/components/home/UserGreeting";
+import QuestionsContainer from "@/components/questions/QuestionsContainer";
 import Link from "next/link";
 import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
 import { ArrowLeft, Sailboat } from "lucide-react";
-import InsightSwitcher from "@/components/InsightSwitcher";
+import InsightSwitcher from "@/components/home/InsightSwitcher";
 import {
   getCachedAllOralQuestions,
   getCachedOralCategoryData,
-} from "@/lib/oral-cache";
+} from "@/lib/cache/oral-cache";
 interface PageProps {
   params: Promise<{
     category: string;

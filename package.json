@@ -2,12 +2,14 @@
   "name": "navik",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
+ "scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "eslint",
+  "typecheck": "tsc --noEmit"
+},
+
   "dependencies": {
     "@tailwindcss/typography": "^0.5.20",
     "exceljs": "^4.4.0",
@@ -39,3 +41,4 @@
     "typescript": "^5"
   }
 }
+

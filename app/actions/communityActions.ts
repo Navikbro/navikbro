@@ -2,7 +2,7 @@
 
 import { revalidateTag } from "next/cache";
 
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase/firebase-admin";
 
 export async function approveCommunityAnswer(
   id: string,

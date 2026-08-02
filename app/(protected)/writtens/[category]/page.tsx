@@ -1,5 +1,5 @@
 import WrittensClient from "../[category]/WrittensClient";
-import { getCachedWrittenQuestions } from "@/lib/written-cache";
+import { getCachedWrittenQuestions } from "@/lib/cache/written-cache";
 import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
 export default async function WrittenPage({
   params,

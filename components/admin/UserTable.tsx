@@ -10,20 +10,20 @@ import { Timestamp } from "firebase/firestore";
 
 import {
     updateUserSubscription,
-} from "@/services/userService";
+} from "@/services/users/userService";
 
 import {
     updateCachedSubscription,
-} from "@/services/adminUserService";
+} from "@/services/admin/adminUserService";
 
 import {
     blockUser,
     unblockUser,
-} from "@/services/userService";
+} from "@/services/users/userService";
 
 import {
     toggleCachedUserBlock,
-} from "@/services/adminUserService";
+} from "@/services/admin/adminUserService";
 
 interface UserTableProps {
     users: CachedUser[];
@@ -299,8 +299,8 @@ export default function UserTable({
 
                                         <span
                                             className={`rounded-full px-3 py-1 text-sm ${user.isBlocked
-                                                    ? "bg-red-100 text-red-700"
-                                                    : "bg-green-100 text-green-700"
+                                                ? "bg-red-100 text-red-700"
+                                                : "bg-green-100 text-green-700"
                                                 }`}
                                         >
 
@@ -414,7 +414,15 @@ export default function UserTable({
                                 : null;
 
 
-
+                        await updateUserSubscription(
+                            selectedUser.uid,
+                            {
+                                plan,
+                                status,
+                                endDate: timestamp,
+                            }
+                        );
+                        
                         await updateCachedSubscription(
 
                             selectedUser.uid,

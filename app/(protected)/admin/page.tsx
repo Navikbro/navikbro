@@ -4,14 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-import { useAuth } from "@/app/context/AuthContext";
+import { useAuth } from "@/providers/AuthContext";
 import {
     getPendingAnswers,
-    approveAnswer,
-    rejectAnswer,
-} from "@/services/firestore";
+} from "@/services/orals/firestore";
 
-import AdminAnswerCard from "@/components/AdminAnswerCard";
+import {
+    approveCommunityAnswer,
+    rejectCommunityAnswer,
+} from "@/app/actions/communityActions";
+
+import AdminAnswerCard from "@/components/admin/AdminAnswerCard";
 
 interface PendingAnswer {
     id: string;
@@ -38,9 +41,17 @@ export default function AdminPage() {
         loadAnswers();
     }, [user, loading]);
 
-    async function handleApprove(id: string) {
+    async function handleApprove(
+        id: string,
+        category: string,
+        questionId: string
+    ) {
         try {
-            await approveAnswer(id);
+            await approveCommunityAnswer(
+                id,
+                category,
+                questionId
+            );
 
             setAnswers((prev) =>
                 prev.filter((answer) => answer.id !== id)
@@ -48,18 +59,25 @@ export default function AdminPage() {
         } catch (error) {
             console.error(error);
         }
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
     }
+    async function handleReject(
+        id: string,
+        category: string,
+        questionId: string
+    ) {
+        try {
+            await rejectCommunityAnswer(
+                id,
+                category,
+                questionId
+            );
 
-    async function handleReject(id: string) {
-        await rejectAnswer(id);
-
-        setAnswers((prev) =>
-            prev.filter((answer) => answer.id !== id)
-        );
+            setAnswers((prev) =>
+                prev.filter((answer) => answer.id !== id)
+            );
+        } catch (error) {
+            console.error(error);
+        }
     }
 
     return (
@@ -77,21 +95,21 @@ export default function AdminPage() {
                 <div className="mt-8 flex flex-wrap gap-4">
 
                     <Link
-                        href="/admin/orals"
+                        href="/admin/content/orals"
                         className="rounded-2xl bg-black px-6 py-3 text-white transition hover:opacity-90"
                     >
                         Upload Oral Questions
                     </Link>
 
                     <Link
-                        href="/admin/writtens"
+                        href="/admin/content/writtens"
                         className="rounded-2xl bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
                     >
                         Upload Written Questions
                     </Link>
 
                     <Link
-                        href="/admin/downloads"
+                        href="/admin/content/downloads"
                         className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
                     >
                         <h2 className="text-lg font-semibold">
