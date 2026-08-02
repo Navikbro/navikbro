@@ -8,6 +8,16 @@ import {
     updateDoc,
 } from "firebase/firestore";
 
+
+
+import {
+    doc,
+    getDoc,
+    setDoc,
+    arrayUnion,
+    arrayRemove,
+} from "firebase/firestore";
+
 import { db } from "@/lib/firebase";
 
 export interface WrittenQuestion {
@@ -329,4 +339,125 @@ export async function deleteWrittenQuestion(
     throw new Error(
         "Question not found"
     );
+}
+
+export async function getWrittenTopics(
+    category: string
+): Promise<string[]> {
+
+    console.log("Category:", category);
+
+    const ref = doc(
+        db,
+        "written_topics",
+        category.toLowerCase()
+    );
+
+    const snapshot = await getDoc(ref);
+
+    console.log("Exists:", snapshot.exists());
+
+    if (!snapshot.exists()) {
+        return [];
+    }
+
+    console.log("Document:", snapshot.data());
+    console.log("Keys:", Object.keys(snapshot.data()));
+
+    return snapshot.data().topics ?? [];
+}
+
+export async function addWrittenTopic(
+    category: string,
+    topic: string
+) {
+
+    const ref = doc(
+        db,
+        "written_topics",
+        category.toLowerCase()
+    );
+
+    await setDoc(
+        ref,
+        {
+            topics: arrayUnion(topic),
+        },
+        {
+            merge: true,
+        }
+    );
+
+}
+
+export async function deleteWrittenTopic(
+    category: string,
+    topic: string
+) {
+
+    const ref = doc(
+        db,
+        "written_topics",
+        category.toLowerCase()
+    );
+
+    await setDoc(
+        ref,
+        {
+            topics: arrayRemove(topic),
+        },
+        {
+            merge: true,
+        }
+    );
+
+}
+
+export async function generateWrittenTopics() {
+
+    const snapshot = await getDocs(
+        collection(db, "written_batches")
+    );
+
+    const topicsByCategory: Record<string, Set<string>> = {};
+
+    snapshot.forEach((batchDoc) => {
+
+        const data = batchDoc.data();
+
+        const category = data.category?.toLowerCase();
+
+        if (!category) return;
+
+        if (!topicsByCategory[category]) {
+            topicsByCategory[category] = new Set();
+        }
+
+        for (const question of data.questions ?? []) {
+
+            if (!question.topic) continue;
+
+            topicsByCategory[category].add(
+                question.topic.trim()
+            );
+        }
+
+    });
+
+    for (const category in topicsByCategory) {
+
+        await setDoc(
+            doc(db, "written_topics", category),
+            {
+                topics: [...topicsByCategory[category]].sort(),
+            }
+        );
+
+        console.log(
+            category,
+            [...topicsByCategory[category]]
+        );
+    }
+
+    console.log("Finished generating topics.");
 }

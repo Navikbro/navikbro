@@ -1,17 +1,25 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import {
     getWrittenQuestions,
     deleteWrittenQuestion,
     updateWrittenQuestion,
+    getWrittenTopics,
+    addWrittenTopic,
+    deleteWrittenTopic,
+    generateWrittenTopics,
 } from "@/services/written.service";
-
-import { useEffect, useState } from "react";
 
 import {
     getOralBatchQuestions,
     deleteOralBatchQuestion,
     updateOralBatchQuestion,
+    getOralTopics,
+    addOralTopic,
+    deleteOralTopic,
+    generateOralTopics,
 } from "@/services/oralBatch.service";
 
 import MarkdownRenderer from "@/components/MarkdownRenderer";
@@ -25,9 +33,19 @@ export default function ManageWrittenQuestionsPage() {
     const [type, setType] =
         useState<"written" | "oral">("written");
 
+    const [editedTopic, setEditedTopic] = useState("");
 
+    const [showTopics, setShowTopics] = useState(false);
     const [questions, setQuestions] =
         useState<any[]>([]);
+
+    const [selectedTopic, setSelectedTopic] = useState("");
+
+    const [topics, setTopics] =
+        useState<string[]>([]);
+
+    const [newTopic, setNewTopic] =
+        useState("");
 
 
     const [loading, setLoading] =
@@ -113,7 +131,39 @@ export default function ManageWrittenQuestionsPage() {
 
         loadQuestions();
 
+        loadTopics();
+
     }, [category, type]);
+
+    async function loadTopics() {
+
+        try {
+
+            if (type === "written") {
+
+                const data =
+                    await getWrittenTopics(category);
+
+                setTopics(data);
+
+            } else {
+
+                const data =
+                    await getOralTopics(category);
+
+                setTopics(data);
+
+            }
+
+        } catch (error) {
+
+            console.error(error);
+
+            setTopics([]);
+
+        }
+
+    }
 
 
 
@@ -215,6 +265,7 @@ export default function ManageWrittenQuestionsPage() {
                     {
                         question: editedQuestion,
                         answer: editedAnswer,
+                        topic: editedTopic,
                     }
                 );
 
@@ -234,6 +285,7 @@ export default function ManageWrittenQuestionsPage() {
                     {
                         question: editedQuestion,
                         answer: editedAnswer,
+                        topic: editedTopic,
                     }
                 );
 
@@ -244,7 +296,7 @@ export default function ManageWrittenQuestionsPage() {
 
 
 
-            await loadQuestions();
+            await loadTopics();
 
 
 
@@ -332,7 +384,7 @@ export default function ManageWrittenQuestionsPage() {
     }
 
 
-
+    console.log("Topics:", topics);
 
 
 
@@ -351,6 +403,29 @@ export default function ManageWrittenQuestionsPage() {
                 <p className="mt-2 text-gray-500">
                     View, edit and delete questions.
                 </p>
+
+                {type === "written" && (
+                    <div className="mt-4">
+                        <button
+                            onClick={async () => {
+
+                                if (type === "written") {
+                                    await generateWrittenTopics();
+                                } else {
+                                    await generateOralTopics();
+                                }
+
+                                await loadTopics();
+
+                                alert("Topics generated successfully!");
+
+                            }}
+                            className="rounded-xl bg-blue-600 px-4 py-2 text-white"
+                        >
+                            Generate Topics
+                        </button>
+                    </div>
+                )}
 
 
 
@@ -491,6 +566,128 @@ export default function ManageWrittenQuestionsPage() {
 
                 </div>
                 <div className="mt-8">
+
+                    <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
+
+                        <div className="flex items-center justify-between">
+
+                            <h2 className="text-xl font-bold">
+                                Topics
+                            </h2>
+
+                            <button
+                                onClick={() => setShowTopics(!showTopics)}
+                                className="rounded-lg bg-blue-600 px-4 py-2 text-white"
+                            >
+                                {showTopics ? "Close" : "Show Topics"}
+                            </button>
+
+                        </div>
+
+                        {showTopics && (
+                            <>
+                                <div className="mt-6 flex flex-wrap gap-2">
+
+                                    {topics.map((topic) => (
+
+                                        <div
+                                            key={topic}
+                                            className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2"
+                                        >
+                                            <span>{topic}</span>
+
+                                            <button
+                                                onClick={async () => {
+
+                                                    const used = questions.some(q => q.topic === topic);
+
+                                                    if (used) {
+                                                        alert("This topic is used by one or more questions. Change those questions to another topic before deleting it.");
+                                                        return;
+                                                    }
+
+                                                    if (type === "written") {
+                                                        await deleteWrittenTopic(category, topic);
+                                                    } else {
+                                                        await deleteOralTopic(category, topic);
+                                                    }
+
+                                                    await loadTopics();
+
+                                                }}
+                                                className="text-red-600 font-bold"
+                                            >
+                                                ×
+                                            </button>
+
+                                        </div>
+
+
+                                    ))}
+
+                                </div>
+
+                                <div className="mt-6 flex gap-3">
+
+                                    <select
+                                        value={selectedTopic}
+                                        onChange={(e) => setSelectedTopic(e.target.value)}
+                                        className="flex-1 rounded-xl border px-4 py-2"
+                                    >
+                                        <option value="">
+                                            Select Topic
+                                        </option>
+
+                                        {topics.map((topic) => (
+                                            <option key={topic} value={topic}>
+                                                {topic}
+                                            </option>
+                                        ))}
+
+                                        <option value="__new__">
+                                            + Add New Topic
+                                        </option>
+                                    </select>
+
+                                    {selectedTopic === "__new__" && (
+                                        <input
+                                            value={newTopic}
+                                            onChange={(e) => setNewTopic(e.target.value)}
+                                            placeholder="Enter new topic"
+                                            className="flex-1 rounded-xl border px-4 py-2 mt-3"
+                                        />
+                                    )}
+
+                                    <button
+                                        onClick={async () => {
+
+                                            if (selectedTopic !== "__new__") return;
+
+                                            if (!newTopic.trim()) return;
+
+                                            if (type === "written") {
+                                                await addWrittenTopic(category, newTopic.trim());
+                                            } else {
+                                                await addOralTopic(category, newTopic.trim());
+                                            }
+
+                                            setNewTopic("");
+                                            setSelectedTopic("");
+
+                                            await loadTopics();
+
+                                        }}
+                                        className="rounded-xl bg-blue-600 px-5 py-2 text-white"
+                                    >
+                                        Add Topic
+                                    </button>
+
+                                </div>
+                            </>
+                        )}
+
+                    </div>
+
 
                     {
                         loading ? (
@@ -658,13 +855,11 @@ export default function ManageWrittenQuestionsPage() {
 
                                                                     setEditingQuestion(question);
 
-                                                                    setEditedQuestion(
-                                                                        question.question
-                                                                    );
+                                                                    setEditedQuestion(question.question);
 
-                                                                    setEditedAnswer(
-                                                                        question.answer
-                                                                    );
+                                                                    setEditedAnswer(question.answer);
+
+                                                                    setEditedTopic(question.topic);
 
                                                                 }}
 
@@ -733,10 +928,10 @@ export default function ManageWrittenQuestionsPage() {
                     editingQuestion && (
 
 
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-6">
 
 
-                            <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl">
+                            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-8 shadow-xl">
 
 
                                 <h2 className="text-2xl font-bold">
@@ -769,7 +964,32 @@ export default function ManageWrittenQuestionsPage() {
                                 />
 
 
+                                <div className="mt-6">
 
+                                    <label className="mb-2 block text-sm font-semibold">
+                                        Topic
+                                    </label>
+
+                                    <select
+                                        value={editedTopic}
+                                        onChange={(e) => setEditedTopic(e.target.value)}
+                                        className="w-full rounded-xl border border-gray-300 p-4"
+                                    >
+                                        <option value="">
+                                            Select Topic
+                                        </option>
+
+                                        {topics.map((topic) => (
+                                            <option
+                                                key={topic}
+                                                value={topic}
+                                            >
+                                                {topic}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                </div>
 
 
                                 <div className="mt-6">

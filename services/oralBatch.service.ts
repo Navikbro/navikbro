@@ -12,6 +12,12 @@ import {
     writeBatch,
 } from "firebase/firestore";
 
+import {
+    setDoc,
+    arrayUnion,
+    arrayRemove,
+} from "firebase/firestore";
+
 import { db } from "@/lib/firebase";
 
 export const ORAL_BATCH_SIZE = 200;
@@ -589,10 +595,7 @@ export async function deleteOralBatchQuestion(
 export async function updateOralBatchQuestion(
     category: string,
     id: string,
-    data: {
-        question: string;
-        answer: string;
-    }
+    data: Partial<OralBatchQuestion>
 ) {
 
     const snapshot = await getDocs(
@@ -622,8 +625,7 @@ export async function updateOralBatchQuestion(
 
         questions[index] = {
             ...questions[index],
-            question: data.question,
-            answer: data.answer,
+            ...data,
         };
 
         await updateDoc(
@@ -897,4 +899,121 @@ export async function getAllOralQuestionCounts(): Promise<Record<string, number>
         FN5: data.fn5?.questionCount ?? 0,
         FN6: data.fn6?.questionCount ?? 0,
     };
+}
+
+export async function getOralTopics(
+    category: string
+): Promise<string[]> {
+
+    const ref = doc(
+        db,
+        "oral_topics",
+        category.toLowerCase()
+    );
+
+    const snapshot = await getDoc(ref);
+
+    if (!snapshot.exists()) {
+        return [];
+    }
+
+    return snapshot.data().topics ?? [];
+}
+
+export async function addOralTopic(
+    category: string,
+    topic: string
+) {
+
+    const ref = doc(
+        db,
+        "oral_topics",
+        category.toLowerCase()
+    );
+
+    await setDoc(
+        ref,
+        {
+            topics: arrayUnion(topic),
+        },
+        {
+            merge: true,
+        }
+    );
+
+}
+
+export async function deleteOralTopic(
+    category: string,
+    topic: string
+) {
+
+    const ref = doc(
+        db,
+        "oral_topics",
+        category.toLowerCase()
+    );
+
+    await setDoc(
+        ref,
+        {
+            topics: arrayRemove(topic),
+        },
+        {
+            merge: true,
+        }
+    );
+
+}
+
+export async function generateOralTopics() {
+
+    const snapshot = await getDocs(
+        collection(db, "oral_batches")
+    );
+
+    const topicsByCategory: Record<string, Set<string>> = {};
+
+    snapshot.forEach((batchDoc) => {
+
+        const data = batchDoc.data();
+
+        const category = data.category?.toLowerCase();
+
+        if (!category) return;
+
+        if (!topicsByCategory[category]) {
+            topicsByCategory[category] = new Set();
+        }
+
+        for (const question of data.questions ?? []) {
+
+            if (!question.topic) continue;
+
+            topicsByCategory[category].add(
+                question.topic.trim()
+            );
+
+        }
+
+    });
+
+    for (const category in topicsByCategory) {
+
+        await setDoc(
+            doc(db, "oral_topics", category),
+            {
+                topics: [...topicsByCategory[category]].sort(),
+            }
+        );
+
+        console.log(
+            category,
+            [...topicsByCategory[category]]
+        );
+
+    }
+
+    console.log("Finished generating oral topics.");
+
 }
