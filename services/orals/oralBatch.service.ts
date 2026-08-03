@@ -10,6 +10,7 @@ import {
     increment,
     where,
     writeBatch,
+    orderBy,
 } from "firebase/firestore";
 
 import {
@@ -373,89 +374,54 @@ export async function getOralBatchQuestions(
     category: string
 ): Promise<OralBatchQuestion[]> {
 
-    const q = query(
-        collection(db, "oral_batches"),
-        where(
-            "category",
-            "==",
-            category.toLowerCase()
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            ),
+            orderBy("batchNumber", "asc")
         )
     );
 
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-        return [];
-    }
-
     const questions: OralBatchQuestion[] = [];
 
-    snapshot.docs
-        .sort((a, b) => {
-            const first =
-                a.data().batchNumber ?? 0;
+    for (const batchDoc of snapshot.docs) {
 
-            const second =
-                b.data().batchNumber ?? 0;
+        const data =
+            batchDoc.data() as OralBatchDocument;
 
-            return first - second;
-        })
-        .forEach((document) => {
+        if (
+            data.category?.toLowerCase() !==
+            normalizedCategory
+        ) {
+            continue;
+        }
 
-            const data =
-                document.data() as OralBatchDocument;
+        const batchQuestions = [
+            ...(data.questions ?? []),
+        ].sort(
+            (a, b) =>
+                (a.order ?? 0) -
+                (b.order ?? 0)
+        );
 
-            if (
-                Array.isArray(data.questions)
-            ) {
-                questions.push(
-                    ...data.questions
-                );
+        batchQuestions.forEach((question) => {
+
+            if (question.isActive !== false) {
+                questions.push(question);
             }
 
         });
 
-    return questions;
-}
-
-export async function getOralBatchPage(
-    category: string,
-    batchNumber: number,
-    batchCount: number
-) {
-    const currentBatchId = getBatchId(
-        category,
-        batchNumber
-    );
-
-    const currentSnapshot = await getDoc(
-        doc(
-            db,
-            "oral_batches",
-            currentBatchId
-        )
-    );
-
-    if (!currentSnapshot.exists()) {
-        return {
-            questions: [],
-            hasMore: false,
-            nextBatch: null,
-        };
     }
 
-    const data =
-        currentSnapshot.data() as OralBatchDocument;
-
-    const hasMore = batchNumber < batchCount;
-
-    return {
-        questions: data.questions,
-        hasMore,
-        nextBatch: hasMore
-            ? batchNumber + 1
-            : null,
-    };
+    return questions;
 }
 
 
@@ -540,7 +506,8 @@ export async function deleteOralBatchQuestion(
 ) {
     const q = query(
         collection(db, "oral_batches"),
-        where("category", "==", category.toLowerCase())
+        where("category", "==", category.toLowerCase()),
+        orderBy("batchNumber", "asc")
     );
 
     const snapshot = await getDocs(q);
@@ -605,7 +572,8 @@ export async function updateOralBatchQuestion(
                 "category",
                 "==",
                 category.toLowerCase()
-            )
+            ),
+            orderBy("batchNumber", "asc")
         )
     );
 
@@ -655,7 +623,8 @@ export async function deleteOralBatchQuestions(
                 "category",
                 "==",
                 normalizedCategory
-            )
+            ),
+            orderBy("batchNumber", "asc")
         )
     );
 
@@ -826,38 +795,8 @@ export async function getOralFilters(
 export async function getAllOralBatchQuestions(
     category: string
 ): Promise<OralBatchQuestion[]> {
+    return getOralBatchQuestions(category);
 
-
-    const meta =
-        await getOralCategoryMeta(category);
-
-
-    const batchCount =
-        meta.batchCount;
-
-
-    const allQuestions: OralBatchQuestion[] = [];
-
-
-
-    for (
-        let batchNumber = batchCount;
-        batchNumber >= 1;
-        batchNumber--
-    ) {
-        const page =
-            await getOralBatchPage(
-                category,
-                batchNumber,
-                batchCount
-            );
-
-        allQuestions.push(
-            ...page.questions
-        );
-    }
-
-    return allQuestions;
 }
 
 export async function getOralQuestionsForExport(
