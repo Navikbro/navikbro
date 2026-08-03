@@ -1,42 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
+import WrittensClient from "../[category]/WrittensClient";
+import { getCachedWrittenQuestions } from "@/lib/cache/written-cache";
+import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
+export default async function WrittenPage({
+  params,
+}: {
+  params: Promise<{
+    category: string;
+  }>;
+}) {
+  const { category } = await params;
 
-export async function POST(request: NextRequest) {
+  const normalizedCategory = category.toLowerCase();
 
-    try {
+  const questions = await getCachedWrittenQuestions(
+    normalizedCategory
+  );
 
-        const { category } = await request.json();
+  return (
+    <SubscriptionGuard>
 
-        const normalizedCategory =
-            category.trim().toLowerCase();
+      <WrittensClient
+        initialQuestions={questions}
+        category={normalizedCategory}
+      />
 
-        revalidateTag(
-            `written-${normalizedCategory}`,
-            "max"
-        );
-
-        revalidateTag(
-            "written_batches_metadata",
-            "max"
-        );
-
-        return NextResponse.json({
-            success: true,
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        return NextResponse.json(
-            {
-                success: false,
-            },
-            {
-                status: 500,
-            }
-        );
-
-    }
-
+    </SubscriptionGuard>
+  );
 }

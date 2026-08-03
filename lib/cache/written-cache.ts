@@ -1,42 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
+import { unstable_cache } from "next/cache";
+import { getWrittenQuestions } from "@/services/writtens/written.service";
 
-export async function POST(request: NextRequest) {
 
-    try {
+function getWrittenQuestionsCache(
+    category: string
+) {
 
-        const { category } = await request.json();
+    const normalizedCategory =
+        category.trim().toLowerCase();
 
-        const normalizedCategory =
-            category.trim().toLowerCase();
 
-        revalidateTag(
-            `written-${normalizedCategory}`,
-            "max"
-        );
+    return unstable_cache(
 
-        revalidateTag(
-            "written_batches_metadata",
-            "max"
-        );
+        async () => {
 
-        return NextResponse.json({
-            success: true,
-        });
+            return getWrittenQuestions(
+                normalizedCategory
+            );
 
-    } catch (error) {
+        },
 
-        console.error(error);
+        [
+            "written-questions",
+            normalizedCategory,
+        ],
 
-        return NextResponse.json(
-            {
-                success: false,
-            },
-            {
-                status: 500,
-            }
-        );
+        {
+            tags: [
+                `written-${normalizedCategory}`,
+            ],
+        }
 
-    }
+    );
+
+}
+
+
+
+export async function getCachedWrittenQuestions(
+    category: string
+) {
+
+    return getWrittenQuestionsCache(
+        category
+    )();
 
 }
