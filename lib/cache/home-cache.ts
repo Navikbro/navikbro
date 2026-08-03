@@ -61,7 +61,7 @@ export const getHomeStats = unstable_cache(
             const data = writtenSnapshot.data() ?? {};
 
             writtenStats = Object.fromEntries(
-                Object.entries(data.categories ?? {}).map(
+                Object.entries(data).map(
                     ([key, value]: any) => [
                         key,
                         {
