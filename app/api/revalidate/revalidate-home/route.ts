@@ -2,14 +2,7 @@ import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 export async function POST() {
-
     try {
-
-        revalidateTag(
-            "home-stats",
-            "max"
-        );
-
         revalidateTag(
             "oral_batches_metadata",
             "max"
@@ -20,14 +13,10 @@ export async function POST() {
             "max"
         );
 
-
         return NextResponse.json({
             success: true,
         });
-
-    }
-    catch(error) {
-
+    } catch (error) {
         console.error(
             "HOME REVALIDATION ERROR:",
             error
@@ -35,12 +24,11 @@ export async function POST() {
 
         return NextResponse.json(
             {
-                success:false,
+                success: false,
             },
             {
-                status:500,
+                status: 500,
             }
         );
-
     }
 }
