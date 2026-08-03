@@ -65,15 +65,9 @@ export const getHomeStats = unstable_cache(
                     ([key, value]: any) => [
                         key,
                         {
-                            questions:
-                                value.questionCount ?? 0,
-
-                            topics:
-                                value.topicCount ?? 0,
-
-                            batches:
-                                value.batchCount ?? 0,
-
+                            questions: value.questionCount ?? 0,
+                            topics: value.topicCount ?? 0,
+                            batches: value.batchCount ?? 0,
                             updatedAt:
                                 (value.updatedAt as Timestamp | undefined)?.toDate() ?? null,
                         },
@@ -87,11 +81,12 @@ export const getHomeStats = unstable_cache(
             writtenStats,
         };
     },
-
     ["home-stats"],
-
     {
         revalidate: false,
-        tags: ["home-stats"],
+        tags: [
+            "oral_batches_metadata",
+            "written_home_metadata",
+        ],
     }
 );
