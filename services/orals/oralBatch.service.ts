@@ -242,7 +242,7 @@ export async function uploadOralBatch(
             });
         });
 
-    const uploadedAt = serverTimestamp();
+    const uploadedAt = new Date();
 
     for (const category of Object.keys(groupedQuestions)) {
 
@@ -385,11 +385,7 @@ export async function getOralBatchQuestions(
     const snapshot = await getDocs(
         query(
             collection(db, "oral_batches"),
-            where(
-                "category",
-                "==",
-                normalizedCategory
-            ),
+            where("category", "==", normalizedCategory),
             orderBy("uploadedAt", "desc"),
             orderBy("batchNumber", "asc")
         )
