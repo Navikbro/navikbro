@@ -242,7 +242,7 @@ export async function uploadOralBatch(
             });
         });
 
-    const uploadedAt = new Date();
+    const uploadedAt = serverTimestamp();
 
     for (const category of Object.keys(groupedQuestions)) {
 
@@ -520,6 +520,7 @@ export async function deleteOralBatchQuestion(
     const q = query(
         collection(db, "oral_batches"),
         where("category", "==", category.toLowerCase()),
+        orderBy("uploadedAt", "desc"),
         orderBy("batchNumber", "asc")
     );
 
@@ -581,11 +582,8 @@ export async function updateOralBatchQuestion(
     const snapshot = await getDocs(
         query(
             collection(db, "oral_batches"),
-            where(
-                "category",
-                "==",
-                category.toLowerCase()
-            ),
+            where("category", "==", category.toLowerCase()),
+            orderBy("uploadedAt", "desc"),
             orderBy("batchNumber", "asc")
         )
     );
@@ -666,11 +664,8 @@ export async function deleteOralBatchQuestions(
     const snapshot = await getDocs(
         query(
             collection(db, "oral_batches"),
-            where(
-                "category",
-                "==",
-                normalizedCategory
-            ),
+            where("category", "==", normalizedCategory),
+            orderBy("uploadedAt", "desc"),
             orderBy("batchNumber", "asc")
         )
     );
