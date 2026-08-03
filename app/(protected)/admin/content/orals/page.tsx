@@ -180,7 +180,7 @@ export default function BulkUploadPage() {
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({ categories }),
-                }),
+                })
             ]);
 
             alert(
