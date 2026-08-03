@@ -381,8 +381,12 @@ export async function getOralBatchQuestions(
     const snapshot = await getDocs(
         query(
             collection(db, "oral_batches"),
-            where("category", "==", normalizedCategory),
-            orderBy("batchNumber", "desc") // <-- change asc to desc
+            where(
+                "category",
+                "==",
+                normalizedCategory
+            ),
+            orderBy("batchNumber", "asc")
         )
     );
 
