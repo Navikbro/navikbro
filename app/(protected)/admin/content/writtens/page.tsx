@@ -160,7 +160,7 @@ export default function WrittenUploadPage() {
                     method: "POST",
                 }),
 
-                adminFetch("/api/revalidate-home", {
+                adminFetch("/api/revalidate/revalidate-home", {
                     method: "POST",
                 }),
             ]);
