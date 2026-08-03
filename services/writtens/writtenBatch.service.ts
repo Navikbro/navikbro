@@ -5,7 +5,6 @@ import {
     setDoc,
 } from "firebase/firestore";
 
-import { syncWrittenHomeMetadata } from "@/services/writtens/writtenMetadata.service";
 
 import { db } from "@/lib/firebase/firebase";
 
@@ -256,9 +255,6 @@ export async function uploadWrittenBatch(
                 questions.length
             );
         }
-
-        // Sync homepage metadata AFTER all batches are uploaded
-        await syncWrittenHomeMetadata();
 
         console.log(
             "All written batches created successfully."

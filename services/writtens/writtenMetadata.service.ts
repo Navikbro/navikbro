@@ -33,7 +33,7 @@ export async function syncWrittenHomeMetadata() {
     const homeRef =
         doc(
             db,
-            "written_home_metadata",
+            "written_batches_metadata",
             "summary"
         );
 

@@ -155,16 +155,11 @@ export default function WrittenUploadPage() {
                 }
             );
 
-            const category = rows[0].Category.toLowerCase();
-
             await Promise.all([
                 adminFetch("/api/revalidate/written", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ category }),
                 }),
+
                 adminFetch("/api/revalidate-home", {
                     method: "POST",
                 }),

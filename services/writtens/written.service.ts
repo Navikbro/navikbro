@@ -285,6 +285,9 @@ export async function deleteWrittenQuestion(
     );
 
 
+    let deleted = false;
+
+
     for (const batchDoc of snapshot.docs) {
 
         const batchData = batchDoc.data();
@@ -314,20 +317,123 @@ export async function deleteWrittenQuestion(
             {
                 questions:
                     updatedQuestions,
+
                 questionCount:
                     updatedQuestions.length,
+
+                topicCount:
+                    new Set(
+                        updatedQuestions.map(
+                            (q: WrittenQuestion) =>
+                                q.topic
+                        )
+                    ).size,
+
                 updatedAt:
                     serverTimestamp(),
             }
         );
 
 
-        return;
+        deleted = true;
+
+        break;
     }
 
 
-    throw new Error(
-        "Question not found"
+    if (!deleted) {
+        throw new Error(
+            "Question not found"
+        );
+    }
+
+
+    // 🔥 Recalculate metadata
+    await rebuildWrittenMetadata(
+        normalizedCategory
+    );
+}
+
+async function rebuildWrittenMetadata(
+    category: string
+) {
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "written_batches"),
+            where(
+                "category",
+                "==",
+                category
+            )
+        )
+    );
+
+
+    let questionCount = 0;
+    let batchCount = 0;
+
+    const topics = new Set<string>();
+
+
+    snapshot.forEach((batchDoc) => {
+
+        const data = batchDoc.data();
+
+
+        batchCount++;
+
+
+        const questions =
+            data.questions ?? [];
+
+
+        questionCount += questions.length;
+
+
+        questions.forEach(
+            (q: WrittenQuestion) => {
+
+                if (q.topic) {
+                    topics.add(q.topic);
+                }
+
+            }
+        );
+
+    });
+
+
+
+    const counterRef = doc(
+        db,
+        "written_batches_metadata",
+        "counters"
+    );
+
+
+    await updateDoc(
+        counterRef,
+        {
+
+            [category]: {
+
+                batchCount,
+
+                questionCount,
+
+                topicCount:
+                    topics.size,
+
+                topics:
+                    [...topics],
+
+                updatedAt:
+                    serverTimestamp(),
+
+            }
+
+        }
     );
 }
 

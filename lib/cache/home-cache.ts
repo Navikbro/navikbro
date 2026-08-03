@@ -50,8 +50,8 @@ export const getHomeStats = unstable_cache(
 
         // Written metadata
         const writtenSnapshot = await adminDb
-            .collection("written_home_metadata")
-            .doc("summary")
+            .collection("written_batches_metadata")
+            .doc("counters")
             .get();
 
         let writtenStats = {};
@@ -86,7 +86,7 @@ export const getHomeStats = unstable_cache(
         revalidate: false,
         tags: [
             "oral_batches_metadata",
-            "written_home_metadata",
+            "written_batches_metadata",
         ],
     }
 );
