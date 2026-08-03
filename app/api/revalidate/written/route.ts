@@ -1,54 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 
-
-export async function POST(
-    request: NextRequest
-) {
+export async function POST() {
 
     try {
 
-        const {
-            category
-        } = await request.json();
-
-
-        if (!category) {
-
-            return NextResponse.json(
-                {
-                    success:false,
-                    error:"Category missing",
-                },
-                {
-                    status:400,
-                }
-            );
-
-        }
-
-
-        const normalizedCategory =
-            category
-                .trim()
-                .toLowerCase();
-
-
-
         revalidateTag(
-            `written-${normalizedCategory}`,
+            "written_batches_metadata",
             "max"
         );
 
 
         return NextResponse.json({
-            success:true,
+            success: true,
         });
 
+    }
+    catch(error) {
 
-    } catch(error) {
-
-        console.error(error);
+        console.error(
+            "Written revalidation error:",
+            error
+        );
 
 
         return NextResponse.json(
