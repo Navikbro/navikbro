@@ -67,6 +67,12 @@ function QuestionCard({
     onBookmark,
 }: Props) {
 
+    const cleanQuestion = question
+        .replace(/\u00A0/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
     const [communityAnswers, setCommunityAnswers] = useState<
         ApprovedAnswer[]
     >([]);
@@ -202,7 +208,7 @@ function QuestionCard({
     text-gray-900
     "
                         >
-                            {question}
+                            {cleanQuestion}
                         </h2>
                     </div>
 
