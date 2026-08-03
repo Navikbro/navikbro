@@ -171,10 +171,10 @@ export default function BulkUploadPage() {
             ];
 
             await Promise.all([
-                adminFetch("/api/revalidate-home", {
+                adminFetch("/api/revalidate/revalidate-home", {
                     method: "POST",
                 }),
-                adminFetch("/api/revalidate-orals", {
+                adminFetch("/api/revalidate/orals/batch", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
