@@ -20,6 +20,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase/firebase";
+import { sanitizeText } from "@/lib/utils/sanitizeText";
 
 export const ORAL_BATCH_SIZE = 200;
 
@@ -38,7 +39,7 @@ const CATEGORY_MAP: Record<string, string> = {
 };
 
 const clean = (value: unknown): string =>
-    String(value ?? "").trim();
+    sanitizeText(String(value ?? ""));
 
 const getBatchId = (
     category: string,
@@ -412,11 +413,18 @@ export async function getOralBatchQuestions(
         );
 
         batchQuestions.forEach((question) => {
-
             if (question.isActive !== false) {
-                questions.push(question);
+                questions.push({
+                    ...question,
+                    question: sanitizeText(question.question),
+                    answer: sanitizeText(question.answer),
+                    topic: sanitizeText(question.topic),
+                    mmd: sanitizeText(question.mmd),
+                    surveyor: sanitizeText(question.surveyor),
+                    class: sanitizeText(question.class),
+                    examDate: sanitizeText(question.examDate),
+                });
             }
-
         });
 
     }
@@ -594,6 +602,40 @@ export async function updateOralBatchQuestion(
         questions[index] = {
             ...questions[index],
             ...data,
+            question:
+                data.question !== undefined
+                    ? sanitizeText(data.question)
+                    : questions[index].question,
+
+            answer:
+                data.answer !== undefined
+                    ? sanitizeText(data.answer)
+                    : questions[index].answer,
+
+            topic:
+                data.topic !== undefined
+                    ? sanitizeText(data.topic)
+                    : questions[index].topic,
+
+            mmd:
+                data.mmd !== undefined
+                    ? sanitizeText(data.mmd)
+                    : questions[index].mmd,
+
+            surveyor:
+                data.surveyor !== undefined
+                    ? sanitizeText(data.surveyor)
+                    : questions[index].surveyor,
+
+            class:
+                data.class !== undefined
+                    ? sanitizeText(data.class)
+                    : questions[index].class,
+
+            examDate:
+                data.examDate !== undefined
+                    ? sanitizeText(data.examDate)
+                    : questions[index].examDate,
         };
 
         await updateDoc(
