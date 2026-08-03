@@ -49,20 +49,10 @@ export async function getWrittenQuestions(
                 "==",
                 normalizedCategory
             ),
+            orderBy("uploadedAt", "desc"),
             orderBy("batchNumber", "asc")
         )
     );
-
-    console.log("=== Batch Order ===");
-
-    snapshot.docs.forEach((batchDoc) => {
-        console.log(
-            batchDoc.id,
-            batchDoc.data().batchNumber,
-            typeof batchDoc.data().batchNumber
-        );
-    });
-
 
     const questions: WrittenQuestion[] = [];
 

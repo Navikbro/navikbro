@@ -196,6 +196,8 @@ export async function uploadWrittenBatch(
             );
         }
 
+        const uploadedAt = Date.now();
+
         let uploaded = 0;
 
         for (const batchQuestions of batches) {
@@ -234,11 +236,16 @@ export async function uploadWrittenBatch(
                     batchNumber,
                     category,
                     sourceFile,
+
                     questionCount: batchQuestions.length,
                     topicCount,
+
                     questions: batchQuestions,
+
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
+
+                    uploadedAt,
                 }
             );
 
