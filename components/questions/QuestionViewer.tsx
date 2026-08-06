@@ -210,9 +210,6 @@ export default function QuestionViewer({
     const category =
         question.category;
 
-    const progress =
-        ((currentIndex + 1) / questions.length) * 100;
-
 
     async function handleSubmit() {
 

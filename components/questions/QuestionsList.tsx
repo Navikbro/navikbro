@@ -1,10 +1,19 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
 import type {
   OralBatchQuestion,
   OralFilters,
 } from "@/services/orals/oralBatch.service";
+
+import { useVirtualizer } from "@tanstack/react-virtual";
+
 import {
   ChevronDown,
   ChevronUp,
@@ -32,7 +41,14 @@ export default function QuestionsList({
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [bookmarks, setBookmarks] =
+    useState<string[]>([]);
+
+  const bookmarkSet = useMemo(
+    () => new Set(bookmarks),
+    [bookmarks]
+  );
+
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
 
   const DEFAULT_MMD = "All";
@@ -43,18 +59,36 @@ export default function QuestionsList({
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [selectedClass, setSelectedClass] = useState("All");
 
-  const topics = filters?.topics ?? [];
-  const surveyors = filters?.surveyors ?? [];
-  const mmds = filters?.mmds ?? [];
-  const classes = filters?.classes ?? [];
+  const topics = useMemo(
+    () => filters?.topics ?? [],
+    [filters]
+  );
+
+  const surveyors = useMemo(
+    () => filters?.surveyors ?? [],
+    [filters]
+  );
+
+  const mmds = useMemo(
+    () => filters?.mmds ?? [],
+    [filters]
+  );
+
+  const classes = useMemo(
+    () => filters?.classes ?? [],
+    [filters]
+  );
   const showMmd = selectedMmd !== "All";
   const showSurveyor = selectedSurveyor !== "All";
   const showTopic = selectedTopic !== "All";
 
+  const normalizedSearch =
+    search.trim().toLowerCase();
+
   const filteredQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (q.isActive === false) return false;
-      if (showBookmarksOnly && !bookmarks.includes(q.id))
+      if (showBookmarksOnly && !bookmarkSet.has(q.id))
         return false;
 
       if (
@@ -82,22 +116,22 @@ export default function QuestionsList({
         return false;
 
       if (
-        search.trim() &&
+        normalizedSearch &&
         !(
           q.question
             .toLowerCase()
-            .includes(search.toLowerCase()) ||
+            .includes(normalizedSearch) ||
           (q.answer ?? "").toLowerCase()
-            .includes(search.toLowerCase()) ||
+            .includes(normalizedSearch) ||
           q.topic
             .toLowerCase()
-            .includes(search.toLowerCase()) ||
+            .includes(normalizedSearch) ||
           q.mmd
             .toLowerCase()
-            .includes(search.toLowerCase()) ||
+            .includes(normalizedSearch) ||
           q.surveyor
             .toLowerCase()
-            .includes(search.toLowerCase())
+            .includes(normalizedSearch)
         )
       ) {
         return false;
@@ -107,17 +141,33 @@ export default function QuestionsList({
     });
   }, [
     questions,
-    search,
+    normalizedSearch,
     selectedMmd,
     selectedSurveyor,
     selectedTopic,
     selectedClass,
-    bookmarks,
+    bookmarkSet,
     showBookmarksOnly,
   ]);
 
+  const bookmarksCount = useMemo(() => {
+    return filteredQuestions.filter((q) =>
+      bookmarkSet.has(q.id)
+    ).length;
+  }, [filteredQuestions, bookmarkSet]);
+
   const [selectedIndex, setSelectedIndex] =
     useState<number | null>(null);
+
+  const parentRef =
+    useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredQuestions.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 148,
+    overscan: 12,
+  });
 
   const clearFilters = () => {
     setSearch("");
@@ -152,10 +202,15 @@ export default function QuestionsList({
     });
   };
 
-  const selectedQuestion =
-    selectedIndex !== null
-      ? filteredQuestions[selectedIndex]
-      : null;
+  const selectedQuestion = useMemo(() => {
+    if (selectedIndex === null) return null;
+
+    return filteredQuestions[selectedIndex] ?? null;
+  }, [selectedIndex, filteredQuestions]);
+
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [filteredQuestions, rowVirtualizer]);
 
   return (
     <>
@@ -197,11 +252,8 @@ export default function QuestionsList({
             }`}
         >
           🔖 Bookmarks (
-          {
-            filteredQuestions.filter((q) =>
-              bookmarks.includes(q.id)
-            ).length
-          })
+          {bookmarksCount}
+          )
         </button>
 
       </div>
@@ -316,7 +368,13 @@ export default function QuestionsList({
       </div>
 
       {/* QUESTIONS */}
-      <div className="space-y-4">
+      <div
+        ref={parentRef}
+        className="overflow-y-auto"
+        style={{
+          height: "calc(100vh - 150px)",
+        }}
+      >
 
         {filteredQuestions.length === 0 ? (
 
@@ -343,22 +401,46 @@ export default function QuestionsList({
 
         ) : (
 
-          filteredQuestions.map((q, index) => (
-            <QuestionRow
-              key={q.id}
-              question={q.question}
-              examDate={q.examDate}
-              mmd={q.mmd}
-              surveyor={q.surveyor}
-              topic={q.topic}
-              showMmd={showMmd}
-              showSurveyor={showSurveyor}
-              showTopic={showTopic}
-              isBookmarked={bookmarks.includes(q.id)}
-              onBookmark={() => toggleBookmark(q.id)}
-              onClick={() => setSelectedIndex(index)}
-            />
-          ))
+
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              position: "relative",
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const q = filteredQuestions[virtualRow.index];
+
+              return (
+                <div
+                  key={q.id}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <QuestionRow
+                    question={q.question}
+                    examDate={q.examDate}
+                    mmd={q.mmd}
+                    surveyor={q.surveyor}
+                    topic={q.topic}
+                    showMmd={showMmd}
+                    showSurveyor={showSurveyor}
+                    showTopic={showTopic}
+                    isBookmarked={bookmarkSet.has(q.id)}
+                    onBookmark={() => toggleBookmark(q.id)}
+                    onClick={() => setSelectedIndex(virtualRow.index)}
+                  />
+                </div>
+              );
+            })}
+          </div>
 
         )}
 
@@ -370,7 +452,7 @@ export default function QuestionsList({
         currentIndex={selectedIndex}
         bookmarked={
           selectedQuestion
-            ? bookmarks.includes(selectedQuestion.id)
+            ? bookmarkSet.has(selectedQuestion.id)
             : false
         }
         onClose={() => setSelectedIndex(null)}
