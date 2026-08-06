@@ -1,34 +1,23 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react";
-import type { OralFilters } from "@/services/orals/oralBatch.service";
+import type {
+  OralBatchQuestion,
+  OralFilters,
+} from "@/services/orals/oralBatch.service";
 import {
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
 } from "lucide-react";
 
-import QuestionCard from "@/components/questions/QuestionCard";
+import QuestionRow from "@/components/questions/QuestionRow";
+import QuestionViewer from "@/components/questions/QuestionViewer";
 
-interface Question {
-  id: string;
-  question: string;
-  answer: string;
-  mmd: string;
-  surveyor: string;
-  topic: string;
-
-  class: string;
-
-  examDate: string;
-
-  order: number;
-  isActive: boolean;
-}
 
 interface Props {
   category: string;
-  questions: Question[];
+  questions: OralBatchQuestion[];
   filters?: OralFilters;
   totalQuestions: number;
 }
@@ -127,7 +116,8 @@ export default function QuestionsList({
     showBookmarksOnly,
   ]);
 
-  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] =
+    useState<number | null>(null);
 
   const clearFilters = () => {
     setSearch("");
@@ -161,6 +151,11 @@ export default function QuestionsList({
       return updated;
     });
   };
+
+  const selectedQuestion =
+    selectedIndex !== null
+      ? filteredQuestions[selectedIndex]
+      : null;
 
   return (
     <>
@@ -348,46 +343,60 @@ export default function QuestionsList({
 
         ) : (
 
-          filteredQuestions.map((q) => (
-            <QuestionCard
+          filteredQuestions.map((q, index) => (
+            <QuestionRow
               key={q.id}
-              questionId={q.id}
-              category={category}
               question={q.question}
-              answer={q.answer}
+              examDate={q.examDate}
               mmd={q.mmd}
               surveyor={q.surveyor}
               topic={q.topic}
-              examDate={q.examDate}
-              order={q.order}
               showMmd={showMmd}
               showSurveyor={showSurveyor}
               showTopic={showTopic}
               isBookmarked={bookmarks.includes(q.id)}
               onBookmark={() => toggleBookmark(q.id)}
-              isOpen={openQuestion === q.id}
-              onToggle={() => {
-                const currentScroll = window.scrollY;
-
-                setOpenQuestion(
-                  openQuestion === q.id ? null : q.id
-                );
-
-                requestAnimationFrame(() => {
-                  requestAnimationFrame(() => {
-                    window.scrollTo({
-                      top: currentScroll,
-                      behavior: "instant",
-                    });
-                  });
-                });
-              }}
+              onClick={() => setSelectedIndex(index)}
             />
           ))
 
         )}
 
       </div>
+
+      <QuestionViewer
+        open={selectedQuestion !== null}
+        questions={filteredQuestions}
+        currentIndex={selectedIndex}
+        bookmarked={
+          selectedQuestion
+            ? bookmarks.includes(selectedQuestion.id)
+            : false
+        }
+        onClose={() => setSelectedIndex(null)}
+        onBookmark={() => {
+          if (!selectedQuestion) return;
+
+          toggleBookmark(selectedQuestion.id);
+        }}
+        onPrevious={() => {
+          setSelectedIndex((prev) => {
+            if (prev === null || prev <= 0) return prev;
+            return prev - 1;
+          });
+        }}
+        onNext={() => {
+          setSelectedIndex((prev) => {
+            if (
+              prev === null ||
+              prev >= filteredQuestions.length - 1
+            )
+              return prev;
+
+            return prev + 1;
+          });
+        }}
+      />
 
     </>
   )
