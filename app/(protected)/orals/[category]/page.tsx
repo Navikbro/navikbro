@@ -43,6 +43,13 @@ export default async function OralCategoryPage({
 
   const filters = categoryData.filters;
 
+  const defaultMmd =
+    filters.mmds.length > 0
+      ? filters.mmds[0]
+      : "";
+
+  const mmdData = categoryData.mmdData;
+
   const titles: Record<
     string,
     {
@@ -165,6 +172,8 @@ export default async function OralCategoryPage({
             category={normalizedCategory}
             initialQuestions={questions}
             filters={filters}
+            mmdData={categoryData.mmdData}
+      
             totalQuestions={meta.questionCount}
           />
 

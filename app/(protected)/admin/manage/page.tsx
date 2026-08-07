@@ -356,7 +356,7 @@ export default function ManageWrittenQuestionsPage() {
     async function refreshOralCache() {
         if (type !== "oral") return;
 
-        const res = await fetch("/api/revalidate/oral", {
+        const res = await fetch("/api/revalidate/orals/batch", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

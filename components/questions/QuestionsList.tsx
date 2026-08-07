@@ -28,6 +28,23 @@ interface Props {
   category: string;
   questions: OralBatchQuestion[];
   filters?: OralFilters;
+
+  mmdData: Record<
+    string,
+    {
+      questionCount: number;
+      batchCount: number;
+      topics: string[];
+      surveyors: string[];
+    }
+  >;
+
+  selectedMmd: string;
+
+  setSelectedMmd: (
+    value: string
+  ) => Promise<void>;
+
   totalQuestions: number;
 }
 
@@ -35,6 +52,9 @@ export default function QuestionsList({
   category,
   questions,
   filters,
+  mmdData,
+  selectedMmd,
+  setSelectedMmd,
   totalQuestions,
 }: Props) {
 
@@ -51,10 +71,8 @@ export default function QuestionsList({
 
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
 
-  const DEFAULT_MMD = "All";
+  const activeMmd = selectedMmd;
 
-  const [selectedMmd, setSelectedMmd] =
-    useState(DEFAULT_MMD);
   const [selectedSurveyor, setSelectedSurveyor] = useState("All");
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [selectedClass, setSelectedClass] = useState("All");
@@ -64,10 +82,18 @@ export default function QuestionsList({
     [filters]
   );
 
-  const surveyors = useMemo(
-    () => filters?.surveyors ?? [],
-    [filters]
-  );
+  const surveyors = useMemo(() => {
+    if (mmdData[activeMmd]) {
+      return mmdData[activeMmd].surveyors;
+    }
+
+    return filters?.surveyors ?? [];
+
+  }, [
+    activeMmd,
+    mmdData,
+    filters,
+  ]);
 
   const mmds = useMemo(
     () => filters?.mmds ?? [],
@@ -78,6 +104,7 @@ export default function QuestionsList({
     () => filters?.classes ?? [],
     [filters]
   );
+
   const showMmd = selectedMmd !== "All";
   const showSurveyor = selectedSurveyor !== "All";
   const showTopic = selectedTopic !== "All";
@@ -86,13 +113,26 @@ export default function QuestionsList({
     search.trim().toLowerCase();
 
   const filteredQuestions = useMemo(() => {
+
+    console.log(
+      "FILTERING WITH MMD",
+      selectedMmd
+    );
+
+    console.log(
+      "QUESTION MMD VALUES",
+      [...new Set(
+        questions.map(q => q.mmd)
+      )]
+    );
+
     return questions.filter((q) => {
       if (q.isActive === false) return false;
       if (showBookmarksOnly && !bookmarkSet.has(q.id))
         return false;
 
       if (
-        selectedMmd !== "All" &&
+        selectedMmd &&
         q.mmd !== selectedMmd
       )
         return false;
@@ -142,7 +182,7 @@ export default function QuestionsList({
   }, [
     questions,
     normalizedSearch,
-    selectedMmd,
+    activeMmd,
     selectedSurveyor,
     selectedTopic,
     selectedClass,
@@ -171,7 +211,6 @@ export default function QuestionsList({
 
   const clearFilters = () => {
     setSearch("");
-    setSelectedMmd(DEFAULT_MMD);
     setSelectedSurveyor("All");
     setSelectedTopic("All");
     setSelectedClass("All");
@@ -280,12 +319,10 @@ export default function QuestionsList({
               </select>
 
               <select
-                value={selectedMmd}
+                value={activeMmd}
                 onChange={(e) => setSelectedMmd(e.target.value)}
                 className="rounded-xl border border-gray-300 p-3"
               >
-                <option value="All">All MMDs</option>
-
                 {mmds.map((mmd) => (
                   <option key={mmd} value={mmd}>
                     {mmd}
@@ -416,14 +453,15 @@ export default function QuestionsList({
                   key={q.id}
                   ref={rowVirtualizer.measureElement}
                   data-index={virtualRow.index}
+                  className="w-full pb-5"
                   style={{
                     position: "absolute",
                     top: 0,
                     left: 0,
-                    width: "100%",
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
+
                   <QuestionRow
                     question={q.question}
                     examDate={q.examDate}

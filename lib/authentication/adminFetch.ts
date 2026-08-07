@@ -1,31 +1,43 @@
-import { auth } from "@/lib/firebase/firebase";
+import { getCurrentUser }
+from "@/lib/authentication/getCurrentUser";
+
 
 export async function adminFetch(
-  input: RequestInfo | URL,
-  init: RequestInit = {}
-) {
-  const user = auth.currentUser;
+ input: RequestInfo | URL,
+ init: RequestInit = {}
+){
 
-  if (!user) {
-    throw new Error("User is not authenticated.");
-  }
+ const user =
+ await getCurrentUser();
 
-  const token = await user.getIdToken(true);
 
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
-
-  const response = await fetch(input, {
-    ...init,
-    headers,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
+ if(!user){
     throw new Error(
-      `Request failed (${response.status}): ${text}`
+      "User is not authenticated."
     );
-  }
+ }
 
-  return response;
+
+ const token =
+ await user.getIdToken(true);
+
+
+ const headers =
+ new Headers(init.headers);
+
+
+ headers.set(
+  "Authorization",
+  `Bearer ${token}`
+ );
+
+
+ return fetch(
+  input,
+  {
+   ...init,
+   headers,
+  }
+ );
+
 }

@@ -97,6 +97,40 @@ async function updateOralMetadata(
         "counters"
     );
 
+    const mmdData: Record<
+        string,
+        {
+            questionCount: number;
+            topics: string[];
+            surveyors: string[];
+        }
+    > = {};
+
+    for (const q of questions) {
+        if (!mmdData[q.mmd]) {
+            mmdData[q.mmd] = {
+                questionCount: 0,
+                topics: [],
+                surveyors: [],
+            };
+        }
+
+        mmdData[q.mmd].questionCount++;
+
+        if (!mmdData[q.mmd].topics.includes(q.topic)) {
+            mmdData[q.mmd].topics.push(q.topic);
+        }
+
+        if (!mmdData[q.mmd].surveyors.includes(q.surveyor)) {
+            mmdData[q.mmd].surveyors.push(q.surveyor);
+        }
+    }
+
+    Object.values(mmdData).forEach((item) => {
+        item.topics.sort();
+        item.surveyors.sort();
+    });
+
     await runTransaction(db, async (transaction) => {
         const snapshot = await transaction.get(counterRef);
 
@@ -109,6 +143,46 @@ async function updateOralMetadata(
         const data = snapshot.data();
 
         const existing = data[category] ?? {};
+
+        const existingMmdData = existing.mmdData ?? {};
+
+        const mergedMmdData: Record<
+            string,
+            {
+                questionCount: number;
+                batchCount: number;
+                topics: string[];
+                surveyors: string[];
+            }
+        > = {
+            ...existingMmdData,
+        };
+
+        for (const mmd of Object.keys(mmdData)) {
+            const previous = existingMmdData[mmd] ?? {};
+
+            mergedMmdData[mmd] = {
+                questionCount:
+                    (previous.questionCount ?? 0) +
+                    mmdData[mmd].questionCount,
+
+                batchCount: previous.batchCount ?? 0,
+
+                topics: [
+                    ...new Set([
+                        ...(previous.topics ?? []),
+                        ...mmdData[mmd].topics,
+                    ]),
+                ].sort(),
+
+                surveyors: [
+                    ...new Set([
+                        ...(previous.surveyors ?? []),
+                        ...mmdData[mmd].surveyors,
+                    ]),
+                ].sort(),
+            };
+        }
 
         const mergedTopics = [
             ...new Set([
@@ -159,6 +233,9 @@ async function updateOralMetadata(
 
             [`${category}.classes`]:
                 mergedClasses,
+
+            [`${category}.mmdData`]:
+                mergedMmdData,
 
             [`${category}.updatedAt`]:
                 serverTimestamp(),
@@ -375,6 +452,27 @@ async function getNextOralBatchNumber(
     );
 }
 
+export async function getOralBatchDocuments(
+    category: string
+): Promise<OralBatchDocument[]> {
+
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where("category", "==", normalizedCategory),
+            orderBy("uploadedAt", "desc"),
+            orderBy("batchNumber", "asc")
+        )
+    );
+
+    return snapshot.docs.map((doc) => ({
+        ...(doc.data() as OralBatchDocument),
+    }));
+}
+
 export async function getOralBatchQuestions(
     category: string
 ): Promise<OralBatchQuestion[]> {
@@ -471,6 +569,17 @@ export async function getOralCategoryData(
     questionCount: number;
     topicCount: number;
     filters: OralFilters;
+
+    mmdData: Record<
+        string,
+        {
+            questionCount: number;
+            batchCount: number;
+            topics: string[];
+            surveyors: string[];
+        }
+    >;
+
 }> {
 
     const snapshot = await getDoc(
@@ -488,6 +597,8 @@ export async function getOralCategoryData(
                 mmds: [],
                 classes: [],
             },
+
+            mmdData: {},
         };
     }
 
@@ -506,6 +617,8 @@ export async function getOralCategoryData(
             mmds: meta.mmds ?? [],
             classes: meta.classes ?? [],
         },
+
+        mmdData: meta.mmdData ?? {},
     };
 }
 
@@ -834,6 +947,24 @@ export async function getAllOralBatchQuestions(
     category: string
 ): Promise<OralBatchQuestion[]> {
     return getOralBatchQuestions(category);
+
+}
+
+export async function getOralQuestionsByMmd(
+    category: string,
+    mmd: string
+): Promise<OralBatchQuestion[]> {
+
+    const questions =
+        await getAllOralBatchQuestions(
+            category
+        );
+
+    return questions.filter(
+        (question) =>
+            question.mmd.toLowerCase() ===
+            mmd.toLowerCase()
+    );
 
 }
 
