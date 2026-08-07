@@ -77,10 +77,27 @@ export default function QuestionsList({
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [selectedClass, setSelectedClass] = useState("All");
 
-  const topics = useMemo(
-    () => filters?.topics ?? [],
-    [filters]
-  );
+  useEffect(() => {
+
+    setSelectedTopic("All");
+    setSelectedSurveyor("All");
+    setSelectedClass("All");
+
+  }, [activeMmd]);
+
+  const topics = useMemo(() => {
+
+    if (mmdData[activeMmd]) {
+      return mmdData[activeMmd].topics;
+    }
+
+    return filters?.topics ?? [];
+
+  }, [
+    activeMmd,
+    mmdData,
+    filters,
+  ]);
 
   const surveyors = useMemo(() => {
     if (mmdData[activeMmd]) {
@@ -113,18 +130,6 @@ export default function QuestionsList({
     search.trim().toLowerCase();
 
   const filteredQuestions = useMemo(() => {
-
-    console.log(
-      "FILTERING WITH MMD",
-      selectedMmd
-    );
-
-    console.log(
-      "QUESTION MMD VALUES",
-      [...new Set(
-        questions.map(q => q.mmd)
-      )]
-    );
 
     return questions.filter((q) => {
       if (q.isActive === false) return false;

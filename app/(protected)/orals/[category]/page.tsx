@@ -7,9 +7,10 @@ import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
 import { ArrowLeft, Sailboat } from "lucide-react";
 import InsightSwitcher from "@/components/home/InsightSwitcher";
 import {
-  getCachedAllOralQuestions,
+  getCachedOralQuestions,
   getCachedOralCategoryData,
 } from "@/lib/cache/oral-cache";
+
 interface PageProps {
   params: Promise<{
     category: string;
@@ -29,24 +30,27 @@ export default async function OralCategoryPage({
       normalizedCategory
     );
 
-
-  const questions =
-    await getCachedAllOralQuestions(
-      normalizedCategory
-    );
-
-  const meta = {
-    batchCount: categoryData.batchCount,
-    questionCount: categoryData.questionCount,
-    topicCount: categoryData.topicCount,
-  };
-
   const filters = categoryData.filters;
 
   const defaultMmd =
     filters.mmds.length > 0
       ? filters.mmds[0]
       : "";
+
+
+  const questions =
+    defaultMmd
+      ? await getCachedOralQuestions(
+        normalizedCategory,
+        defaultMmd
+      )
+      : [];
+
+  const meta = {
+    batchCount: categoryData.batchCount,
+    questionCount: categoryData.questionCount,
+    topicCount: categoryData.topicCount,
+  };
 
   const mmdData = categoryData.mmdData;
 
@@ -173,7 +177,7 @@ export default async function OralCategoryPage({
             initialQuestions={questions}
             filters={filters}
             mmdData={categoryData.mmdData}
-      
+
             totalQuestions={meta.questionCount}
           />
 

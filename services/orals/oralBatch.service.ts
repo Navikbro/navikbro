@@ -43,11 +43,15 @@ const clean = (value: unknown): string =>
 
 const getBatchId = (
     category: string,
+    mmd: string,
     batchNumber: number
 ): string =>
-    `${category.toLowerCase()}_batch_${String(
-        batchNumber
-    ).padStart(3, "0")}`;
+    `${category.toLowerCase()}_${mmd
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_")}_batch_${String(
+            batchNumber
+        ).padStart(3, "0")}`;
 
 export interface OralBatchQuestion {
     id: string;
@@ -166,7 +170,8 @@ async function updateOralMetadata(
                     (previous.questionCount ?? 0) +
                     mmdData[mmd].questionCount,
 
-                batchCount: previous.batchCount ?? 0,
+                batchCount:
+                    (previous.batchCount ?? 0) + batchCountAdded,
 
                 topics: [
                     ...new Set([
@@ -243,13 +248,78 @@ async function updateOralMetadata(
     });
 }
 
+async function updateOralMmdMetadata(
+    category: string,
+    mmd: string,
+    questions: OralBatchQuestion[],
+    batchCount: number
+) {
 
-export async function deleteExistingBatches(
-    category: string
+    const ref = doc(
+        db,
+        "oral_mmd_metadata",
+        `${category}_${mmd
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "_")}`
+    );
+
+
+    const snapshot = await getDoc(ref);
+
+
+    const existing =
+        snapshot.exists()
+            ? snapshot.data()
+            : {};
+
+
+    const topics = [
+        ...new Set([
+            ...(existing.topics ?? []),
+            ...questions.map(q => q.topic),
+        ]),
+    ].sort();
+
+
+    await setDoc(
+        ref,
+        {
+            category,
+
+            mmd,
+
+            questionCount:
+                (existing.questionCount ?? 0)
+                + questions.length,
+
+            topicCount:
+                topics.length,
+
+            batchCount:
+                (existing.batchCount ?? 0)
+                + batchCount,
+
+            topics,
+
+            updatedAt:
+                serverTimestamp(),
+        },
+        {
+            merge: true,
+        }
+    );
+}
+
+
+export async function ddeleteExistingBatches(
+    category: string,
+    mmd: string
 ) {
     const q = query(
         collection(db, "oral_batches"),
-        where("category", "==", category.toLowerCase())
+        where("category", "==", category.toLowerCase()),
+        where("mmd", "==", mmd)
     );
 
     const snapshot = await getDocs(q);
@@ -289,11 +359,18 @@ export async function uploadOralBatch(
             category =
                 CATEGORY_MAP[category] ?? category;
 
-            if (!groupedQuestions[category]) {
-                groupedQuestions[category] = [];
+            const mmd = clean(row.MMD);
+
+            const groupKey =
+                `${category}__${mmd.toLowerCase()}`;
+
+            if (!groupedQuestions[groupKey]) {
+                groupedQuestions[groupKey] = [];
             }
 
-            groupedQuestions[category].push({
+            groupedQuestions[groupKey].push({
+
+
                 id: crypto.randomUUID(),
 
                 class: clean(row.Class),
@@ -312,8 +389,7 @@ export async function uploadOralBatch(
                 answer: clean(row.Answer),
 
                 order:
-                    groupedQuestions[category]
-                        .length + 1,
+                    groupedQuestions[groupKey].length + 1,
 
                 isActive: true,
             });
@@ -321,10 +397,16 @@ export async function uploadOralBatch(
 
     const uploadedAt = new Date();
 
-    for (const category of Object.keys(groupedQuestions)) {
+    for (const groupKey of Object.keys(groupedQuestions)) {
+
+        const [category] =
+            groupKey.split("__");
 
         const questions =
-            groupedQuestions[category];
+            groupedQuestions[groupKey];
+
+        const mmd =
+            questions[0]?.mmd ?? "";
 
         const topics = [...new Set(questions.map(q => q.topic))].sort();
 
@@ -342,7 +424,7 @@ export async function uploadOralBatch(
 
 
         const firstBatchNumber =
-            await getNextOralBatchNumber(category);
+            await getNextOralBatchNumber(category, mmd);
 
 
         for (
@@ -366,6 +448,7 @@ export async function uploadOralBatch(
 
             const batchId = getBatchId(
                 category,
+                mmd,
                 batchNumber
             );
 
@@ -375,6 +458,7 @@ export async function uploadOralBatch(
                     batchId,
                     batchNumber,
                     category,
+                    mmd,
                     sourceFile,
 
                     questionCount: batchQuestions.length,
@@ -410,6 +494,13 @@ export async function uploadOralBatch(
             classes
         );
 
+        await updateOralMmdMetadata(
+            category,
+            mmd,
+            questions,
+            totalBatches
+        );
+
         console.log(
             `${category}: ${questions.length} questions uploaded in ${totalBatches} batches`
         );
@@ -417,7 +508,8 @@ export async function uploadOralBatch(
 }
 
 async function getNextOralBatchNumber(
-    category: string
+    category: string,
+    mmd: string
 ) {
     const counterRef = doc(
         db,
@@ -445,7 +537,9 @@ async function getNextOralBatchNumber(
 
 
             return (
-                data[category]?.batchCount ?? 0
+                data[category]
+                    ?.mmdData?.[mmd]
+                    ?.batchCount ?? 0
             ) + 1;
 
         }
@@ -474,16 +568,21 @@ export async function getOralBatchDocuments(
 }
 
 export async function getOralBatchQuestions(
-    category: string
+    category: string,
+    mmd: string
 ): Promise<OralBatchQuestion[]> {
 
     const normalizedCategory =
         category.trim().toLowerCase();
 
+    const normalizedMmd =
+        mmd.trim();
+
     const snapshot = await getDocs(
         query(
             collection(db, "oral_batches"),
             where("category", "==", normalizedCategory),
+            where("mmd", "==", normalizedMmd),
             orderBy("uploadedAt", "desc"),
             orderBy("batchNumber", "asc")
         )
@@ -619,6 +718,58 @@ export async function getOralCategoryData(
         },
 
         mmdData: meta.mmdData ?? {},
+    };
+}
+
+export async function getOralMmdMetadata(
+    category: string,
+    mmd: string
+) {
+    const id =
+        `${category.trim().toLowerCase()}_${mmd
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "_")}`;
+
+
+    const snapshot = await getDoc(
+        doc(
+            db,
+            "oral_mmd_metadata",
+            id
+        )
+    );
+
+
+    if (!snapshot.exists()) {
+        return {
+            questionCount: 0,
+            topicCount: 0,
+            batchCount: 0,
+            topics: [],
+            surveyors: [],
+        };
+    }
+
+
+    const data = snapshot.data();
+
+
+    return {
+        questionCount:
+            data.questionCount ?? 0,
+
+        topicCount:
+            data.topicCount ?? 0,
+
+        batchCount:
+            data.batchCount ?? 0,
+
+        topics:
+            data.topics ?? [],
+
+        surveyors:
+            data.surveyors ?? [],
     };
 }
 
@@ -946,7 +1097,56 @@ export async function getOralFilters(
 export async function getAllOralBatchQuestions(
     category: string
 ): Promise<OralBatchQuestion[]> {
-    return getOralBatchQuestions(category);
+
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+    const snapshot = await getDocs(
+        query(
+            collection(db, "oral_batches"),
+            where("category", "==", normalizedCategory),
+            orderBy("uploadedAt", "desc"),
+            orderBy("batchNumber", "asc")
+        )
+    );
+
+    const questions: OralBatchQuestion[] = [];
+
+    for (const batchDoc of snapshot.docs) {
+
+        const data =
+            batchDoc.data() as OralBatchDocument;
+
+        const batchQuestions = [
+            ...(data.questions ?? []),
+        ].sort(
+            (a, b) =>
+                (a.order ?? 0) -
+                (b.order ?? 0)
+        );
+
+        for (const question of batchQuestions) {
+
+            if (question.isActive !== false) {
+
+                questions.push({
+                    ...question,
+                    question: sanitizeText(question.question),
+                    answer: sanitizeText(question.answer),
+                    topic: sanitizeText(question.topic),
+                    mmd: sanitizeText(question.mmd),
+                    surveyor: sanitizeText(question.surveyor),
+                    class: sanitizeText(question.class),
+                    examDate: sanitizeText(question.examDate),
+                });
+
+            }
+
+        }
+
+    }
+
+    return questions;
 
 }
 

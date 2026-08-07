@@ -1,38 +1,42 @@
 import { unstable_cache } from "next/cache";
 
 import {
-    getAllOralBatchQuestions,
+    getOralBatchQuestions,
     getOralCategoryData,
+    getOralMmdMetadata,
 } from "@/services/orals/oralBatch.service";
 
-
-
 function getOralQuestionsCache(
-    category: string
+    category: string,
+    mmd: string
 ) {
 
     const normalizedCategory =
         category.trim().toLowerCase();
 
+    const normalizedMmd =
+        mmd.trim();
 
     return unstable_cache(
 
         async () => {
 
-            return getAllOralBatchQuestions(
-                normalizedCategory
+            return getOralBatchQuestions(
+                normalizedCategory,
+                normalizedMmd
             );
 
         },
 
         [
-            "oral-all-questions",
+            "oral-questions",
             normalizedCategory,
+            normalizedMmd,
         ],
 
         {
             tags: [
-                `oral-${normalizedCategory}`,
+                `oral-${normalizedCategory}-${normalizedMmd}`,
             ],
         }
 
@@ -40,15 +44,12 @@ function getOralQuestionsCache(
 
 }
 
-
-
 function getOralCategoryDataCache(
     category: string
 ) {
 
     const normalizedCategory =
         category.trim().toLowerCase();
-
 
     return unstable_cache(
 
@@ -75,19 +76,55 @@ function getOralCategoryDataCache(
 
 }
 
+function getOralMmdMetadataCache(
+    category: string,
+    mmd: string
+) {
+
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+    const normalizedMmd =
+        mmd.trim();
 
 
-export async function getCachedAllOralQuestions(
-    category: string
+    return unstable_cache(
+
+        async () => {
+
+            return getOralMmdMetadata(
+                normalizedCategory,
+                normalizedMmd
+            );
+
+        },
+
+        [
+            "oral-mmd-meta",
+            normalizedCategory,
+            normalizedMmd,
+        ],
+
+        {
+            tags: [
+                `oral-${normalizedCategory}-${normalizedMmd}-meta`,
+            ],
+        }
+
+    );
+}
+
+export async function getCachedOralQuestions(
+    category: string,
+    mmd: string
 ) {
 
     return getOralQuestionsCache(
-        category
+        category,
+        mmd
     )();
 
 }
-
-
 
 export async function getCachedOralCategoryData(
     category: string
@@ -95,6 +132,18 @@ export async function getCachedOralCategoryData(
 
     return getOralCategoryDataCache(
         category
+    )();
+
+}
+
+export async function getCachedOralMmdMetadata(
+    category: string,
+    mmd: string
+) {
+
+    return getOralMmdMetadataCache(
+        category,
+        mmd
     )();
 
 }

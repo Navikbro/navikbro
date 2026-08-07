@@ -13,7 +13,7 @@ import {
 } from "@/services/writtens/written.service";
 
 import {
-    getOralBatchQuestions,
+    getAllOralBatchQuestions,
     deleteOralBatchQuestion,
     updateOralBatchQuestion,
     getOralTopics,
@@ -101,7 +101,7 @@ export default function ManageWrittenQuestionsPage() {
 
 
                 const oral =
-                    await getOralBatchQuestions(category);
+                    await getAllOralBatchQuestions(category);
 
 
                 data = oral.map(q => ({
@@ -356,7 +356,7 @@ export default function ManageWrittenQuestionsPage() {
     async function refreshOralCache() {
         if (type !== "oral") return;
 
-        const res = await fetch("/api/revalidate/orals/batch", {
+        const res = await fetch("/api/revalidate/oral", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -420,8 +420,8 @@ export default function ManageWrittenQuestionsPage() {
                         onClick={handleRefreshCache}
                         disabled={!hasPendingChanges}
                         className={`rounded-xl px-5 py-2 font-medium text-white ${hasPendingChanges
-                                ? "bg-green-600 hover:bg-green-700"
-                                : "bg-gray-400 cursor-not-allowed"
+                            ? "bg-green-600 hover:bg-green-700"
+                            : "bg-gray-400 cursor-not-allowed"
                             }`}
                     >
                         {hasPendingChanges

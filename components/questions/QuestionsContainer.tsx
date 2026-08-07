@@ -58,6 +58,10 @@ export default function QuestionsContainer({
     setShowMmdPopup
   ] = useState(false);
 
+  const [questions, setQuestions] =
+    useState(initialQuestions);
+    
+
 
 
   /*
@@ -102,6 +106,44 @@ export default function QuestionsContainer({
 
   }
 
+  async function loadMmdQuestions(
+    selectedMmd: string
+  ) {
+
+    const res =
+      await fetch(
+        "/api/orals/questions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            category,
+            mmd: selectedMmd,
+          }),
+        }
+      );
+
+
+    if (!res.ok) {
+      console.error(
+        "Failed loading questions"
+      );
+      return;
+    }
+
+
+    const data =
+      await res.json();
+
+
+    setQuestions(
+      data.questions ?? []
+    );
+  }
+
 
 
   return (
@@ -118,6 +160,10 @@ export default function QuestionsContainer({
             onSave={async (selectedMmd) => {
 
               await setMmd(selectedMmd);
+
+              await loadMmdQuestions(
+                selectedMmd
+              );
 
               setShowMmdPopup(false);
 
@@ -137,7 +183,7 @@ export default function QuestionsContainer({
 
             category={category}
 
-            questions={initialQuestions}
+            questions={questions}
 
             filters={filters}
 
@@ -145,7 +191,15 @@ export default function QuestionsContainer({
 
             selectedMmd={mmd}
 
-            setSelectedMmd={setMmd}
+            setSelectedMmd={async (selectedMmd) => {
+
+              await setMmd(selectedMmd);
+
+              await loadMmdQuestions(
+                selectedMmd
+              );
+
+            }}
 
             totalQuestions={totalQuestions}
 

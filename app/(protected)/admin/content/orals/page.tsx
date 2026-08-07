@@ -170,6 +170,14 @@ export default function BulkUploadPage() {
                 ),
             ];
 
+            const mmds = [
+                ...new Set(
+                    rows.map(
+                        (r) => r.MMD.trim()
+                    )
+                ),
+            ];
+
             await Promise.all([
                 adminFetch("/api/revalidate/revalidate-home", {
                     method: "POST",
@@ -179,7 +187,10 @@ export default function BulkUploadPage() {
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify({ categories }),
+                    body: JSON.stringify({
+                        categories,
+                        mmds,
+                    }),
                 })
             ]);
 
