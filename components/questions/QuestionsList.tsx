@@ -433,7 +433,7 @@ export default function QuestionsList({
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
-                className="h-32 animate-pulse rounded-2xl border border-gray-200 bg-gray-100"
+                className="h-32 animate-pulse rounded-2xl border border-gray-200 bg-white"
               />
             ))}
           </div>
