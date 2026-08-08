@@ -405,7 +405,7 @@ export default function ManageWrittenQuestionsPage() {
             <div className="mx-auto max-w-5xl px-5 py-8">
 
 
-                <h1 className="text-4xl font-bold">
+                <h1 className="text-3xl font-bold">
                     MANAGE QUESTIONS ALL
                 </h1>
 
