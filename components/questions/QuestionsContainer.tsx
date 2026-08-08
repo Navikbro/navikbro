@@ -219,7 +219,9 @@ export default function QuestionsContainer({
           selectedMmd
         );
       }}
-      totalQuestions={totalQuestions}
+      totalQuestions={
+        mmdData[mmd]?.questionCount ?? 0
+      }
       questionsLoading={
         questionsLoading
       }

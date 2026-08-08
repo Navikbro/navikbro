@@ -206,6 +206,8 @@ export default function QuestionsList({
   const [selectedIndex, setSelectedIndex] =
     useState<number | null>(null);
 
+  const viewerHistoryRef = useRef(false);
+
   useEffect(() => {
     if (questionsLoading) {
       setSelectedIndex(null);
@@ -230,6 +232,21 @@ export default function QuestionsList({
     setSelectedClass("All");
     setShowBookmarksOnly(false);
   };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (viewerHistoryRef.current) {
+        viewerHistoryRef.current = false;
+        setSelectedIndex(null);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
 
   useEffect(() => {
@@ -497,7 +514,17 @@ export default function QuestionsList({
                     showTopic={showTopic}
                     isBookmarked={bookmarkSet.has(q.id)}
                     onBookmark={() => toggleBookmark(q.id)}
-                    onClick={() => setSelectedIndex(virtualRow.index)}
+                    onClick={() => {
+                      setSelectedIndex(virtualRow.index);
+
+                      window.history.pushState(
+                        { questionViewer: true },
+                        "",
+                        window.location.href
+                      );
+
+                      viewerHistoryRef.current = true;
+                    }}
                   />
                 </div>
               );
@@ -517,7 +544,14 @@ export default function QuestionsList({
             ? bookmarkSet.has(selectedQuestion.id)
             : false
         }
-        onClose={() => setSelectedIndex(null)}
+        onClose={() => {
+          if (viewerHistoryRef.current) {
+            viewerHistoryRef.current = false;
+            window.history.back();
+          } else {
+            setSelectedIndex(null);
+          }
+        }}
         onBookmark={() => {
           if (!selectedQuestion) return;
 
