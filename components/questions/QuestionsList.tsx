@@ -446,12 +446,36 @@ export default function QuestionsList({
       >
 
         {questionsLoading ? (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
-                className="h-32 animate-pulse rounded-2xl border border-gray-200 bg-white"
-              />
+                className="h-[124px] rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"
+              >
+                <div className="animate-pulse">
+
+                  {/* Question + Bookmark */}
+                  <div className="flex items-start justify-between gap-4">
+
+                    {/* Question text */}
+                    <div className="flex-1 space-y-2">
+                      <div className="h-5 w-4/5 rounded-md bg-gray-200" />
+                      <div className="h-5 w-2/5 rounded-md bg-gray-200" />
+                    </div>
+
+                    {/* Bookmark skeleton */}
+                    <div className="h-6 w-5 shrink-0 rounded bg-gray-200" />
+
+                  </div>
+
+                  {/* Metadata pills */}
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <div className="h-7 w-28 rounded-full bg-gray-200" />
+                    <div className="h-7 w-24 rounded-full bg-gray-200" />
+                  </div>
+
+                </div>
+              </div>
             ))}
           </div>
         ) : filteredQuestions.length === 0 ? (
