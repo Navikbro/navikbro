@@ -43,7 +43,7 @@ interface Props {
 
   setSelectedMmd: (
     value: string
-  ) => Promise<void>;
+  ) => void;
 
   totalQuestions: number;
   questionsLoading: boolean;
@@ -295,8 +295,8 @@ export default function QuestionsList({
       <div className="mt-4">
         <select
           value={activeMmd}
-          onChange={async (e) => {
-            await setSelectedMmd(e.target.value);
+          onChange={(e) => {
+            setSelectedMmd(e.target.value);
           }}
           className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
         >

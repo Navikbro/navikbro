@@ -40,11 +40,14 @@ export default function QuestionsContainer({
   totalQuestions,
   onInitialLoadComplete,
 }: Props) {
+
   const {
     mmd,
     loading,
     setMmd,
   } = useOralMmdPreference();
+
+  const [selectedMmd, setSelectedMmd] = useState("");
 
   const [questions, setQuestions] =
     useState<OralBatchQuestion[]>(initialQuestions);
@@ -55,9 +58,14 @@ export default function QuestionsContainer({
   const hasInitializedMmd =
     useRef(false);
 
+  const requestIdRef = useRef(0);
+
   async function loadMmdQuestions(
     selectedMmd: string
   ) {
+    const requestId =
+      ++requestIdRef.current;
+
     try {
       const res = await fetch(
         "/api/orals/questions",
@@ -86,10 +94,24 @@ export default function QuestionsContainer({
       const data =
         await res.json();
 
+      // Ignore stale request
+      if (
+        requestId !== requestIdRef.current
+      ) {
+        return;
+      }
+
       setQuestions(
         data.questions ?? []
       );
     } catch (error) {
+      // Ignore stale request errors
+      if (
+        requestId !== requestIdRef.current
+      ) {
+        return;
+      }
+
       console.error(
         "Failed loading MMD questions:",
         error
@@ -97,11 +119,15 @@ export default function QuestionsContainer({
 
       setQuestions([]);
     } finally {
-      setQuestionsLoading(false);
-      onInitialLoadComplete();
+      // Only the latest request controls loading state
+      if (
+        requestId === requestIdRef.current
+      ) {
+        setQuestionsLoading(false);
+        onInitialLoadComplete();
+      }
     }
   }
-
   /*
    * Load the user's remembered MMD
    * when the page opens.
@@ -110,10 +136,13 @@ export default function QuestionsContainer({
     if (loading) return;
 
     if (!mmd) {
+      setSelectedMmd("");
       setQuestions([]);
       onInitialLoadComplete();
       return;
     }
+
+    setSelectedMmd((current) => current || mmd);
 
     if (hasInitializedMmd.current) {
       return;
@@ -121,31 +150,20 @@ export default function QuestionsContainer({
 
     hasInitializedMmd.current = true;
 
-    /*
-     * If the server already supplied questions
-     * for this exact MMD, use them.
-     *
-     * Otherwise fetch the remembered MMD.
-     */
     if (
       initialQuestions.length > 0 &&
       initialQuestions.some(
-        (question) =>
-          question.mmd === mmd
+        (question) => question.mmd === mmd
       )
     ) {
-      setQuestions(
-        initialQuestions
-      );
-
+      setQuestions(initialQuestions);
       onInitialLoadComplete();
-
       return;
     }
 
     setQuestionsLoading(true);
 
-    loadMmdQuestions(mmd);
+    void loadMmdQuestions(mmd);
   }, [
     loading,
     mmd,
@@ -189,38 +207,25 @@ export default function QuestionsContainer({
       questions={questions}
       filters={filters}
       mmdData={mmdData}
-      selectedMmd={mmd}
-      setSelectedMmd={async (
-        selectedMmd
-      ) => {
-        /*
-         * Show skeleton immediately.
-         */
-        setQuestionsLoading(true);
+      selectedMmd={selectedMmd}
+      setSelectedMmd={(nextMmd) => {
+        // 1. Update UI immediately
+        setSelectedMmd(nextMmd);
 
-        /*
-         * Clear old questions immediately
-         * so the previous MMD does not remain
-         * visible while fetching.
-         */
+        // 2. Remove old questions immediately
         setQuestions([]);
 
-        /*
-         * Save the user's MMD preference.
-         */
-        await setMmd(
-          selectedMmd
-        );
+        // 3. Show skeleton immediately
+        setQuestionsLoading(true);
 
-        /*
-         * Fetch/cache the newly selected MMD.
-         */
-        await loadMmdQuestions(
-          selectedMmd
-        );
+        // 4. Persist preference in background
+        void setMmd(nextMmd);
+
+        // 5. Fetch questions in background
+        void loadMmdQuestions(nextMmd);
       }}
       totalQuestions={
-        mmdData[mmd]?.questionCount ?? 0
+        mmdData[selectedMmd]?.questionCount ?? 0
       }
       questionsLoading={
         questionsLoading
