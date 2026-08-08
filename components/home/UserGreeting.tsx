@@ -12,11 +12,11 @@ export default function UserGreeting() {
 
   return (
     <>
-      <h2 className="text-2xl font-bold">
+      <h2 className="text-xl font-bold">
         Hi, {name} 👋
       </h2>
 
-      <p className="text-gray-500">
+      <p className="text-[15px] text-gray-500">
         Welcome Back
       </p>
     </>

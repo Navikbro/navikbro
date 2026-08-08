@@ -5,9 +5,7 @@ import QuestionsContainer from "@/components/questions/QuestionsContainer";
 import Link from "next/link";
 import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
 import { ArrowLeft, Sailboat } from "lucide-react";
-import InsightSwitcher from "@/components/home/InsightSwitcher";
 import {
-  getCachedOralQuestions,
   getCachedOralCategoryData,
 } from "@/lib/cache/oral-cache";
 
@@ -31,20 +29,6 @@ export default async function OralCategoryPage({
     );
 
   const filters = categoryData.filters;
-
-  const defaultMmd =
-    filters.mmds.length > 0
-      ? filters.mmds[0]
-      : "";
-
-
-  const questions =
-    defaultMmd
-      ? await getCachedOralQuestions(
-        normalizedCategory,
-        defaultMmd
-      )
-      : [];
 
   const meta = {
     batchCount: categoryData.batchCount,
@@ -101,21 +85,21 @@ export default async function OralCategoryPage({
         <div className="mx-auto max-w-5xl px-5 py-8">
 
           {/* HEADER */}
-          <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-6 rounded-3xl border border-gray-200 bg-white px-5 py-5 shadow-sm">
 
             {/* Top Row */}
             <div className="flex items-center justify-between">
 
               <Link
                 href="/"
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
               >
-                <ArrowLeft size={20} />
+                <ArrowLeft size={19} />
               </Link>
 
-              <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+              <div className="flex h-10 w-10 items-center justify-center rotate-[-8deg]">
                 <Sailboat
-                  size={30}
+                  size={28}
                   strokeWidth={2}
                   className="text-black"
                 />
@@ -123,58 +107,58 @@ export default async function OralCategoryPage({
 
             </div>
 
+
             {/* Greeting */}
-            <div className="mt-7">
+            <div className="mt-5">
               <UserGreeting />
             </div>
 
-            {/* Quote */}
-            <div className="mt-6 border-l-4 border-black pl-4">
 
-              <p className="text-sm italic leading-6 text-gray-600">
+            {/* Quote */}
+            <div className="mt-4 border-l-4 border-black pl-3">
+
+              <p className="text-xs italic leading-5 text-gray-600">
                 {page.quote}
               </p>
 
             </div>
 
-            {/* Badge */}
-            <div className="mt-6">
+
+            {/* Category */}
+            <div className="mt-4 flex items-center gap-2">
 
               <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
                 {page.title}
               </span>
 
-            </div>
-
-            {/* Category */}
-            <div className="mt-5">
-
-              <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
+              <h1 className="text-lg font-bold tracking-tight">
                 {page.subtitle}
               </h1>
 
             </div>
 
-            {/* Stats */}
-            <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
-              <span>{meta.questionCount} Questions</span>
+
+            {/* Stats — Bottom */}
+            <div className="mt-4 flex items-center gap-3 text-xs font-medium text-gray-600">
+
+              <span>
+                {meta.questionCount} Questions
+              </span>
 
               <span>•</span>
 
-              <span>{meta.topicCount} Topics</span>
+              <span>
+                {meta.topicCount} Topics
+              </span>
+
             </div>
 
           </div>
 
-          <InsightSwitcher
-            category={normalizedCategory}
-            current="questions"
-          />
-
           {/* Questions */}
           <QuestionsContainer
             category={normalizedCategory}
-            initialQuestions={questions}
+            initialQuestions={[]}
             filters={filters}
             mmdData={categoryData.mmdData}
 

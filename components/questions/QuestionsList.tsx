@@ -46,6 +46,7 @@ interface Props {
   ) => Promise<void>;
 
   totalQuestions: number;
+  questionsLoading: boolean;
 }
 
 export default function QuestionsList({
@@ -56,6 +57,7 @@ export default function QuestionsList({
   selectedMmd,
   setSelectedMmd,
   totalQuestions,
+  questionsLoading,
 }: Props) {
 
   const [search, setSearch] = useState("");
@@ -204,6 +206,12 @@ export default function QuestionsList({
   const [selectedIndex, setSelectedIndex] =
     useState<number | null>(null);
 
+  useEffect(() => {
+    if (questionsLoading) {
+      setSelectedIndex(null);
+    }
+  }, [questionsLoading]);
+
   const parentRef =
     useRef<HTMLDivElement>(null);
 
@@ -212,6 +220,7 @@ export default function QuestionsList({
     getScrollElement: () => parentRef.current,
     estimateSize: () => 148,
     overscan: 12,
+    useFlushSync: false,
   });
 
   const clearFilters = () => {
@@ -252,10 +261,6 @@ export default function QuestionsList({
     return filteredQuestions[selectedIndex] ?? null;
   }, [selectedIndex, filteredQuestions]);
 
-  useEffect(() => {
-    rowVirtualizer.measure();
-  }, [filteredQuestions, rowVirtualizer]);
-
   return (
     <>
       {/* SEARCH */}
@@ -267,6 +272,23 @@ export default function QuestionsList({
           onChange={(e) => setSearch(e.target.value)}
           className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
         />
+      </div>
+
+      {/* MMD SELECTOR */}
+      <div className="mt-4">
+        <select
+          value={activeMmd}
+          onChange={async (e) => {
+            await setSelectedMmd(e.target.value);
+          }}
+          className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+        >
+          {mmds.map((mmd) => (
+            <option key={mmd} value={mmd}>
+              {mmd}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* FILTER BUTTON */}
@@ -307,7 +329,7 @@ export default function QuestionsList({
         showFilters && (
           <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
 
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3">
 
               <select
                 value={selectedClass}
@@ -319,18 +341,6 @@ export default function QuestionsList({
                 {classes.map((questionClass) => (
                   <option key={questionClass} value={questionClass}>
                     {questionClass}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={activeMmd}
-                onChange={(e) => setSelectedMmd(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                {mmds.map((mmd) => (
-                  <option key={mmd} value={mmd}>
-                    {mmd}
                   </option>
                 ))}
               </select>
@@ -418,7 +428,16 @@ export default function QuestionsList({
         }}
       >
 
-        {filteredQuestions.length === 0 ? (
+        {questionsLoading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-32 animate-pulse rounded-2xl border border-gray-200 bg-gray-100"
+              />
+            ))}
+          </div>
+        ) : filteredQuestions.length === 0 ? (
 
           <div className="rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
 

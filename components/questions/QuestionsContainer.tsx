@@ -1,215 +1,222 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import QuestionsList from "@/components/questions/QuestionsList";
-import MmdPreferenceModal from "@/components/questions/MmdPreferenceModal";
 
-import { useOralMmdPreference }
-  from "@/hooks/useOralMmdPreference";
+import { useOralMmdPreference } from "@/hooks/useOralMmdPreference";
 
 import type {
-  OralBatchQuestion,
-  OralFilters,
+    OralBatchQuestion,
+    OralFilters,
 } from "@/services/orals/oralBatch.service";
 
-
 interface Props {
-  category: string;
+    category: string;
 
-  initialQuestions: OralBatchQuestion[];
+    initialQuestions: OralBatchQuestion[];
 
-  filters: OralFilters;
+    filters: OralFilters;
 
-  mmdData: Record<
-    string,
-    {
-      questionCount: number;
-      batchCount: number;
-      topics: string[];
-      surveyors: string[];
-    }
-  >;
+    mmdData: Record<
+        string,
+        {
+            questionCount: number;
+            batchCount: number;
+            topics: string[];
+            surveyors: string[];
+        }
+    >;
 
-  totalQuestions: number;
+    totalQuestions: number;
 }
 
-
-
 export default function QuestionsContainer({
-  category,
-  initialQuestions,
-  filters,
-  mmdData,
-  totalQuestions,
+    category,
+    initialQuestions,
+    filters,
+    mmdData,
+    totalQuestions,
 }: Props) {
+    const {
+        mmd,
+        loading,
+        setMmd,
+    } = useOralMmdPreference();
 
+    const [questions, setQuestions] =
+        useState<OralBatchQuestion[]>(initialQuestions);
 
-  const {
-    mmd,
-    loading,
-    setMmd,
-  } = useOralMmdPreference();
+    const [questionsLoading, setQuestionsLoading] =
+        useState(false);
 
+    const hasInitializedMmd =
+        useRef(false);
 
+    async function loadMmdQuestions(
+        selectedMmd: string
+    ) {
+        try {
+            const res = await fetch(
+                "/api/orals/questions",
+                {
+                    method: "POST",
 
-  const [
-    showMmdPopup,
-    setShowMmdPopup
-  ] = useState(false);
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
 
-  const [questions, setQuestions] =
-    useState(initialQuestions);
-    
+                    body: JSON.stringify({
+                        category,
+                        mmd: selectedMmd,
+                    }),
 
+                    cache: "no-store",
+                }
+            );
 
+            if (!res.ok) {
+                throw new Error(
+                    "Failed to load questions"
+                );
+            }
 
-  /*
-    Check user preference
-    First time user -> open popup
-    Existing user -> continue
-  */
+            const data =
+                await res.json();
 
-  useEffect(() => {
+            setQuestions(
+                data.questions ?? []
+            );
+        } catch (error) {
+            console.error(
+                "Failed loading MMD questions:",
+                error
+            );
 
-    if (!loading && !mmd) {
-
-      setShowMmdPopup(true);
-
+            setQuestions([]);
+        } finally {
+            setQuestionsLoading(false);
+        }
     }
 
-  }, [
-    loading,
-    mmd
-  ]);
+    /*
+     * Load the user's remembered MMD
+     * when the page opens.
+     */
+    useEffect(() => {
+        if (loading) return;
 
+        if (!mmd) {
+            setQuestions([]);
+            return;
+        }
 
+        if (hasInitializedMmd.current) {
+            return;
+        }
 
-  /*
-    Prevent page rendering
-    until preference loads
-  */
+        hasInitializedMmd.current = true;
 
-  if (loading) {
+        /*
+         * If the server already supplied questions
+         * for this exact MMD, use them.
+         *
+         * Otherwise fetch the remembered MMD.
+         */
+        if (
+            initialQuestions.length > 0 &&
+            initialQuestions.some(
+                (question) =>
+                    question.mmd === mmd
+            )
+        ) {
+            setQuestions(
+                initialQuestions
+            );
+
+            return;
+        }
+
+        setQuestionsLoading(true);
+
+        loadMmdQuestions(mmd);
+    }, [
+        loading,
+        mmd,
+        category,
+        initialQuestions,
+    ]);
+
+    /*
+     * IMPORTANT:
+     * All hooks are above this return.
+     * This prevents the React hook-order error.
+     */
+    if (loading) {
+        return (
+            <div className="space-y-4">
+                {Array.from({ length: 8 }).map(
+                    (_, index) => (
+                        <div
+                            key={index}
+                            className="h-32 animate-pulse rounded-2xl border border-gray-200 bg-gray-100"
+                        />
+                    )
+                )}
+            </div>
+        );
+    }
+
+    if (!mmd) {
+        return (
+            <div className="rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+                <p className="text-sm text-gray-500">
+                    No MMD selected.
+                </p>
+            </div>
+        );
+    }
 
     return (
-
-      <div className="flex min-h-[300px] items-center justify-center">
-
-        <p className="text-sm text-gray-500">
-          Loading questions...
-        </p>
-
-      </div>
-
-    );
-
-  }
-
-  async function loadMmdQuestions(
-    selectedMmd: string
-  ) {
-
-    const res =
-      await fetch(
-        "/api/orals/questions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            category,
-            mmd: selectedMmd,
-          }),
-        }
-      );
-
-
-    if (!res.ok) {
-      console.error(
-        "Failed loading questions"
-      );
-      return;
-    }
-
-
-    const data =
-      await res.json();
-
-
-    setQuestions(
-      data.questions ?? []
-    );
-  }
-
-
-
-  return (
-
-    <>
-
-      {
-        showMmdPopup && (
-
-          <MmdPreferenceModal
-
-            mmds={filters.mmds}
-
-            onSave={async (selectedMmd) => {
-
-              await setMmd(selectedMmd);
-
-              await loadMmdQuestions(
-                selectedMmd
-              );
-
-              setShowMmdPopup(false);
-
-            }}
-
-          />
-
-        )
-
-      }
-
-
-      {
-        mmd && (
-
-          <QuestionsList
-
+        <QuestionsList
             category={category}
-
             questions={questions}
-
             filters={filters}
-
             mmdData={mmdData}
-
             selectedMmd={mmd}
-
-            setSelectedMmd={async (selectedMmd) => {
-
-              await setMmd(selectedMmd);
-
-              await loadMmdQuestions(
+            setSelectedMmd={async (
                 selectedMmd
-              );
+            ) => {
+                /*
+                 * Show skeleton immediately.
+                 */
+                setQuestionsLoading(true);
 
+                /*
+                 * Clear old questions immediately
+                 * so the previous MMD does not remain
+                 * visible while fetching.
+                 */
+                setQuestions([]);
+
+                /*
+                 * Save the user's MMD preference.
+                 */
+                await setMmd(
+                    selectedMmd
+                );
+
+                /*
+                 * Fetch/cache the newly selected MMD.
+                 */
+                await loadMmdQuestions(
+                    selectedMmd
+                );
             }}
-
             totalQuestions={totalQuestions}
-
-          />
-
-        )
-      }
-
-
-    </>
-
-  );
+            questionsLoading={
+                questionsLoading
+            }
+        />
+    );
 }

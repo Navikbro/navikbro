@@ -173,7 +173,7 @@ export default function BulkUploadPage() {
             const mmds = [
                 ...new Set(
                     rows.map(
-                        (r) => r.MMD.trim()
+                        (r) => r.MMD.trim().toLowerCase()
                     )
                 ),
             ];

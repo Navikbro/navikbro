@@ -1,42 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-    getOralBatchQuestions,
-} from "@/services/orals/oralBatch.service";
-
+    getCachedOralQuestions,
+} from "@/lib/cache/oral-cache";
 
 export async function POST(
     req: NextRequest
 ) {
 
-    const {
-        category,
-        mmd,
-    } = await req.json();
+    try {
+
+        const {
+            category,
+            mmd,
+        } = await req.json();
 
 
-    if (!category || !mmd) {
+        if (!category || !mmd) {
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Category and MMD required",
+                },
+                {
+                    status: 400,
+                }
+            );
+
+        }
+
+
+        const questions =
+            await getCachedOralQuestions(
+                category,
+                mmd
+            );
+
+
+        return NextResponse.json({
+            questions,
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Failed to load oral questions:",
+            error
+        );
+
+
         return NextResponse.json(
             {
                 error:
-                "Category and MMD required"
+                    "Failed to load questions",
             },
             {
-                status:400
+                status: 500,
             }
         );
+
     }
-
-
-    const questions =
-        await getOralBatchQuestions(
-            category,
-            mmd
-        );
-
-
-    return NextResponse.json({
-        questions,
-    });
 
 }
