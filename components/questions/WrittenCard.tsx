@@ -81,9 +81,9 @@ function parseAnswer(
 
   let currentSection:
     | {
-        title: string;
-        content: string[];
-      }
+      title: string;
+      content: string[];
+    }
     | null = null;
 
   for (const line of lines) {
@@ -301,7 +301,7 @@ export default function WrittenCard({
     if (
       Math.abs(
         container.scrollTop -
-          scrollPosition
+        scrollPosition
       ) <= 2
     ) {
       isProgrammaticScroll.current =
@@ -397,7 +397,7 @@ export default function WrittenCard({
           const distance =
             Math.abs(
               container.scrollTop -
-                target
+              target
             );
 
           /*
@@ -726,9 +726,9 @@ export default function WrittenCard({
           className="
             whitespace-pre-wrap
             break-words
-            text-base
+            text-[15px]
             font-medium
-            leading-7
+            leading-6
             text-gray-900
             sm:text-lg
             sm:leading-8
@@ -799,14 +799,13 @@ export default function WrittenCard({
                             rounded-xl
                             px-3
                             py-2
-                            text-xs
+                            text-[11px]
                             font-semibold
                             transition
                             sm:text-sm
-                            ${
-                              isActive
-                                ? "bg-black text-white"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            ${isActive
+                              ? "bg-black text-white"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                             }
                           `}
                         >
@@ -886,10 +885,12 @@ export default function WrittenCard({
 
                         <h3
                           className="
-                            text-base
-                            font-bold
-                            text-gray-900
-                            sm:text-lg
+                           text-[15px]
+                           font-bold
+                           leading-6
+                          text-gray-900
+                           sm:text-lg
+                           sm:leading-7
                           "
                         >
                           {
@@ -903,12 +904,11 @@ export default function WrittenCard({
                         className={`
                           rounded-2xl
                           border
-                          p-4
+                          p-3.5
                           sm:p-5
-                          ${
-                            index === 0
-                              ? "border-green-200 bg-green-50"
-                              : "border-gray-200 bg-gray-50"
+                          ${index === 0
+                            ? "border-green-200 bg-green-50"
+                            : "border-gray-200 bg-gray-50"
                           }
                         `}
                       >
