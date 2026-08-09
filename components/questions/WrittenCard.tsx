@@ -724,15 +724,15 @@ export default function WrittenCard({
 
         <h2
           className="
-            whitespace-pre-wrap
-            break-words
-            text-[15px]
-            font-medium
-            leading-6
+             whitespace-pre-wrap
+             break-words
+             text-base
+             sm:text-lg
+             md:text-xl
+             font-medium
+             leading-7
+             sm:leading-8
             text-gray-900
-            sm:text-lg
-            sm:leading-8
-            md:text-xl
           "
         >
           {question.question}
@@ -885,12 +885,25 @@ export default function WrittenCard({
 
                         <h3
                           className="
-                           text-[15px]
-                           font-bold
-                           leading-6
-                          text-gray-900
-                           sm:text-lg
-                           sm:leading-7
+                            mt-6
+    flex
+    shrink-0
+    w-full
+    sm:w-auto
+    sm:ml-auto
+    items-center
+    justify-center
+    gap-2
+    rounded-xl
+    bg-black
+    px-5
+    py-3
+    text-sm
+    sm:text-base
+    font-semibold
+    text-white
+    transition
+    hover:bg-gray-800
                           "
                         >
                           {
