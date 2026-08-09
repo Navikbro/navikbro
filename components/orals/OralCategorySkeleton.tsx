@@ -47,17 +47,26 @@ export default function OralCategorySkeleton() {
 
 
             {/* SEARCH */}
-            <div className="h-12 rounded-xl bg-gray-200" />
+            <div className="h-12 rounded-xl bg-white shadow-sm animate-pulse" />
 
             {/* LOCATION */}
-            <div className="mt-4 h-12 animate-pulse rounded-xl bg-gray-200" />
+            <div className="mt-4 h-12 animate-pulse rounded-xl bg-white shadow-sm " />
 
             {/* FILTERS + BOOKMARK */}
             <div className="mt-4 grid grid-cols-2 gap-3">
 
-                <div className="h-12 rounded-xl bg-gray-200" />
+                <div className="h-12 rounded-xl bg-white shadow-sm animate-pulse" />
 
-                <div className="h-12 rounded-xl bg-gray-200" />
+                <div className="h-12 rounded-xl bg-white shadow-sm animate-pulse" />
+
+            </div>
+
+            {/* QUESTIONS HEADER */}
+            <div className="mt-8 mb-6 flex items-center justify-between">
+
+                <div className="h-6 w-28 rounded bg-gray-200 animate-pulse" />
+
+                <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
 
             </div>
 
