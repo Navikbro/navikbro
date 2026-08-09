@@ -726,11 +726,12 @@ export default function WrittenCard({
           className="
     whitespace-pre-wrap
     break-words
-    text-[13px]
-    leading-5
-    sm:text-lg
-    sm:leading-8
-    md:text-xl
+    text-[10.4px]
+    leading-[16px]
+    sm:text-[14.4px]
+    sm:leading-[25.6px]
+    md:text-[16px]
+    md:leading-[25.6px]
     font-medium
     text-gray-900
   "
