@@ -69,7 +69,7 @@ export default function OralCategorySkeleton() {
             ===================================================== */}
             <div className="mt-8">
 
-                <div className="h-[46px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
+                <div className="h-[38px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
 
             </div>
 
@@ -79,7 +79,7 @@ export default function OralCategorySkeleton() {
             ===================================================== */}
             <div className="mt-4">
 
-                <div className="h-[46px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
+                <div className="h-[38px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
 
             </div>
 
