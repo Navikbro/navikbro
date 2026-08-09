@@ -33,7 +33,7 @@ interface Props {
 }
 
 /* =========================================================
-   ANSWER SECTION TYPE
+ANSWER SECTION TYPE
 ========================================================= */
 
 interface AnswerSection {
@@ -45,7 +45,7 @@ interface AnswerSection {
 }
 
 /* =========================================================
-   CREATE SECTION ID
+CREATE SECTION ID
 ========================================================= */
 
 function createSectionId(
@@ -62,7 +62,7 @@ function createSectionId(
 }
 
 /* =========================================================
-   PARSE BACKEND ANSWER
+PARSE BACKEND ANSWER
 ========================================================= */
 
 function parseAnswer(
@@ -81,9 +81,9 @@ function parseAnswer(
 
   let currentSection:
     | {
-      title: string;
-      content: string[];
-    }
+        title: string;
+        content: string[];
+      }
     | null = null;
 
   for (const line of lines) {
@@ -176,7 +176,7 @@ function parseAnswer(
 }
 
 /* =========================================================
-   COMPONENT
+COMPONENT
 ========================================================= */
 
 export default function WrittenCard({
@@ -205,8 +205,22 @@ export default function WrittenCard({
       null
     );
 
+  /*
+   * Used to prevent the normal scroll detector
+   * from overriding the section selected by a click.
+   */
+  const isProgrammaticScroll =
+    useRef(false);
+
+  /*
+   * Stores the scroll position that the
+   * clicked section is moving toward.
+   */
+  const programmaticTarget =
+    useRef<number | null>(null);
+
   /* =======================================================
-     PARSE ANSWER
+  PARSE ANSWER
   ======================================================= */
 
   const sections = useMemo(
@@ -218,12 +232,18 @@ export default function WrittenCard({
   );
 
   /* =======================================================
-     RESET WHEN QUESTION CHANGES
+  RESET WHEN QUESTION CHANGES
   ======================================================= */
 
   useEffect(() => {
     setShowAnswer(false);
     setActiveSection(null);
+
+    isProgrammaticScroll.current =
+      false;
+
+    programmaticTarget.current =
+      null;
 
     if (
       answerScrollRef.current
@@ -233,7 +253,7 @@ export default function WrittenCard({
   }, [question.id]);
 
   /* =======================================================
-     SCROLL TO ANSWER SECTION
+  SCROLL TO ANSWER SECTION
   ======================================================= */
 
   const scrollToSection = (
@@ -255,6 +275,12 @@ export default function WrittenCard({
       return;
     }
 
+    /*
+     * IMPORTANT:
+     * Change the active tab immediately.
+     */
+    setActiveSection(sectionId);
+
     const containerTop =
       container.getBoundingClientRect()
         .top;
@@ -265,22 +291,46 @@ export default function WrittenCard({
 
     const scrollPosition =
       container.scrollTop +
-      (elementTop -
-        containerTop) -
+      (elementTop - containerTop) -
       12;
+
+    /*
+     * If we're already at the target,
+     * there is no smooth scroll to wait for.
+     */
+    if (
+      Math.abs(
+        container.scrollTop -
+          scrollPosition
+      ) <= 2
+    ) {
+      isProgrammaticScroll.current =
+        false;
+
+      programmaticTarget.current =
+        null;
+
+      return;
+    }
+
+    /*
+     * Lock normal active-section detection
+     * while smooth scrolling is happening.
+     */
+    isProgrammaticScroll.current =
+      true;
+
+    programmaticTarget.current =
+      scrollPosition;
 
     container.scrollTo({
       top: scrollPosition,
       behavior: "smooth",
     });
-
-    setActiveSection(
-      sectionId
-    );
   };
 
   /* =======================================================
-     SHOW ANSWER
+  SHOW ANSWER
   ======================================================= */
 
   const handleShowAnswer = () => {
@@ -293,6 +343,13 @@ export default function WrittenCard({
 
     if (!nextState) {
       setActiveSection(null);
+
+      isProgrammaticScroll.current =
+        false;
+
+      programmaticTarget.current =
+        null;
+
       return;
     }
 
@@ -306,7 +363,7 @@ export default function WrittenCard({
   };
 
   /* =======================================================
-     DETECT ACTIVE SECTION
+  DETECT ACTIVE SECTION
   ======================================================= */
 
   useEffect(() => {
@@ -325,6 +382,45 @@ export default function WrittenCard({
     }
 
     const handleScroll = () => {
+      /*
+       * If the user clicked a tab and smooth
+       * scrolling is still happening, do NOT
+       * change the active tab.
+       */
+      if (
+        isProgrammaticScroll.current
+      ) {
+        const target =
+          programmaticTarget.current;
+
+        if (target !== null) {
+          const distance =
+            Math.abs(
+              container.scrollTop -
+                target
+            );
+
+          /*
+           * Smooth scroll reached the target.
+           * Normal scroll detection can resume.
+           */
+          if (distance <= 2) {
+            isProgrammaticScroll.current =
+              false;
+
+            programmaticTarget.current =
+              null;
+          } else {
+            /*
+             * Keep the clicked tab active.
+             */
+            return;
+          }
+        } else {
+          return;
+        }
+      }
+
       const containerTop =
         container.getBoundingClientRect()
           .top;
@@ -366,6 +462,9 @@ export default function WrittenCard({
       }
     );
 
+    /*
+     * Detect the initial position.
+     */
     handleScroll();
 
     return () => {
@@ -380,7 +479,7 @@ export default function WrittenCard({
   ]);
 
   /* =======================================================
-     RENDER
+  RENDER
   ======================================================= */
 
   return (
@@ -417,32 +516,31 @@ export default function WrittenCard({
         disabled={!canGoPrevious}
         aria-label="Previous question"
         className="
-    absolute
-    left-0
-    top-1/2
-    z-30
-    -translate-x-[35%]
-    -translate-y-1/2
-    rounded-full
-    p-1
-    text-gray-500
-    transition-all
-    duration-150
-    hover:bg-gray-100
-    hover:text-black
-    active:scale-90
-    disabled:pointer-events-none
-    disabled:opacity-20
+          absolute
+          left-0
+          top-1/2
+          z-30
+          -translate-x-[35%]
+          -translate-y-1/2
+          rounded-full
+          p-1
+          text-gray-500
+          transition-all
+          duration-150
+          hover:bg-gray-100
+          hover:text-black
+          active:scale-90
+          disabled:pointer-events-none
+          disabled:opacity-20
 
-    sm:left-1
-    sm:translate-x-0
+          sm:left-1
+          sm:translate-x-0
 
-    md:left-2
-  "
+          md:left-2
+        "
       >
         <ChevronLeft
-          size={28}
-          strokeWidth={2}
+          size={20}
         />
       </button>
 
@@ -457,32 +555,31 @@ export default function WrittenCard({
         disabled={!canGoNext}
         aria-label="Next question"
         className="
-    absolute
-    right-0
-    top-1/2
-    z-30
-    translate-x-[35%]
-    -translate-y-1/2
-    rounded-full
-    p-1
-    text-gray-500
-    transition-all
-    duration-150
-    hover:bg-gray-100
-    hover:text-black
-    active:scale-90
-    disabled:pointer-events-none
-    disabled:opacity-20
+          absolute
+          right-0
+          top-1/2
+          z-30
+          translate-x-[35%]
+          -translate-y-1/2
+          rounded-full
+          p-1
+          text-gray-500
+          transition-all
+          duration-150
+          hover:bg-gray-100
+          hover:text-black
+          active:scale-90
+          disabled:pointer-events-none
+          disabled:opacity-20
 
-    sm:right-1
-    sm:translate-x-0
+          sm:right-1
+          sm:translate-x-0
 
-    md:right-2
-  "
+          md:right-2
+        "
       >
         <ChevronRight
-          size={28}
-          strokeWidth={2}
+          size={20}
         />
       </button>
 
@@ -706,9 +803,10 @@ export default function WrittenCard({
                             font-semibold
                             transition
                             sm:text-sm
-                            ${isActive
-                              ? "bg-black text-white"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            ${
+                              isActive
+                                ? "bg-black text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                             }
                           `}
                         >
@@ -807,10 +905,10 @@ export default function WrittenCard({
                           border
                           p-4
                           sm:p-5
-                          ${index ===
-                            0
-                            ? "border-green-200 bg-green-50"
-                            : "border-gray-200 bg-gray-50"
+                          ${
+                            index === 0
+                              ? "border-green-200 bg-green-50"
+                              : "border-gray-200 bg-gray-50"
                           }
                         `}
                       >
