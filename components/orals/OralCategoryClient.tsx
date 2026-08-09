@@ -6,7 +6,6 @@ import Link from "next/link";
 import UserGreeting from "@/components/home/UserGreeting";
 import QuestionsContainer from "@/components/questions/QuestionsContainer";
 import OralCategorySkeleton from "@/components/orals/OralCategorySkeleton";
-
 import { ArrowLeft, Sailboat } from "lucide-react";
 
 import type {
