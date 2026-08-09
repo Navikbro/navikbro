@@ -51,11 +51,11 @@ export default function AuthModal({
         <>
           {/* Background */}
           <motion.div
-            className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-black/45"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.12 }}
             onClick={() => setShow(false)}
           />
 
@@ -63,21 +63,18 @@ export default function AuthModal({
           <motion.div
             initial={{
               opacity: 0,
-              y: 80,
-              scale: 0.96,
+              y: 60,
             }}
             animate={{
               opacity: 1,
               y: 0,
-              scale: 1,
             }}
             exit={{
               opacity: 0,
-              y: 50,
-              scale: 0.97,
+              y: 30,
             }}
             transition={{
-              duration: 0.22,
+              duration: 0.18,
               ease: [0.22, 1, 0.36, 1],
             }}
             onClick={(e) => e.stopPropagation()}
@@ -86,14 +83,14 @@ export default function AuthModal({
               left-1/2
               top-1/2
               z-50
-              w-[calc(100%-32px)]
-              max-w-md
+              w-[calc(100%-40px)]
+              max-w-sm
               -translate-x-1/2
               -translate-y-1/2
-              rounded-[28px]
+              rounded-[24px]
               bg-white
               px-6
-              py-7
+              py-6
               shadow-2xl
               transform-gpu
               will-change-transform
@@ -101,19 +98,20 @@ export default function AuthModal({
           >
             {/* Header */}
             <div className="flex flex-col items-center">
-              <p className="mb-6 text-center text-sm text-gray-500">
+
+              <p className="mb-5 text-center text-sm text-gray-500">
                 Sign in to continue with...
               </p>
 
               <div className="flex items-center justify-center gap-2">
                 <Sailboat
-                  size={25}
+                  size={24}
                   strokeWidth={2.2}
                   className="rotate-[-8deg]"
                 />
 
                 <div className="flex items-start">
-                  <h2 className="text-2xl font-bold tracking-[-0.04em] leading-none text-black">
+                  <h2 className="text-2xl font-bold leading-none tracking-[-0.04em] text-black">
                     NAVIK
                   </h2>
 
@@ -132,6 +130,7 @@ export default function AuthModal({
                   </span>
                 </div>
               </div>
+
             </div>
 
             {/* Google Button */}
@@ -139,7 +138,7 @@ export default function AuthModal({
               onClick={handleGoogleLogin}
               disabled={loading}
               className="
-                mt-8
+                mt-6
                 flex
                 w-full
                 items-center
@@ -150,12 +149,12 @@ export default function AuthModal({
                 border-gray-300
                 bg-white
                 px-5
-                py-4
-                text-base
+                py-3.5
+                text-sm
                 font-medium
-                transition-all
+                transition-colors
                 hover:bg-gray-50
-                active:scale-[0.98]
+                active:bg-gray-100
                 disabled:cursor-not-allowed
                 disabled:opacity-60
               "
@@ -166,7 +165,9 @@ export default function AuthModal({
                 className="h-5 w-5"
               />
 
-              {loading ? "Signing in..." : "Continue with Google"}
+              {loading
+                ? "Signing in..."
+                : "Continue with Google"}
             </button>
           </motion.div>
         </>

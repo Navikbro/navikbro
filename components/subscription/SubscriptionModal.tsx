@@ -1,4 +1,3 @@
-
 "use client";
 
 import { motion } from "framer-motion";
@@ -22,28 +21,32 @@ export default function SubscriptionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+
       {/* Background */}
       <motion.div
-        className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/45"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.12 }}
       />
 
       {/* Modal */}
       <motion.div
         initial={{
           opacity: 0,
-          y: 70,
-          scale: 0.96,
+          y: 50,
         }}
         animate={{
           opacity: 1,
           y: 0,
-          scale: 1,
+        }}
+        exit={{
+          opacity: 0,
+          y: 25,
         }}
         transition={{
-          duration: 0.22,
+          duration: 0.18,
           ease: [0.22, 1, 0.36, 1],
         }}
         className="
@@ -55,7 +58,8 @@ export default function SubscriptionModal({
           bg-white
           px-6
           py-6
-          shadow-2xl
+          shadow-xl
+          transform-gpu
         "
       >
         {/* Logo */}
@@ -87,7 +91,7 @@ export default function SubscriptionModal({
           </div>
         </div>
 
-        {/* Trial */}
+        {/* TRIAL */}
         {isTrial ? (
           <>
             <div className="mt-6 text-center">
@@ -112,9 +116,9 @@ export default function SubscriptionModal({
                 text-sm
                 font-semibold
                 text-white
-                transition-all
+                transition-colors
                 hover:bg-gray-900
-                active:scale-[0.98]
+                active:bg-gray-800
               "
             >
               Continue
@@ -122,18 +126,19 @@ export default function SubscriptionModal({
           </>
         ) : (
           <>
-            {/* Expired */}
+            {/* EXPIRED */}
             <div className="mt-6 text-center">
               <h3 className="text-lg font-semibold tracking-tight text-black">
                 Continue your preparation
               </h3>
 
               <p className="mt-2 px-1 text-sm leading-5 text-gray-500">
-                Your trial has ended. Continue your preparation for a price of Burger that too for a month...
+                Your trial has ended. Continue your preparation
+                for just ₹149 a month — less than a burger.
               </p>
             </div>
 
-            {/* Price */}
+            {/* PRICE */}
             <div className="mt-5 flex items-baseline justify-center gap-1">
               <span className="text-3xl font-bold tracking-tight text-black">
                 ₹149
@@ -144,7 +149,7 @@ export default function SubscriptionModal({
               </span>
             </div>
 
-            {/* Subscribe */}
+            {/* SUBSCRIBE */}
             <button
               disabled={!razorpayLoaded}
               onClick={async () => {
@@ -164,9 +169,9 @@ export default function SubscriptionModal({
                 text-sm
                 font-semibold
                 text-white
-                transition-all
+                transition-colors
                 hover:bg-gray-900
-                active:scale-[0.98]
+                active:bg-gray-800
                 disabled:cursor-not-allowed
                 disabled:opacity-50
               "
@@ -177,7 +182,7 @@ export default function SubscriptionModal({
             </button>
 
             <p className="mt-2 text-center text-[11px] text-gray-400">
-               · No automatic renewal ·
+              No automatic renewal
             </p>
           </>
         )}
