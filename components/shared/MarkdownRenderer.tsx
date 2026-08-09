@@ -5,24 +5,31 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 
 interface MarkdownRendererProps {
-    content: string;
+  content: string;
 }
 
 export default function MarkdownRenderer({
-    content,
+  content,
 }: MarkdownRendererProps) {
-    return (
-        <div
-            className="
+  return (
+    <div
+      className="
         prose
         prose-gray
         max-w-none
+
+        text-[0.8rem]
+        leading-[1.4rem]
+
+        sm:text-base
+        sm:leading-normal
 
         prose-headings:font-bold
         prose-headings:text-gray-900
 
         prose-p:text-gray-700
-        prose-p:leading-7
+        prose-p:leading-[1.4rem]
+        sm:prose-p:leading-7
 
         prose-strong:text-black
         prose-strong:font-semibold
@@ -63,14 +70,14 @@ export default function MarkdownRenderer({
         prose-img:shadow
 
         prose-hr:my-8
-    "
-        >
-            <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw]}
-            >
-                {content}
-            </ReactMarkdown>
-        </div>
-    );
+      "
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 }

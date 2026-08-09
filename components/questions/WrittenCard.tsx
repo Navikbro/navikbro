@@ -724,16 +724,16 @@ export default function WrittenCard({
 
         <h2
           className="
-             whitespace-pre-wrap
-             break-words
-             text-base
-             sm:text-lg
-             md:text-xl
-             font-medium
-             leading-7
-             sm:leading-8
-            text-gray-900
-          "
+    whitespace-pre-wrap
+    break-words
+    text-[13px]
+    leading-5
+    sm:text-lg
+    sm:leading-8
+    md:text-xl
+    font-medium
+    text-gray-900
+  "
         >
           {question.question}
         </h2>
@@ -743,25 +743,25 @@ export default function WrittenCard({
         ================================================= */}
 
         {showAnswer && (
-          <div className="mt-5">
+          <div className="mt-3 sm:mt-5">
 
             {/* SECTION NAVIGATION */}
 
             {sections.length > 0 && (
               <div
                 className="
-                  sticky
-                  top-0
-                  z-10
-                  mb-4
-                  rounded-2xl
-                  border
-                  border-gray-200
-                  bg-white/95
-                  p-2
-                  shadow-sm
-                  backdrop-blur
-                "
+    sticky
+    top-0
+    z-10
+    mb-3
+    rounded-xl
+    border
+    border-gray-200
+    bg-white/95
+    p-1.5
+    shadow-sm
+    backdrop-blur
+  "
               >
 
                 <div
@@ -792,22 +792,26 @@ export default function WrittenCard({
                             )
                           }
                           className={`
-                            flex
-                            shrink-0
-                            items-center
-                            gap-1.5
-                            rounded-xl
-                            px-3
-                            py-2
-                            text-[11px]
-                            font-semibold
-                            transition
-                            sm:text-sm
-                            ${isActive
+  flex
+  shrink-0
+  items-center
+  gap-1
+  rounded-lg
+  px-2.5
+  py-1.5
+  text-[10px]
+  font-semibold
+  transition
+  sm:gap-1.5
+  sm:rounded-xl
+  sm:px-3
+  sm:py-2
+  sm:text-sm
+  ${isActive
                               ? "bg-black text-white"
                               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                             }
-                          `}
+`}
                         >
                           <span>
                             {
@@ -834,11 +838,13 @@ export default function WrittenCard({
 
             <div
               className="
-                space-y-6
-                pb-4
-              "
+    flex
+    flex-col
+    items-start
+    space-y-2
+    pb-4
+  "
             >
-
               {sections.length > 0 ? (
 
                 sections.map(
@@ -848,90 +854,68 @@ export default function WrittenCard({
                   ) => (
 
                     <section
-                      key={
-                        section.id
-                      }
-                      id={
-                        section.id
-                      }
-                      className="scroll-mt-3"
+                      key={section.id}
+                      id={section.id}
+                      className="scroll-mt-3 w-full flex-none self-start"
                     >
-
                       <div
                         className="
-                          mb-3
-                          flex
-                          items-center
-                          gap-2
-                        "
-                      >
-
-                        <div
-                          className="
-                            flex
-                            h-8
-                            w-8
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-full
-                            bg-gray-100
-                          "
-                        >
-                          {
-                            section.icon
-                          }
-                        </div>
-
-                        <h3
-                          className="
-                            mt-6
-    flex
-    shrink-0
-    w-full
-    sm:w-auto
-    sm:ml-auto
-    items-center
-    justify-center
-    gap-2
+    mb-3
     rounded-xl
     bg-black
-    px-5
+    px-4
     py-3
-    text-sm
-    sm:text-base
-    font-semibold
-    text-white
+    text-left
     transition
     hover:bg-gray-800
-                          "
+    sm:px-5
+  "
+                      >
+                        <h3
+                          className="
+      flex
+      min-w-0
+      items-center
+      gap-2
+      text-sm
+      font-semibold
+      leading-5
+      text-white
+      sm:text-base
+      sm:leading-6
+    "
                         >
-                          {
-                            section.title
-                          }
-                        </h3>
+                          <span className="shrink-0">
+                            {section.icon}
+                          </span>
 
+                          <span className="min-w-0">
+                            {section.title}
+                          </span>
+                        </h3>
                       </div>
 
                       <div
                         className={`
-                          rounded-2xl
-                          border
-                          p-3.5
-                          sm:p-5
-                          ${index === 0
+    w-full
+    flex-none
+    self-start
+    h-auto
+    rounded-2xl
+    border
+    p-3.5
+    sm:p-5
+    ${index === 0
                             ? "border-green-200 bg-green-50"
                             : "border-gray-200 bg-gray-50"
                           }
-                        `}
+  `}
                       >
-
-                        <MarkdownRenderer
-                          content={
-                            section.content
-                          }
-                        />
-
+                        <div className="w-full">
+                          <MarkdownRenderer
+                            content={section.content}
+                          />
+                        </div>
                       </div>
 
                     </section>
@@ -952,11 +936,11 @@ export default function WrittenCard({
                   "
                 >
 
-                  <MarkdownRenderer
-                    content={
-                      question.answer
-                    }
-                  />
+                  <div className="w-full">
+                    <MarkdownRenderer
+                      content={question.answer}
+                    />
+                  </div>
 
                 </div>
 
@@ -1028,6 +1012,6 @@ export default function WrittenCard({
 
       </div>
 
-    </div>
+    </div >
   );
 }
