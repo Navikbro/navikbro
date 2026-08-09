@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/providers/AuthContext";
 import Link from "next/link";
 
-import UserGreeting from "@/components/home/UserGreeting";
 import QuestionsContainer from "@/components/questions/QuestionsContainer";
 import OralCategorySkeleton from "@/components/orals/OralCategorySkeleton";
 import { ArrowLeft, Sailboat } from "lucide-react";
@@ -50,6 +50,14 @@ export default function OralCategoryClient({
     subtitle,
     quote,
 }: Props) {
+
+    const { user } = useAuth();
+
+    const name =
+        user?.displayName ||
+        user?.email?.split("@")[0] ||
+        "Sailor";
+
     const [initialLoadComplete, setInitialLoadComplete] =
         useState(false);
 
@@ -84,12 +92,12 @@ export default function OralCategoryClient({
                             href="/"
                             className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 transition hover:bg-gray-50"
                         >
-                            <ArrowLeft size={19} />
+                            <ArrowLeft size={18} />
                         </Link>
 
                         <div className="flex h-10 w-10 items-center justify-center rotate-[-8deg]">
                             <Sailboat
-                                size={28}
+                                size={26}
                                 strokeWidth={2}
                                 className="text-black"
                             />
@@ -99,7 +107,13 @@ export default function OralCategoryClient({
 
                     {/* Greeting */}
                     <div className="mt-5">
-                        <UserGreeting />
+                        <h2 className="text-lg font-bold leading-tight">
+                            Hi, {name} 👋
+                        </h2>
+
+                        <p className="mt-1 text-sm text-gray-500">
+                            Welcome Back
+                        </p>
                     </div>
 
                     {/* Quote */}
@@ -112,11 +126,11 @@ export default function OralCategoryClient({
                     {/* Category */}
                     <div className="mt-4 flex items-center gap-2">
 
-                        <span className="inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wider text-white">
+                        <span className="inline-flex rounded-lg bg-black px-3 py-1 text-[10px] font-semibold tracking-wide text-white">
                             {title}
                         </span>
 
-                        <h1 className="text-lg font-bold tracking-tight">
+                        <h1 className="text-sm font-bold tracking-tight">
                             {subtitle}
                         </h1>
 
