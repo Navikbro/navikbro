@@ -398,7 +398,9 @@ export default function WrittensClient({
 
           <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
 
-            <div className="text-5xl">🔍</div>
+            <div className="text-5xl">
+              🔍
+            </div>
 
             <h3 className="mt-4 text-lg font-semibold text-gray-900">
               No questions found
@@ -410,7 +412,18 @@ export default function WrittensClient({
 
             <button
               onClick={clearFilters}
-              className="mt-6 rounded-xl bg-black px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+              className="
+        mt-6
+        rounded-xl
+        bg-black
+        px-5
+        py-3
+        text-sm
+        font-medium
+        text-white
+        transition
+        hover:opacity-90
+      "
             >
               Clear Filters
             </button>
@@ -419,41 +432,27 @@ export default function WrittensClient({
 
         ) : (
 
-          <div className="mt-8 space-y-6">
+          <div className="mt-8">
 
             <div id="question-card">
               <WrittenCard
                 question={currentQuestion}
                 isBookmarked={bookmarks.includes(currentQuestion.id)}
-                onBookmark={() => toggleBookmark(currentQuestion.id)}
+                onBookmark={() =>
+                  toggleBookmark(currentQuestion.id)
+                }
+                onPrevious={() =>
+                  setCurrentIndex((prev) => prev - 1)
+                }
+                onNext={() =>
+                  setCurrentIndex((prev) => prev + 1)
+                }
+                canGoPrevious={currentIndex > 0}
+                canGoNext={
+                  currentIndex <
+                  filteredQuestions.length - 1
+                }
               />
-            </div>
-
-            {/* Navigation */}
-            <div className="mt-6 flex items-center justify-between">
-
-              <button
-                onClick={() => setCurrentIndex((prev) => prev - 1)}
-                disabled={currentIndex === 0}
-                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === 0
-                  ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                  : "bg-black text-white hover:bg-gray-800"
-                  }`}
-              >
-                ◀ Previous
-              </button>
-
-              <button
-                onClick={() => setCurrentIndex((prev) => prev + 1)}
-                disabled={currentIndex === filteredQuestions.length - 1}
-                className={`rounded-xl px-5 py-3 font-semibold transition-all duration-200 ${currentIndex === filteredQuestions.length - 1
-                  ? "border border-gray-300 bg-white text-gray-400 cursor-not-allowed"
-                  : "bg-black text-white hover:bg-gray-800"
-                  }`}
-              >
-                Next ▶
-              </button>
-
             </div>
 
           </div>
