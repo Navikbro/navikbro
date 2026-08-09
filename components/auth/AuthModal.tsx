@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -50,7 +51,7 @@ export default function AuthModal({
         <>
           {/* Background */}
           <motion.div
-            className="fixed inset-0 z-40 bg-black/45"
+            className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -58,30 +59,46 @@ export default function AuthModal({
             onClick={() => setShow(false)}
           />
 
-          {/* Bottom Sheet */}
+          {/* Center Modal */}
           <motion.div
             initial={{
               opacity: 0,
-              y: 24,
+              y: 80,
+              scale: 0.96,
             }}
             animate={{
               opacity: 1,
               y: 0,
+              scale: 1,
             }}
             exit={{
               opacity: 0,
-              y: 24,
+              y: 50,
+              scale: 0.97,
             }}
             transition={{
-              duration: 0.18,
+              duration: 0.22,
               ease: [0.22, 1, 0.36, 1],
             }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] bg-white px-6 pt-4 pb-10 shadow-2xl transform-gpu will-change-transform"
+            className="
+              fixed
+              left-1/2
+              top-1/2
+              z-50
+              w-[calc(100%-32px)]
+              max-w-md
+              -translate-x-1/2
+              -translate-y-1/2
+              rounded-[28px]
+              bg-white
+              px-6
+              py-7
+              shadow-2xl
+              transform-gpu
+              will-change-transform
+            "
           >
-            {/* Drag Handle */}
-            <div className="mx-auto mb-6 h-1.5 w-12 rounded-full bg-gray-300" />
-
             {/* Header */}
             <div className="flex flex-col items-center">
               <p className="mb-6 text-center text-sm text-gray-500">
@@ -90,7 +107,7 @@ export default function AuthModal({
 
               <div className="flex items-center justify-center gap-2">
                 <Sailboat
-                  size={24}
+                  size={25}
                   strokeWidth={2.2}
                   className="rotate-[-8deg]"
                 />
@@ -102,15 +119,14 @@ export default function AuthModal({
 
                   <span
                     className="
-          ml-1
-    top-0
-    text-[10px]
-    font-bold
-    italic
-    lowercase
-    text-gray-700
-    leading-none
-        "
+                      ml-1
+                      text-[10px]
+                      font-bold
+                      italic
+                      lowercase
+                      leading-none
+                      text-gray-700
+                    "
                   >
                     bro
                   </span>
@@ -122,7 +138,27 @@ export default function AuthModal({
             <button
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="mt-8 flex w-full items-center justify-center gap-3 rounded-full border border-gray-300 bg-white px-5 py-4 text-base font-medium transition-colors hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60"
+              className="
+                mt-8
+                flex
+                w-full
+                items-center
+                justify-center
+                gap-3
+                rounded-full
+                border
+                border-gray-300
+                bg-white
+                px-5
+                py-4
+                text-base
+                font-medium
+                transition-all
+                hover:bg-gray-50
+                active:scale-[0.98]
+                disabled:cursor-not-allowed
+                disabled:opacity-60
+              "
             >
               <img
                 src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"

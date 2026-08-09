@@ -238,55 +238,71 @@ export default function WrittensClient({
       <div className="mx-auto max-w-7xl px-5 py-8">
 
         {/* HEADER CARD */}
-        <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-6 rounded-3xl border border-gray-200 bg-white px-5 py-5 shadow-sm">
 
+          {/* Top Row */}
           <div className="flex items-center justify-between">
 
             <Link
               href="/"
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} />
             </Link>
 
-            <div className="flex h-12 w-12 items-center justify-center rotate-[-8deg]">
+            <div className="flex h-10 w-10 items-center justify-center">
               <Sailboat
-                size={30}
+                size={26}
                 strokeWidth={2}
+                className="rotate-[-8deg]"
               />
             </div>
 
           </div>
 
-          <div className="mt-7">
-
-            <h2 className="text-2xl font-bold">
+          {/* Greeting */}
+          <div className="mt-5">
+            <h2 className="text-lg font-bold leading-tight">
               Hi, {name} 👋
             </h2>
 
-            <p className="text-gray-500">
+            <p className="mt-1 text-sm text-gray-500">
               Welcome Back
             </p>
+          </div>
 
-            <div className="mt-6 border-l-4 border-black pl-4">
-              <p className="text-sm italic text-gray-600">
-                Coffee. Questions. Repeat.
-              </p>
-            </div>
+          {/* Quote */}
+          <div className="mt-4 border-l-4 border-black pl-3">
+            <p className="text-xs italic leading-5 text-gray-600">
+              Coffee. Questions. Repeat.
+            </p>
+          </div>
 
-            <div className="mt-6 inline-flex rounded-lg bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white">
+          {/* Category */}
+          <div className="mt-4 flex items-center gap-2">
+
+            <div className="rounded-lg bg-black px-3 py-1 text-[10px] font-semibold tracking-wide text-white">
               {page.badge}
             </div>
 
-            <h1 className="mt-4 text-xl md:text-2xl font-bold tracking-tight">
+            <h1 className="text-sm font-bold tracking-tight text-gray-900">
               {page.title}
             </h1>
 
-            <div className="mt-5 flex items-center gap-3 text-sm font-medium text-gray-600">
-              <span>{questions.length} Questions</span>
-              <span>•</span>
-              <span>{topics.length} Topics</span>
-            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="mt-4 flex items-center gap-3 text-xs font-medium text-gray-500">
+
+            <span>
+              {questions.length} Questions
+            </span>
+
+            <span>•</span>
+
+            <span>
+              {topics.length} Topics
+            </span>
 
           </div>
 
@@ -300,7 +316,7 @@ export default function WrittensClient({
             placeholder="🔍 Search Questions..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
           />
         </div>
 
@@ -311,25 +327,25 @@ export default function WrittensClient({
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-black"
           >
             <div className="flex items-center gap-3">
-              <SlidersHorizontal size={18} />
+              <SlidersHorizontal size={16} />
               <span className="font-semibold">
                 Filters
               </span>
             </div>
 
             {showFilters ? (
-              <ChevronUp size={18} />
+              <ChevronUp size={16} />
             ) : (
-              <ChevronDown size={18} />
+              <ChevronDown size={16} />
             )}
           </button>
 
           <button
             onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-            className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
+            className={`flex items-center justify-center rounded-xl border px-4 py-3 shadow-sm transition ${showBookmarksOnly
               ? "border-black bg-black text-white"
               : "border-gray-200 bg-white hover:border-black"
               }`}

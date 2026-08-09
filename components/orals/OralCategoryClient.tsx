@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import UserGreeting from "@/components/home/UserGreeting";
 import QuestionsContainer from "@/components/questions/QuestionsContainer";
+import OralCategorySkeleton from "@/components/orals/OralCategorySkeleton";
 
 import { ArrowLeft, Sailboat } from "lucide-react";
 
@@ -165,79 +166,9 @@ export default function OralCategoryClient({
 
             {!initialLoadComplete && (
                 <div className="absolute inset-0 z-50">
-
-                    <div className="mb-6 rounded-3xl border border-gray-200 bg-white px-5 py-5 shadow-sm animate-pulse">
-
-                        {/* Top Row */}
-                        <div className="flex items-center justify-between">
-
-                            <div className="h-10 w-10 rounded-2xl bg-gray-200" />
-
-                            <div className="h-10 w-10 rounded-full bg-gray-200" />
-
-                        </div>
-
-                        {/* Greeting */}
-                        <div className="mt-5 h-5 w-32 rounded bg-gray-200" />
-
-                        {/* Quote */}
-                        <div className="mt-4 space-y-2 border-l-4 border-gray-200 pl-3">
-                            <div className="h-3 w-4/5 rounded bg-gray-200" />
-                            <div className="h-3 w-3/5 rounded bg-gray-200" />
-                        </div>
-
-                        {/* Category */}
-                        <div className="mt-4 flex items-center gap-2">
-
-                            <div className="h-6 w-12 rounded-lg bg-gray-200" />
-
-                            <div className="h-5 w-28 rounded bg-gray-200" />
-
-                        </div>
-
-                        {/* Stats */}
-                        <div className="mt-4 flex items-center gap-3">
-
-                            <div className="h-3 w-24 rounded bg-gray-200" />
-
-                            <div className="h-3 w-2 rounded bg-gray-200" />
-
-                            <div className="h-3 w-20 rounded bg-gray-200" />
-
-                        </div>
-
-                    </div>
-
-
-                    {/* Search */}
-                    <div className="h-14 rounded-2xl bg-gray-200 animate-pulse" />
-
-
-                    {/* Filters + Bookmark */}
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-
-                        <div className="h-14 rounded-2xl bg-gray-200 animate-pulse" />
-
-                        <div className="h-14 rounded-2xl bg-gray-200 animate-pulse" />
-
-                    </div>
-
-
-                    {/* Questions */}
-                    <div className="mt-8 space-y-4">
-
-                        {Array.from({ length: 6 }).map((_, index) => (
-                            <div
-                                key={index}
-                                className="h-32 rounded-3xl bg-gray-200 animate-pulse"
-                            />
-                        ))}
-
-                    </div>
-
+                    <OralCategorySkeleton />
                 </div>
             )}
-
         </div>
     );
 }

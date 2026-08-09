@@ -10,7 +10,7 @@ declare global {
 
 export async function startSubscriptionPayment() {
     // Create Razorpay Order
-    const response = await authFetch("/api/payment/create-order", {
+    const response = await authFetch("/api/payments/create-order", {
         method: "POST",
     });
 
@@ -37,7 +37,7 @@ export async function startSubscriptionPayment() {
         }) {
             try {
                 const verifyResponse = await authFetch(
-                    "/api/payment/verify",
+                    "/api/payments/verify",
                     {
                         method: "POST",
                         headers: {

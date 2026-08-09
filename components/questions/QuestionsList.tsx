@@ -287,7 +287,7 @@ export default function QuestionsList({
           placeholder="🔍 Search Questions..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
         />
       </div>
 
@@ -298,7 +298,7 @@ export default function QuestionsList({
           onChange={(e) => {
             setSelectedMmd(e.target.value);
           }}
-          className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm outline-none transition focus:border-black"
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
         >
           {mmds.map((mmd) => (
             <option key={mmd} value={mmd}>
@@ -313,23 +313,23 @@ export default function QuestionsList({
 
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-black"
+          className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-black"
         >
           <div className="flex items-center gap-3">
-            <SlidersHorizontal size={18} />
+            <SlidersHorizontal size={16} />
             <span className="font-semibold">Filters</span>
           </div>
 
           {showFilters ? (
-            <ChevronUp size={18} />
+            <ChevronUp size={16} />
           ) : (
-            <ChevronDown size={18} />
+            <ChevronDown size={16} />
           )}
         </button>
 
         <button
           onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-          className={`flex items-center justify-center rounded-2xl border px-5 py-4 shadow-sm transition ${showBookmarksOnly
+          className={`flex items-center justify-center rounded-xl border px-4 py-3 shadow-sm transition ${showBookmarksOnly
             ? "border-black bg-black text-white"
             : "border-gray-200 bg-white hover:border-black"
             }`}
