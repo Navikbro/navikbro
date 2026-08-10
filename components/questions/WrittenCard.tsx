@@ -875,9 +875,9 @@ export default function WrittenCard({
           QUESTION + ANSWER SCROLL AREA
       ================================================= */}
 
-<div
-  ref={answerScrollRef}
-  className="
+      <div
+        ref={answerScrollRef}
+        className="
     min-h-0
     flex-1
     overflow-y-auto
@@ -886,7 +886,7 @@ export default function WrittenCard({
     sm:px-5
     md:px-6
   "
->
+      >
 
         {/* QUESTION */}
 
@@ -940,7 +940,8 @@ export default function WrittenCard({
                     gap-2
                     overflow-x-auto
                     scrollbar-thin
-                  "
+                     pb-2
+                    "
                 >
 
                   {sections.map(
