@@ -205,6 +205,9 @@ export default function WrittenCard({
       null
     );
 
+  const sectionNavRef =
+    useRef<HTMLDivElement | null>(null);
+
   /*
    * Used to prevent the normal scroll detector
    * from overriding the section selected by a click.
@@ -252,6 +255,53 @@ export default function WrittenCard({
     }
   }, [question.id]);
 
+  const scrollNavToSection = (
+    sectionId: string
+  ) => {
+    const nav = sectionNavRef.current;
+
+    if (!nav) {
+      return;
+    }
+
+    const button =
+      nav.querySelector(
+        `[data-section-id="${CSS.escape(sectionId)}"]`
+      ) as HTMLElement | null;
+
+    if (!button) {
+      return;
+    }
+
+    const navRect =
+      nav.getBoundingClientRect();
+
+    const buttonRect =
+      button.getBoundingClientRect();
+
+    /*
+     * Already fully visible.
+     * Do nothing.
+     */
+    if (
+      buttonRect.left >= navRect.left &&
+      buttonRect.right <= navRect.right
+    ) {
+      return;
+    }
+
+    /*
+     * Button is outside the visible area.
+     * Move it to the left.
+     */
+    nav.scrollTo({
+      left:
+        button.offsetLeft -
+        nav.offsetLeft,
+      behavior: "smooth",
+    });
+  };
+
   /* =======================================================
   SCROLL TO ANSWER SECTION
   ======================================================= */
@@ -259,6 +309,8 @@ export default function WrittenCard({
   const scrollToSection = (
     sectionId: string
   ) => {
+    scrollNavToSection(sectionId);
+
     const container =
       answerScrollRef.current;
 
@@ -289,9 +341,17 @@ export default function WrittenCard({
       element.getBoundingClientRect()
         .top;
 
+    const nav =
+      sectionNavRef.current;
+
+    const navHeight =
+      nav?.getBoundingClientRect()
+        .height ?? 0;
+
     const scrollPosition =
       container.scrollTop +
       (elementTop - containerTop) -
+      navHeight -
       12;
 
     /*
@@ -450,6 +510,10 @@ export default function WrittenCard({
       }
 
       setActiveSection(
+        currentSection
+      );
+
+      scrollNavToSection(
         currentSection
       );
     };
@@ -766,6 +830,7 @@ export default function WrittenCard({
               >
 
                 <div
+                  ref={sectionNavRef}
                   className="
                     flex
                     gap-2
@@ -787,6 +852,7 @@ export default function WrittenCard({
                             section.id
                           }
                           type="button"
+                          data-section-id={section.id}
                           onClick={() =>
                             scrollToSection(
                               section.id
