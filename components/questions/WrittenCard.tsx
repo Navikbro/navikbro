@@ -222,6 +222,15 @@ export default function WrittenCard({
   const programmaticTarget =
     useRef<number | null>(null);
 
+  const navigationDirection =
+    useRef<"forward" | "backward">(
+      "forward"
+    );
+
+  const previousSectionIndex =
+    useRef<number>(0);
+
+
   /* =======================================================
   PARSE ANSWER
   ======================================================= */
@@ -264,6 +273,9 @@ export default function WrittenCard({
       return;
     }
 
+    const isMobile =
+      nav.clientWidth < 640;
+
     const button =
       nav.querySelector(
         `[data-section-id="${CSS.escape(sectionId)}"]`
@@ -273,33 +285,99 @@ export default function WrittenCard({
       return;
     }
 
+    const buttonIndex =
+      Array.from(
+        nav.querySelectorAll(
+          "[data-section-id]"
+        )
+      ).indexOf(button);
+
+    const buttons =
+      Array.from(
+        nav.querySelectorAll(
+          "[data-section-id]"
+        )
+      ) as HTMLElement[];
+
+    const nextButton =
+      buttons[buttonIndex + 1] ?? null;
+
+    const previousButton =
+      buttons[buttonIndex - 1] ?? null;
+
     const navRect =
       nav.getBoundingClientRect();
 
     const buttonRect =
       button.getBoundingClientRect();
 
-    /*
-     * Already fully visible.
-     * Do nothing.
-     */
     if (
-      buttonRect.left >= navRect.left &&
-      buttonRect.right <= navRect.right
+      isMobile &&
+      navigationDirection.current === "forward" &&
+      nextButton
     ) {
-      return;
+      const nextButtonRect =
+        nextButton.getBoundingClientRect();
+
+      const nextButtonVisible =
+        nextButtonRect.right <= navRect.right;
+
+      if (!nextButtonVisible) {
+        nav.scrollTo({
+          left:
+            nextButton.offsetLeft -
+            nav.clientWidth +
+            nextButton.offsetWidth,
+          behavior: "smooth",
+        });
+
+        return;
+      }
     }
 
-    /*
-     * Button is outside the visible area.
-     * Move it to the left.
-     */
-    nav.scrollTo({
-      left:
-        button.offsetLeft -
-        nav.offsetLeft,
-      behavior: "smooth",
-    });
+    if (
+      isMobile &&
+      previousButton &&
+      navigationDirection.current ===
+      "backward"
+    ) {
+      const previousButtonRect =
+        previousButton.getBoundingClientRect();
+
+      const previousButtonVisible =
+        previousButtonRect.left >= navRect.left;
+
+      if (!previousButtonVisible) {
+        nav.scrollTo({
+          left:
+            previousButton.offsetLeft,
+          behavior: "smooth",
+        });
+
+        return;
+      }
+    }
+
+    if (!isMobile) {
+      /*
+       * Desktop:
+       * Keep the existing behavior —
+       * move the active heading to the left.
+       */
+      if (
+        buttonRect.left >= navRect.left &&
+        buttonRect.right <= navRect.right
+      ) {
+        return;
+      }
+
+      nav.scrollTo({
+        left:
+          button.offsetLeft -
+          nav.offsetLeft,
+        behavior: "smooth",
+      });
+    }
   };
 
   /* =======================================================
@@ -309,6 +387,28 @@ export default function WrittenCard({
   const scrollToSection = (
     sectionId: string
   ) => {
+    const clickedIndex =
+      sections.findIndex(
+        (section) =>
+          section.id === sectionId
+      );
+
+    const currentIndex =
+      previousSectionIndex.current;
+
+    if (
+      clickedIndex !== -1 &&
+      clickedIndex !== currentIndex
+    ) {
+      navigationDirection.current =
+        clickedIndex > currentIndex
+          ? "forward"
+          : "backward";
+
+      previousSectionIndex.current =
+        clickedIndex;
+    }
+
     scrollNavToSection(sectionId);
 
     const container =
@@ -447,9 +547,7 @@ export default function WrittenCard({
        * scrolling is still happening, do NOT
        * change the active tab.
        */
-      if (
-        isProgrammaticScroll.current
-      ) {
+      if (isProgrammaticScroll.current) {
         const target =
           programmaticTarget.current;
 
@@ -460,30 +558,26 @@ export default function WrittenCard({
               target
             );
 
-          /*
-           * Smooth scroll reached the target.
-           * Normal scroll detection can resume.
-           */
           if (distance <= 2) {
             isProgrammaticScroll.current =
               false;
 
             programmaticTarget.current =
               null;
-          } else {
-            /*
-             * Keep the clicked tab active.
-             */
+
             return;
           }
-        } else {
+
           return;
         }
+
+        return;
       }
 
       const containerTop =
         container.getBoundingClientRect()
           .top;
+
 
       let currentSection =
         sections[0].id;
@@ -507,6 +601,26 @@ export default function WrittenCard({
           currentSection =
             section.id;
         }
+      }
+
+      const currentSectionIndex =
+        sections.findIndex(
+          (section) =>
+            section.id === currentSection
+        );
+
+      if (
+        currentSectionIndex !==
+        previousSectionIndex.current
+      ) {
+        navigationDirection.current =
+          currentSectionIndex >
+            previousSectionIndex.current
+            ? "forward"
+            : "backward";
+
+        previousSectionIndex.current =
+          currentSectionIndex;
       }
 
       setActiveSection(
