@@ -433,26 +433,16 @@ export default function WrittenCard({
      */
     setActiveSection(sectionId);
 
-    const containerTop =
-      container.getBoundingClientRect()
-        .top;
-
-    const elementTop =
-      element.getBoundingClientRect()
-        .top;
-
     const nav =
       sectionNavRef.current;
 
     const navHeight =
-      nav?.getBoundingClientRect()
-        .height ?? 0;
+      nav?.offsetHeight ?? 0;
 
     const scrollPosition =
-      container.scrollTop +
-      (elementTop - containerTop) -
+      element.offsetTop -
       navHeight -
-      12;
+      36;
 
     /*
      * If we're already at the target,
@@ -885,18 +875,18 @@ export default function WrittenCard({
           QUESTION + ANSWER SCROLL AREA
       ================================================= */}
 
-      <div
-        ref={answerScrollRef}
-        className="
-          min-h-0
-          flex-1
-          overflow-y-auto
-          px-4
-          pr-6
-          sm:px-5
-          md:px-6
-        "
-      >
+<div
+  ref={answerScrollRef}
+  className="
+    min-h-0
+    flex-1
+    overflow-y-auto
+    px-4
+    pr-6
+    sm:px-5
+    md:px-6
+  "
+>
 
         {/* QUESTION */}
 
