@@ -14,6 +14,8 @@ import type {
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+import InsightSwitcher from "@/components/home/InsightSwitcher";
+
 import {
   ChevronDown,
   ChevronUp,
@@ -280,6 +282,12 @@ export default function QuestionsList({
 
   return (
     <>
+      {/* INSIGHT SWITCHER */}
+      <InsightSwitcher
+        category={category}
+        current="questions"
+      />
+
       {/* SEARCH */}
       <div className="mt-8">
         <input

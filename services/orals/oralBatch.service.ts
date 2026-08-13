@@ -1228,6 +1228,32 @@ export async function getOralTopics(
     return snapshot.data().topics ?? [];
 }
 
+export async function getOralTopicQuestionCounts(
+    category: string
+): Promise<Record<string, number>> {
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+    const questions =
+        await getAllOralBatchQuestions(
+            normalizedCategory
+        );
+
+    const counts: Record<string, number> = {};
+
+    for (const question of questions) {
+        const topic =
+            question.topic?.trim();
+
+        if (!topic) continue;
+
+        counts[topic] =
+            (counts[topic] ?? 0) + 1;
+    }
+
+    return counts;
+}
+
 export async function addOralTopic(
     category: string,
     topic: string
@@ -1325,3 +1351,4 @@ export async function generateOralTopics() {
     console.log("Finished generating oral topics.");
 
 }
+

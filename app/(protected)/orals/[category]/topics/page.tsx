@@ -1,10 +1,15 @@
-const PAGE_LOCKED = true;
+import { notFound } from "next/navigation";
 
-import UserGreeting from "@/components/home/UserGreeting";
-import InsightSwitcher from "@/components/home/InsightSwitcher";
+import OralTopicsClient from "@/components/orals/OralTopicsClient";
 
-import Link from "next/link";
-import { ArrowLeft, Sailboat } from "lucide-react";
+import {
+  getCachedOralTopics,
+} from "@/lib/cache/oral-topics-cache";
+
+
+/* =========================================================
+   PARAMS
+========================================================= */
 
 interface PageProps {
   params: Promise<{
@@ -12,81 +17,338 @@ interface PageProps {
   }>;
 }
 
+
+/* =========================================================
+   NORMALIZE CATEGORY
+========================================================= */
+
+function normalizeCategory(
+  category: string
+): string {
+  const value =
+    category
+      .trim()
+      .toLowerCase();
+
+  const map: Record<string, string> = {
+    safety: "fn3",
+    fn3: "fn3",
+
+    motor: "fn4b",
+    fn4b: "fn4b",
+
+    electrical: "fn5",
+    fn5: "fn5",
+
+    mep: "fn6",
+    fn6: "fn6",
+  };
+
+  return map[value] ?? value;
+}
+
+
+/* =========================================================
+   SERIALIZE FIRESTORE VALUES
+========================================================= */
+
+function serializeFirestoreValue(
+  value: unknown
+): string | number | null {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  /* -----------------------------------------
+     Already plain values
+  ----------------------------------------- */
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+    return value;
+  }
+
+  /* -----------------------------------------
+     Firestore Timestamp with toDate()
+  ----------------------------------------- */
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "toDate" in value &&
+    typeof (
+      value as {
+        toDate?: unknown;
+      }
+    ).toDate === "function"
+  ) {
+    return (
+      value as {
+        toDate: () => Date;
+      }
+    )
+      .toDate()
+      .toISOString();
+  }
+
+  /* -----------------------------------------
+     Firestore Timestamp-like object
+  ----------------------------------------- */
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "seconds" in value
+  ) {
+    const timestamp =
+      value as {
+        seconds?: number;
+        nanoseconds?: number;
+      };
+
+    if (
+      typeof timestamp.seconds ===
+      "number"
+    ) {
+      return new Date(
+        timestamp.seconds * 1000 +
+        Math.floor(
+          (
+            timestamp.nanoseconds ??
+            0
+          ) / 1_000_000
+        )
+      ).toISOString();
+    }
+  }
+
+  return null;
+}
+
+
+/* =========================================================
+   SERIALIZED TOPIC TYPE
+
+   IMPORTANT:
+   Everything here must be a plain
+   Server → Client serializable value.
+========================================================= */
+
+interface SerializedTopic {
+  id: string;
+
+  name: string;
+
+  overview: string;
+
+  category: string;
+
+  class: string;
+
+  questionCount: number;
+
+  createdAt: string | number | null;
+
+  updatedAt: string | number | null;
+}
+
+
+/* =========================================================
+   SERIALIZE TOPIC
+========================================================= */
+
+function serializeTopic(
+  topic: Record<string, unknown>,
+  category: string
+): SerializedTopic {
+
+  return {
+    id:
+      typeof topic.id === "string"
+        ? topic.id
+        : "",
+
+    name:
+      typeof topic.name === "string"
+        ? topic.name
+        : "",
+
+    overview:
+      typeof topic.overview ===
+        "string"
+        ? topic.overview
+        : "",
+
+    category:
+      typeof topic.category ===
+        "string"
+        ? topic.category
+        : category,
+
+    class:
+      typeof topic.class ===
+        "string"
+        ? topic.class
+        : "",
+
+    questionCount:
+      typeof topic.questionCount ===
+        "number"
+        ? Math.max(
+          0,
+          topic.questionCount
+        )
+        : 0,
+
+    createdAt:
+      serializeFirestoreValue(
+        topic.createdAt
+      ),
+
+    updatedAt:
+      serializeFirestoreValue(
+        topic.updatedAt
+      ),
+  };
+}
+
+
+/* =========================================================
+   PAGE
+========================================================= */
+
 export default async function OralTopicsPage({
   params,
 }: PageProps) {
-  const { category } = await params;
 
-  const titles: Record<
-    string,
-    {
-      title: string;
-      subtitle: string;
-      quote: string;
-    }
-  > = {
-    fn3: {
-      title: "FN3",
-      subtitle: "SAFETY",
-      quote: "Master one topic at a time.",
-    },
-    fn4b: {
-      title: "FN4B",
-      subtitle: "MOTOR",
-      quote: "Strong concepts build confident answers.",
-    },
-    fn5: {
-      title: "FN5",
-      subtitle: "ELECTRICAL",
-      quote: "Revise topics. Remember answers.",
-    },
-    fn6: {
-      title: "FN6",
-      subtitle: "MEP",
-      quote: "Every topic mastered is one step closer to success.",
-    },
-  };
+  const { category } =
+    await params;
 
-  const page = titles[category.toLowerCase()] ?? {
-    title: category.toUpperCase(),
-    subtitle: "TOPICS",
-    quote: "Study smarter by focusing on one topic at a time.",
-  };
 
-   if (PAGE_LOCKED) {
-    return (
-      <main className="min-h-screen bg-[#f5f5f5]">
-        <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-5">
+  /* =====================================================
+     NORMALIZE URL CATEGORY
 
-          <div className="w-full rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+     safety    → fn3
+     motor     → fn4b
+     electrical → fn5
+     mep       → fn6
+  ===================================================== */
 
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full">
-              <Sailboat
-                size={32}
-                className="text-black"
-              />
-            </div>
+  const normalizedCategory =
+    normalizeCategory(category);
 
-            <h1 className="text-2xl font-bold">
-              Topics Section Coming Soon
-            </h1>
 
-            <p className="mt-3 text-sm leading-6 text-gray-600">
-              We are preparing this section to give you a better revision
-              experience. Stay tuned for updates.
-            </p>
+  /* =====================================================
+     VALID CATEGORIES
+  ===================================================== */
 
-            <Link
-              href={`/orals/${category}`}
-              className="mt-6 inline-flex rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
-            >
-              Go Back
-            </Link>
+  const validCategories = [
+    "fn3",
+    "fn4b",
+    "fn5",
+    "fn6",
+  ];
 
-          </div>
 
-        </div>
-      </main>
-    );
+  if (
+    !validCategories.includes(
+      normalizedCategory
+    )
+  ) {
+    notFound();
   }
+
+
+  /* =====================================================
+     LOAD ALL TOPICS
+
+     Your service currently exports:
+
+     getAllOralTopics()
+
+     NOT:
+
+     getOralTopics()
+  ===================================================== */
+
+  const rawTopics =
+    await getCachedOralTopics(
+      normalizedCategory
+    );
+
+
+  /* =====================================================
+     FILTER BY CATEGORY
+
+     This keeps the topic page completely
+     independent from old oral question data.
+  ===================================================== */
+
+  const categoryTopics =
+    rawTopics.filter(
+      (topic) =>
+        (
+          topic.category ??
+          ""
+        )
+          .trim()
+          .toLowerCase() ===
+        normalizedCategory
+    );
+
+
+  /* =====================================================
+     CONVERT FIRESTORE DATA TO
+     PLAIN CLIENT-SAFE OBJECTS
+  ===================================================== */
+
+  const topics =
+    categoryTopics.map(
+      (topic) =>
+        serializeTopic(
+          topic as unknown as Record<
+            string,
+            unknown
+          >,
+          normalizedCategory
+        )
+    );
+
+
+  /* =====================================================
+     PAGE
+  ===================================================== */
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+
+      <div
+        className="
+                    mx-auto
+                    max-w-7xl
+                    px-4
+                    py-6
+                    sm:px-5
+                    sm:py-8
+                    md:px-6
+                "
+      >
+
+        <OralTopicsClient
+          topics={topics}
+          category={
+            normalizedCategory
+          }
+        />
+
+      </div>
+
+    </main>
+  );
 }
