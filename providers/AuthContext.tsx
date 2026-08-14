@@ -84,10 +84,6 @@ export function AuthProvider({
                 async (firebaseUser) => {
 
 
-                    setUser(firebaseUser);
-
-
-
                     if (!firebaseUser) {
 
 
@@ -142,6 +138,8 @@ export function AuthProvider({
                             return;
 
                         }
+
+                        setUser(firebaseUser);
 
 
                         const fcmToken =

@@ -48,7 +48,7 @@ export default function AdminNotificationsPage() {
 
             const token = await user.getIdToken();
 
-            const response = await fetch("/api/send-broadcast", {
+            const response = await fetch("/api/notifications/send-broadcast", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
