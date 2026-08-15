@@ -33,15 +33,11 @@ export function useOralMmdPreference() {
 
 
         if (
-          mounted &&
-          data.oralMmd
-        ) {
-
-          setMmdState(
-            data.oralMmd
-          );
-
-        }
+      if (mounted) {
+            setMmdState(
+              data.oralMmd || "CHENNAI"
+            );
+          }
 
 
       } catch (error) {
@@ -76,37 +72,24 @@ export function useOralMmdPreference() {
 
   }, []);
 
-
-
   const setMmd = async (
     value: string
   ) => {
+    // Update the UI immediately
+    setMmdState(value);
 
     try {
-
-      await updateOralMmdPreference(
-        value
-      );
-
-
-      setMmdState(
-        value
-      );
-
-
+      // Save the preference in the background
+      await updateOralMmdPreference(value);
     } catch (error) {
-
       console.error(
         "Failed saving MMD preference:",
         error
       );
-
-
-      throw error;
-
     }
-
   };
+
+
 
 
 
