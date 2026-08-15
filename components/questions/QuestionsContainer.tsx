@@ -60,6 +60,9 @@ export default function QuestionsContainer({
 
   const requestIdRef = useRef(0);
 
+  const backgroundLoadIdRef =
+    useRef(0);
+
   async function loadMmdQuestions(
     selectedMmd: string
   ) {
@@ -73,12 +76,14 @@ export default function QuestionsContainer({
           method: "POST",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           body: JSON.stringify({
             category,
             mmd: selectedMmd,
+            batchNumber: 1,
           }),
 
           cache: "no-store",
@@ -96,18 +101,41 @@ export default function QuestionsContainer({
 
       // Ignore stale request
       if (
-        requestId !== requestIdRef.current
+        requestId !==
+        requestIdRef.current
       ) {
         return;
       }
 
+      const firstBatchQuestions:
+        OralBatchQuestion[] =
+        data.questions ?? [];
+
       setQuestions(
-        data.questions ?? []
+        firstBatchQuestions
       );
+
+      const batchCount =
+        mmdData[selectedMmd]?.batchCount ?? 0;
+
+      if (batchCount > 1) {
+        const loadId =
+          ++backgroundLoadIdRef.current;
+
+        void loadRemainingBatches(
+          selectedMmd,
+          2,
+          batchCount,
+          loadId
+        );
+      }
+
     } catch (error) {
+
       // Ignore stale request errors
       if (
-        requestId !== requestIdRef.current
+        requestId !==
+        requestIdRef.current
       ) {
         return;
       }
@@ -118,20 +146,126 @@ export default function QuestionsContainer({
       );
 
       setQuestions([]);
+
     } finally {
-      // Only the latest request controls loading state
+
+      // Only the latest request controls
+      // the initial loading state
       if (
-        requestId === requestIdRef.current
+        requestId ===
+        requestIdRef.current
       ) {
         setQuestionsLoading(false);
         onInitialLoadComplete();
       }
+
     }
   }
-  /*
-   * Load the user's remembered MMD
-   * when the page opens.
-   */
+
+
+  async function loadRemainingBatches(
+    selectedMmd: string,
+    firstBatch: number,
+    batchCount: number,
+    loadId: number
+  ) {
+    for (
+      let batchNumber = firstBatch;
+      batchNumber <= batchCount;
+      batchNumber++
+    ) {
+
+      // Stop if the user has changed MMD
+      const isCurrentLoad =
+        loadId ===
+        backgroundLoadIdRef.current;
+
+      if (!isCurrentLoad) {
+        return;
+      }
+
+      try {
+
+        const res = await fetch(
+          "/api/orals/questions",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              category,
+              mmd: selectedMmd,
+              batchNumber,
+            }),
+
+            cache: "no-store",
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error(
+            `Failed to load batch ${batchNumber}`
+          );
+        }
+
+        const data =
+          await res.json();
+
+        // User changed MMD while
+        // this batch was loading.
+        if (
+          loadId !==
+          backgroundLoadIdRef.current
+        ) {
+          return;
+        }
+
+        const newQuestions:
+          OralBatchQuestion[] =
+          data.questions ?? [];
+
+        setQuestions(
+          (currentQuestions) => {
+
+            const existingIds =
+              new Set(
+                currentQuestions.map(
+                  (question) =>
+                    question.id
+                )
+              );
+
+            const uniqueQuestions =
+              newQuestions.filter(
+                (question) =>
+                  !existingIds.has(
+                    question.id
+                  )
+              );
+
+            return [
+              ...currentQuestions,
+              ...uniqueQuestions,
+            ];
+          }
+        );
+
+      } catch (error) {
+
+        console.error(
+          `Failed loading oral batch ${batchNumber}:`,
+          error
+        );
+
+        // Continue loading the next batch.
+      }
+    }
+  }
+
   useEffect(() => {
     if (loading) return;
 

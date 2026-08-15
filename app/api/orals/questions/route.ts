@@ -4,6 +4,10 @@ import {
     getCachedOralQuestions,
 } from "@/lib/cache/oral-cache";
 
+import {
+    getOralBatchQuestion,
+} from "@/services/orals/oralBatch.service";
+
 export async function POST(
     req: NextRequest
 ) {
@@ -13,6 +17,7 @@ export async function POST(
         const {
             category,
             mmd,
+            batchNumber,
         } = await req.json();
 
 
@@ -31,11 +36,29 @@ export async function POST(
         }
 
 
-        const questions =
-            await getCachedOralQuestions(
-                category,
-                mmd
-            );
+        let questions;
+
+
+        if (
+            typeof batchNumber === "number"
+        ) {
+
+            questions =
+                await getOralBatchQuestion(
+                    category,
+                    mmd,
+                    batchNumber
+                );
+
+        } else {
+
+            questions =
+                await getCachedOralQuestions(
+                    category,
+                    mmd
+                );
+
+        }
 
 
         return NextResponse.json({

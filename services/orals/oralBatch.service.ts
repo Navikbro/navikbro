@@ -567,6 +567,66 @@ export async function getOralBatchDocuments(
     }));
 }
 
+export async function getOralBatchQuestion(
+    category: string,
+    mmd: string,
+    batchNumber: number
+): Promise<OralBatchQuestion[]> {
+
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+    const normalizedMmd =
+        mmd.trim();
+
+    const batchQuery = query(
+        collection(db, "oral_batches"),
+        where(
+            "category",
+            "==",
+            normalizedCategory
+        ),
+        where(
+            "mmd",
+            "==",
+            normalizedMmd
+        ),
+        where(
+            "batchNumber",
+            "==",
+            batchNumber
+        )
+    );
+
+    const snapshot =
+        await getDocs(batchQuery);
+
+    if (snapshot.empty) {
+        return [];
+    }
+
+    const questions: OralBatchQuestion[] = [];
+
+    snapshot.forEach((docSnap) => {
+        const data =
+            docSnap.data();
+
+        const batchQuestions =
+            Array.isArray(data.questions)
+                ? data.questions
+                : [];
+
+        for (const question of batchQuestions) {
+            questions.push({
+                ...question,
+                mmd: question.mmd ?? normalizedMmd,
+            });
+        }
+    });
+
+    return questions;
+}
+
 export async function getOralBatchQuestions(
     category: string,
     mmd: string
