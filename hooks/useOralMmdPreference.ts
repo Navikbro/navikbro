@@ -31,8 +31,6 @@ export function useOralMmdPreference() {
         const data =
           await fetchOralMmdPreference();
 
-
-        if (
       if (mounted) {
             setMmdState(
               data.oralMmd || "CHENNAI"
