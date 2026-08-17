@@ -63,7 +63,7 @@ export default function OralCategorySkeleton() {
 
             </div>
 
-            <div className="h-[46px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
+            <div className="h-[45px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
 
 
             {/* =====================================================
@@ -91,9 +91,9 @@ export default function OralCategorySkeleton() {
             ===================================================== */}
             <div className="mt-4 grid grid-cols-2 gap-3">
 
-                <div className="h-[46px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
+                <div className="h-[45px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
 
-                <div className="h-[46px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
+                <div className="h-[45px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
 
             </div>
 
