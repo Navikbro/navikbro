@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 import OralTopicsClient from "@/components/orals/OralTopicsClient";
 
@@ -63,20 +65,12 @@ function serializeFirestoreValue(
     return null;
   }
 
-  /* -----------------------------------------
-     Already plain values
-  ----------------------------------------- */
-
   if (
     typeof value === "string" ||
     typeof value === "number"
   ) {
     return value;
   }
-
-  /* -----------------------------------------
-     Firestore Timestamp with toDate()
-  ----------------------------------------- */
 
   if (
     typeof value === "object" &&
@@ -96,10 +90,6 @@ function serializeFirestoreValue(
       .toDate()
       .toISOString();
   }
-
-  /* -----------------------------------------
-     Firestore Timestamp-like object
-  ----------------------------------------- */
 
   if (
     typeof value === "object" &&
@@ -134,27 +124,16 @@ function serializeFirestoreValue(
 
 /* =========================================================
    SERIALIZED TOPIC TYPE
-
-   IMPORTANT:
-   Everything here must be a plain
-   Server → Client serializable value.
 ========================================================= */
 
 interface SerializedTopic {
   id: string;
-
   name: string;
-
   overview: string;
-
   category: string;
-
   class: string;
-
   questionCount: number;
-
   createdAt: string | number | null;
-
   updatedAt: string | number | null;
 }
 
@@ -201,9 +180,9 @@ function serializeTopic(
       typeof topic.questionCount ===
         "number"
         ? Math.max(
-          0,
-          topic.questionCount
-        )
+            0,
+            topic.questionCount
+          )
         : 0,
 
     createdAt:
@@ -231,22 +210,17 @@ export default async function OralTopicsPage({
     await params;
 
 
-  /* =====================================================
+  /* =======================================================
      NORMALIZE URL CATEGORY
-
-     safety    → fn3
-     motor     → fn4b
-     electrical → fn5
-     mep       → fn6
-  ===================================================== */
+  ======================================================= */
 
   const normalizedCategory =
     normalizeCategory(category);
 
 
-  /* =====================================================
+  /* =======================================================
      VALID CATEGORIES
-  ===================================================== */
+  ======================================================= */
 
   const validCategories = [
     "fn3",
@@ -254,7 +228,6 @@ export default async function OralTopicsPage({
     "fn5",
     "fn6",
   ];
-
 
   if (
     !validCategories.includes(
@@ -265,17 +238,9 @@ export default async function OralTopicsPage({
   }
 
 
-  /* =====================================================
-     LOAD ALL TOPICS
-
-     Your service currently exports:
-
-     getAllOralTopics()
-
-     NOT:
-
-     getOralTopics()
-  ===================================================== */
+  /* =======================================================
+     LOAD TOPICS
+  ======================================================= */
 
   const rawTopics =
     await getCachedOralTopics(
@@ -283,12 +248,9 @@ export default async function OralTopicsPage({
     );
 
 
-  /* =====================================================
+  /* =======================================================
      FILTER BY CATEGORY
-
-     This keeps the topic page completely
-     independent from old oral question data.
-  ===================================================== */
+  ======================================================= */
 
   const categoryTopics =
     rawTopics.filter(
@@ -303,10 +265,9 @@ export default async function OralTopicsPage({
     );
 
 
-  /* =====================================================
-     CONVERT FIRESTORE DATA TO
-     PLAIN CLIENT-SAFE OBJECTS
-  ===================================================== */
+  /* =======================================================
+     SERIALIZE
+  ======================================================= */
 
   const topics =
     categoryTopics.map(
@@ -321,30 +282,72 @@ export default async function OralTopicsPage({
     );
 
 
-  /* =====================================================
+  /* =======================================================
      PAGE
-  ===================================================== */
+  ======================================================= */
 
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
 
+      {/* =================================================
+          BACK BUTTON
+      ================================================= */}
+
       <div
         className="
-                    mx-auto
-                    max-w-7xl
-                    px-4
-                    py-6
-                    sm:px-5
-                    sm:py-8
-                    md:px-6
-                "
+          mx-auto
+          max-w-7xl
+          px-4
+          pt-6
+          sm:px-5
+          sm:pt-8
+          md:px-6
+        "
+      >
+
+        <Link
+          href={`/orals/${normalizedCategory}`}
+          className="
+            flex
+            h-10
+            w-10
+            items-center
+            justify-center
+            rounded-2xl
+            border
+            border-gray-200
+            bg-white
+            transition
+            hover:bg-gray-50
+          "
+          aria-label="Back to oral category"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+
+      </div>
+
+
+      {/* =================================================
+          TOPIC CONTENT
+      ================================================= */}
+
+      <div
+        className="
+          mx-auto
+          max-w-7xl
+          px-4
+          pb-6
+          pt-4
+          sm:px-5
+          sm:pb-8
+          md:px-6
+        "
       >
 
         <OralTopicsClient
           topics={topics}
-          category={
-            normalizedCategory
-          }
+        
         />
 
       </div>

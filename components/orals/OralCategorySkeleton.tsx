@@ -63,6 +63,8 @@ export default function OralCategorySkeleton() {
 
             </div>
 
+            <div className="h-[46px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
+
 
             {/* =====================================================
                 SEARCH

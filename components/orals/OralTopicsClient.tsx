@@ -12,8 +12,6 @@ import TopicCard, {
 
 /* =========================================================
    CLIENT TOPIC TYPE
-
-   Values are already serialized by the server page.
 ========================================================= */
 
 export interface SerializedOralTopic
@@ -32,7 +30,6 @@ export interface SerializedOralTopic
 
 interface OralTopicsClientProps {
     topics: SerializedOralTopic[];
-    category: string;
 }
 
 
@@ -42,8 +39,8 @@ interface OralTopicsClientProps {
 
 export default function OralTopicsClient({
     topics,
-    category,
 }: OralTopicsClientProps) {
+
     const [
         selectedIndex,
         setSelectedIndex,
@@ -73,68 +70,7 @@ export default function OralTopicsClient({
 
     if (topics.length === 0) {
         return (
-            <div className="mt-5">
-
-                {/* CATEGORY HEADER */}
-
-                <div className="mb-6">
-                    <div
-                        className="
-                            flex
-                            items-center
-                            justify-between
-                            gap-4
-                        "
-                    >
-                        <div>
-                            <p
-                                className="
-                                    text-xs
-                                    font-bold
-                                    uppercase
-                                    tracking-wider
-                                    text-gray-400
-                                "
-                            >
-                                Oral Topics
-                            </p>
-
-                            <h1
-                                className="
-                                    mt-1
-                                    text-2xl
-                                    font-bold
-                                    tracking-tight
-                                    text-gray-900
-                                    sm:text-3xl
-                                "
-                            >
-                                {category.toUpperCase()}
-                            </h1>
-                        </div>
-
-                        <div
-                            className="
-                                shrink-0
-                                rounded-full
-                                bg-white
-                                px-3
-                                py-1.5
-                                text-xs
-                                font-semibold
-                                text-gray-600
-                                shadow-sm
-                                ring-1
-                                ring-gray-200
-                            "
-                        >
-                            0 Topics
-                        </div>
-                    </div>
-                </div>
-
-
-                {/* EMPTY */}
+            <div className="mt-2">
 
                 <div
                     className="
@@ -148,6 +84,7 @@ export default function OralTopicsClient({
                         shadow-sm
                     "
                 >
+
                     <p
                         className="
                             text-sm
@@ -168,7 +105,9 @@ export default function OralTopicsClient({
                         Topics will appear here
                         when they are available.
                     </p>
+
                 </div>
+
             </div>
         );
     }
@@ -182,14 +121,6 @@ export default function OralTopicsClient({
         topics[selectedIndex];
 
 
-    /*
-     * This should theoretically never happen because
-     * selectedIndex is kept within bounds above.
-     *
-     * The guard makes the component defensive against
-     * unexpected prop changes during rendering.
-     */
-
     if (!selectedTopic) {
         return null;
     }
@@ -197,81 +128,77 @@ export default function OralTopicsClient({
 
     /* =====================================================
        TOPIC VIEW
-       
-       IMPORTANT:
-       There is ONLY ONE TopicCard.
-
-       Previous / Next changes the topic
-       inside this same viewer.
     ===================================================== */
 
     return (
-        <div className="mt-5">
+        <div className="mt-2">
 
-            {/* CATEGORY HEADER */}
+            {/* =================================================
+                TOPIC COUNTER
 
-            <div className="mb-6">
+                Example:
+                1 / 1
+                1 / 5
+                2 / 5
+            ================================================= */}
+
+            <div
+                className="
+                    mb-3
+                    flex
+                    justify-end
+                "
+            >
                 <div
                     className="
-                        flex
-                        items-center
-                        justify-between
-                        gap-4
+                        shrink-0
+                        rounded-full
+                        bg-white
+                        px-3
+                        py-1.5
+                        text-xs
+                        font-semibold
+                        text-gray-600
+                        shadow-sm
+                        ring-1
+                        ring-gray-200
                     "
                 >
-                    <div>
-                        <p
-                            className="
-                                text-xs
-                                font-bold
-                                uppercase
-                                tracking-wider
-                                text-gray-400
-                            "
-                        >
-                            Oral Topics
-                        </p>
-
-                        <h1
-                            className="
-                                mt-1
-                                text-2xl
-                                font-bold
-                                tracking-tight
-                                text-gray-900
-                                sm:text-3xl
-                            "
-                        >
-                            {category.toUpperCase()}
-                        </h1>
-                    </div>
-
-                    <div
-                        className="
-                            shrink-0
-                            rounded-full
-                            bg-white
-                            px-3
-                            py-1.5
-                            text-xs
-                            font-semibold
-                            text-gray-600
-                            shadow-sm
-                            ring-1
-                            ring-gray-200
-                        "
-                    >
-                        {selectedIndex + 1} /{" "}
-                        {topics.length}
-                    </div>
+                    {selectedIndex + 1} /{" "}
+                    {topics.length}
                 </div>
             </div>
 
 
             {/* =================================================
-                SINGLE TOPIC VIEWER
+                TOPIC NAME
 
-                Intentionally ONE TopicCard.
+                This is intentionally OUTSIDE TopicCard.
+            ================================================= */}
+
+            <h1
+                className="
+                    mb-4
+                    text-2xl
+                    font-bold
+                    tracking-tight
+                    text-gray-900
+                    sm:text-3xl
+                "
+            >
+                {selectedTopic.name}
+            </h1>
+
+
+            {/* =================================================
+                TOPIC CARD
+
+                Topic name is still passed because
+                TopicCardTopic requires it.
+
+                If TopicCard currently renders its own
+                title, remove that title from TopicCard.tsx
+                so only the heading above is visible.
             ================================================= */}
 
             <TopicCard
@@ -311,6 +238,7 @@ export default function OralTopicsClient({
                     topics.length - 1
                 }
             />
+
         </div>
     );
 }
