@@ -83,7 +83,7 @@ export default function QuestionsContainer({
           body: JSON.stringify({
             category,
             mmd: selectedMmd,
-            batchNumber: 1,
+            batchNumber: mmdData[selectedMmd]?.batchCount ?? 1,
           }),
 
           cache: "no-store",
@@ -124,8 +124,8 @@ export default function QuestionsContainer({
 
         void loadRemainingBatches(
           selectedMmd,
-          2,
-          batchCount,
+          batchCount - 1,
+          1,
           loadId
         );
       }
@@ -171,8 +171,8 @@ export default function QuestionsContainer({
   ) {
     for (
       let batchNumber = firstBatch;
-      batchNumber <= batchCount;
-      batchNumber++
+      batchNumber >= batchCount;
+      batchNumber--
     ) {
 
       // Stop if the user has changed MMD
