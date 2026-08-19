@@ -379,6 +379,12 @@ html {
 }
 </file>
 
+<file path="app/loading.tsx">
+export default function Loading() {
+  return null;
+}
+</file>
+
 <file path="app/manifest.ts">
 import type { MetadataRoute } from "next";
 
@@ -4029,6 +4035,116 @@ export default function Loading() {
 }
 </file>
 
+<file path="app/(protected)/writtens/[category]/loading.tsx">
+export default function Loading() {
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-5 py-8">
+
+        {/* HEADER */}
+        <div className="mb-6 rounded-3xl border border-gray-200 bg-white px-5 py-5 shadow-sm animate-pulse">
+
+          {/* Top Row */}
+          <div className="flex items-center justify-between">
+
+            <div className="h-10 w-10 rounded-2xl bg-gray-200" />
+
+            <div className="h-10 w-10 rounded-full bg-gray-200" />
+
+          </div>
+
+          {/* Greeting */}
+          <div className="mt-5 space-y-2">
+            <div className="h-5 w-32 rounded bg-gray-200" />
+            <div className="h-4 w-24 rounded bg-gray-200" />
+          </div>
+
+          {/* Quote */}
+          <div className="mt-4 space-y-2 border-l-4 border-gray-200 pl-3">
+            <div className="h-3 w-4/5 rounded bg-gray-200" />
+            <div className="h-3 w-3/5 rounded bg-gray-200" />
+          </div>
+
+          {/* Category */}
+          <div className="mt-4 flex items-center gap-2">
+
+            <div className="h-6 w-12 rounded-lg bg-gray-200" />
+
+            <div className="h-4 w-32 rounded bg-gray-200" />
+
+          </div>
+
+          {/* Stats */}
+          <div className="mt-4 flex items-center gap-3">
+
+            <div className="h-3 w-24 rounded bg-gray-200" />
+
+            <div className="h-3 w-2 rounded bg-gray-200" />
+
+            <div className="h-3 w-20 rounded bg-gray-200" />
+
+          </div>
+
+        </div>
+
+        {/* SEARCH */}
+        <div className="mt-8 h-11 rounded-xl bg-white shadow-sm animate-pulse" />
+
+        {/* FILTER BUTTONS */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+
+          <div className="h-11 rounded-xl bg-white shadow-sm animate-pulse" />
+
+          <div className="h-11 rounded-xl bg-white shadow-sm animate-pulse" />
+
+        </div>
+
+        {/* QUESTIONS HEADER */}
+        <div className="mt-8 mb-6 flex items-center justify-between">
+
+          <div className="h-6 w-28 rounded bg-gray-200 animate-pulse" />
+
+          <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
+
+        </div>
+
+        {/* QUESTION CARD */}
+        <div className="rounded-3xl bg-white p-6 shadow-sm animate-pulse">
+
+          {/* Question title */}
+          <div className="h-6 w-3/4 rounded bg-gray-200" />
+
+          {/* Question text */}
+          <div className="mt-4 space-y-2">
+
+            <div className="h-4 w-full rounded bg-gray-200" />
+
+            <div className="h-4 w-5/6 rounded bg-gray-200" />
+
+            <div className="h-4 w-2/3 rounded bg-gray-200" />
+
+          </div>
+
+          {/* Answer */}
+          <div className="mt-7 h-32 rounded-2xl bg-gray-200" />
+
+        </div>
+
+        {/* NAVIGATION */}
+        <div className="mt-6 flex items-center justify-between">
+
+          <div className="h-11 w-28 rounded-xl bg-white shadow-sm animate-pulse" />
+
+          <div className="h-11 w-24 rounded-xl bg-white shadow-sm animate-pulse" />
+
+        </div>
+
+      </div>
+    </main>
+  );
+}
+</file>
+
 <file path="app/api/admin/make-admin/route.ts">
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/firebase-admin";
@@ -4923,12 +5039,6 @@ export async function POST(req: Request){
 
     }
 
-}
-</file>
-
-<file path="app/loading.tsx">
-export default function Loading() {
-  return null;
 }
 </file>
 
@@ -11637,116 +11747,6 @@ export interface AppUser {
 }
 </file>
 
-<file path="app/(protected)/writtens/[category]/loading.tsx">
-export default function Loading() {
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-5 py-8">
-
-        {/* HEADER */}
-        <div className="mb-6 rounded-3xl border border-gray-200 bg-white px-5 py-5 shadow-sm animate-pulse">
-
-          {/* Top Row */}
-          <div className="flex items-center justify-between">
-
-            <div className="h-10 w-10 rounded-2xl bg-gray-200" />
-
-            <div className="h-10 w-10 rounded-full bg-gray-200" />
-
-          </div>
-
-          {/* Greeting */}
-          <div className="mt-5 space-y-2">
-            <div className="h-5 w-32 rounded bg-gray-200" />
-            <div className="h-4 w-24 rounded bg-gray-200" />
-          </div>
-
-          {/* Quote */}
-          <div className="mt-4 space-y-2 border-l-4 border-gray-200 pl-3">
-            <div className="h-3 w-4/5 rounded bg-gray-200" />
-            <div className="h-3 w-3/5 rounded bg-gray-200" />
-          </div>
-
-          {/* Category */}
-          <div className="mt-4 flex items-center gap-2">
-
-            <div className="h-6 w-12 rounded-lg bg-gray-200" />
-
-            <div className="h-4 w-32 rounded bg-gray-200" />
-
-          </div>
-
-          {/* Stats */}
-          <div className="mt-4 flex items-center gap-3">
-
-            <div className="h-3 w-24 rounded bg-gray-200" />
-
-            <div className="h-3 w-2 rounded bg-gray-200" />
-
-            <div className="h-3 w-20 rounded bg-gray-200" />
-
-          </div>
-
-        </div>
-
-        {/* SEARCH */}
-        <div className="mt-8 h-11 rounded-xl bg-white shadow-sm animate-pulse" />
-
-        {/* FILTER BUTTONS */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-
-          <div className="h-11 rounded-xl bg-white shadow-sm animate-pulse" />
-
-          <div className="h-11 rounded-xl bg-white shadow-sm animate-pulse" />
-
-        </div>
-
-        {/* QUESTIONS HEADER */}
-        <div className="mt-8 mb-6 flex items-center justify-between">
-
-          <div className="h-6 w-28 rounded bg-gray-200 animate-pulse" />
-
-          <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
-
-        </div>
-
-        {/* QUESTION CARD */}
-        <div className="rounded-3xl bg-white p-6 shadow-sm animate-pulse">
-
-          {/* Question title */}
-          <div className="h-6 w-3/4 rounded bg-gray-200" />
-
-          {/* Question text */}
-          <div className="mt-4 space-y-2">
-
-            <div className="h-4 w-full rounded bg-gray-200" />
-
-            <div className="h-4 w-5/6 rounded bg-gray-200" />
-
-            <div className="h-4 w-2/3 rounded bg-gray-200" />
-
-          </div>
-
-          {/* Answer */}
-          <div className="mt-7 h-32 rounded-2xl bg-gray-200" />
-
-        </div>
-
-        {/* NAVIGATION */}
-        <div className="mt-6 flex items-center justify-between">
-
-          <div className="h-11 w-28 rounded-xl bg-white shadow-sm animate-pulse" />
-
-          <div className="h-11 w-24 rounded-xl bg-white shadow-sm animate-pulse" />
-
-        </div>
-
-      </div>
-    </main>
-  );
-}
-</file>
-
 <file path="app/(protected)/layout.tsx">
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import SubscriptionRoute from "@/components/subscription/SubscriptionRoute";
@@ -13955,221 +13955,6 @@ export async function startSubscriptionPayment() {
 }
 </file>
 
-<file path="providers/SubscriptionContext.tsx">
-"use client";
-
-import {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
-
-import { useAuth } from "./AuthContext";
-
-import {
-    isTrialExpired,
-    isSubscriptionExpired,
-} from "@/lib/subscriptions/subscription";
-
-import {
-    getUserSubscription,
-    startTrial,
-} from "@/services/subscription/subscription.service";
-
-import type {
-    UserSubscription,
-} from "@/types/user";
-
-interface SubscriptionContextType {
-    loading: boolean;
-    active: boolean;
-    hasAccess: boolean;
-    showTrialModal: boolean;
-    showSubscriptionModal: boolean;
-
-    closeTrialModal: () => void;
-
-    status:
-    | "inactive"
-    | "trial"
-    | "active"
-    | "expired"
-    | "cancelled";
-
-    subscription: UserSubscription | null;
-}
-
-const SubscriptionContext =
-    createContext<SubscriptionContextType>({
-        loading: true,
-        active: false,
-        hasAccess: false,
-        showTrialModal: false,
-        showSubscriptionModal: false,
-
-        closeTrialModal: () => { },
-
-        status: "inactive",
-        subscription: null,
-    });
-
-export function SubscriptionProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    const { user, role } = useAuth();
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [subscription, setSubscription] =
-        useState<UserSubscription | null>(
-            null
-        );
-
-    useEffect(() => {
-        async function loadSubscription() {
-
-            if (role === "admin") {
-                setSubscription(null);
-                setLoading(false);
-                setShowTrialModal(false);
-                return;
-            }
-
-            if (!user) {
-                setSubscription(null);
-                setLoading(false);
-                return;
-            }
-
-            let data =
-                await getUserSubscription(
-                    user.uid
-                );
-
-            // First login → automatically start trial
-            if (
-                data &&
-                data.status === "inactive"
-            ) {
-                await startTrial(user.uid);
-
-                data =
-                    await getUserSubscription(
-                        user.uid
-                    );
-            }
-
-            const dismissed =
-                localStorage.getItem(
-                    `trial_seen_${user.uid}`
-                );
-
-            if (
-                data?.status === "trial" &&
-                !isTrialExpired(data) &&
-                !dismissed
-            ) {
-                setShowTrialModal(true);
-            }
-
-            setSubscription(data);
-            setLoading(false);
-        }
-
-        loadSubscription();
-    }, [user, role]);
-
-    const trialExpired =
-        subscription
-            ? isTrialExpired(subscription)
-            : false;
-
-    const subscriptionExpired =
-        subscription
-            ? isSubscriptionExpired(
-                subscription
-            )
-            : false;
-
-    const hasAccess =
-        role === "admin" ||
-        (
-            !!subscription &&
-            (
-                subscription.status === "active" ||
-                subscription.status === "trial"
-            ) &&
-            !trialExpired &&
-            !subscriptionExpired
-        );
-
-    const [
-        showTrialModal,
-        setShowTrialModal,
-    ] = useState(false);
-
-    const showSubscriptionModal =
-        role !== "admin" &&
-        !!subscription &&
-        (
-            subscription.status === "inactive" ||
-            subscription.status === "expired" ||
-            subscription.status === "cancelled" ||
-            trialExpired ||
-            subscriptionExpired
-        );
-
-    return (
-        <SubscriptionContext.Provider
-            value={{
-                loading,
-
-                active: hasAccess,
-
-                hasAccess,
-
-                showTrialModal,
-
-                showSubscriptionModal,
-
-                closeTrialModal: () => {
-
-                    if (user) {
-
-                        localStorage.setItem(
-                            `trial_seen_${user.uid}`,
-                            "true"
-                        );
-
-                    }
-
-                    setShowTrialModal(false);
-
-                },
-
-                status:
-                    subscription?.status ??
-                    "inactive",
-
-                subscription,
-            }}
-        >
-            {children}
-        </SubscriptionContext.Provider>
-    );
-}
-
-export function useSubscription() {
-    return useContext(
-        SubscriptionContext
-    );
-}
-</file>
-
 <file path="services/writtens/writtenMetadata.service.ts">
 import {
     doc,
@@ -15744,6 +15529,222 @@ export const SUBSCRIPTION = {
         durationDays: 30,
     },
 } as const;
+</file>
+
+<file path="providers/SubscriptionContext.tsx">
+"use client";
+
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+
+import { useAuth } from "./AuthContext";
+
+import {
+    isTrialExpired,
+    isSubscriptionExpired,
+} from "@/lib/subscriptions/subscription";
+
+import {
+    getUserSubscription,
+    startTrial,
+} from "@/services/subscription/subscription.service";
+
+import type {
+    UserSubscription,
+} from "@/types/user";
+
+interface SubscriptionContextType {
+    loading: boolean;
+    active: boolean;
+    hasAccess: boolean;
+    showTrialModal: boolean;
+    showSubscriptionModal: boolean;
+
+    closeTrialModal: () => void;
+
+    status:
+    | "inactive"
+    | "trial"
+    | "active"
+    | "expired"
+    | "cancelled";
+
+    subscription: UserSubscription | null;
+}
+
+const SubscriptionContext =
+    createContext<SubscriptionContextType>({
+        loading: true,
+        active: false,
+        hasAccess: false,
+        showTrialModal: false,
+        showSubscriptionModal: false,
+
+        closeTrialModal: () => { },
+
+        status: "inactive",
+        subscription: null,
+    });
+
+export function SubscriptionProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const { user, role } = useAuth();
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [subscription, setSubscription] =
+        useState<UserSubscription | null>(
+            null
+        );
+
+    const [
+        showTrialModal,
+        setShowTrialModal,
+    ] = useState(false);
+
+    useEffect(() => {
+        async function loadSubscription() {
+
+            setLoading(true);
+            setShowTrialModal(false);
+
+            if (role === "admin") {
+                setSubscription(null);
+                setLoading(false);
+                return;
+            }
+
+            if (!user) {
+                setSubscription(null);
+                setLoading(false);
+                return;
+            }
+
+            let data =
+                await getUserSubscription(
+                    user.uid
+                );
+
+            // First login → automatically start trial
+            if (
+                data &&
+                data.status === "inactive"
+            ) {
+                await startTrial(user.uid);
+
+                data =
+                    await getUserSubscription(
+                        user.uid
+                    );
+            }
+
+            const dismissed =
+                localStorage.getItem(
+                    `trial_seen_${user.uid}`
+                );
+
+            if (
+                data?.status === "trial" &&
+                !isTrialExpired(data) &&
+                !dismissed
+            ) {
+                setShowTrialModal(true);
+            }
+
+            setSubscription(data);
+            setLoading(false);
+        }
+
+        loadSubscription();
+    }, [user, role]);
+
+    const trialExpired =
+        subscription
+            ? isTrialExpired(subscription)
+            : false;
+
+    const subscriptionExpired =
+        subscription
+            ? isSubscriptionExpired(
+                subscription
+            )
+            : false;
+
+    const hasAccess =
+        role === "admin" ||
+        (
+            !!subscription &&
+            (
+                subscription.status === "active" ||
+                subscription.status === "trial"
+            ) &&
+            !trialExpired &&
+            !subscriptionExpired
+        );
+
+    const showSubscriptionModal =
+        role !== "admin" &&
+        !!subscription &&
+        (
+            subscription.status === "expired" ||
+            subscription.status === "cancelled" ||
+            trialExpired ||
+            subscriptionExpired
+        );
+
+    return (
+        <SubscriptionContext.Provider
+            value={{
+                loading,
+
+                active: hasAccess,
+
+                hasAccess,
+
+                showTrialModal,
+
+                showSubscriptionModal,
+
+                closeTrialModal: () => {
+
+                    if (user) {
+
+                        localStorage.setItem(
+                            `trial_seen_${user.uid}`,
+                            "true"
+                        );
+
+                    }
+
+                    setShowTrialModal(false);
+
+                },
+
+                status:
+                    subscription?.status ??
+                    "inactive",
+
+                subscription,
+            }}
+        >
+            {children}
+        </SubscriptionContext.Provider>
+    );
+}
+
+export function useSubscription() {
+    return useContext(
+        SubscriptionContext
+    );
+}
 </file>
 
 <file path="services/writtens/written.service.ts">
@@ -18123,966 +18124,6 @@ export default function BulkUploadPage() {
 }
 </file>
 
-<file path="app/(protected)/writtens/[category]/WrittensClient.tsx">
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  Sailboat,
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
-} from "lucide-react";
-
-import WrittenCard from "@/components/questions/WrittenCard";
-import WrittenFilters from "@/components/questions/WrittenFilters";
-import { useAuth } from "@/providers/AuthContext";
-
-import {
-  WrittenQuestion,
-} from "@/services/writtens/written.service";
-
-
-export default function WrittensClient({
-  initialQuestions,
-  category,
-}: {
-  initialQuestions: WrittenQuestion[];
-  category: string;
-}) {
-
-  const { user } = useAuth();
-
-  const name =
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "Sailor";
-
-  const questions = initialQuestions;
-  const [bookmarks, setBookmarks] = useState<string[]>([]);
-  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
-  const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedClass, setSelectedClass] = useState("All");
-  const [selectedYear, setSelectedYear] = useState("All");
-  const [selectedMonth, setSelectedMonth] = useState("All");
-  const [selectedTopic, setSelectedTopic] = useState("All");
-  const bookmarkStorageKey = `bookmarkedWrittenQuestions_${category}`;
-
-  const years = useMemo(() => {
-    return [...new Set(questions.map((q) => q.year))]
-      .sort((a, b) => b - a);
-  }, [questions]);
-
-  const topics = useMemo(() => {
-    return [...new Set(
-      questions
-        .map((q) => q.topic)
-        .filter(Boolean)
-    )].sort();
-  }, [questions]);
-
-  const bookmarkCount = useMemo(() => {
-    return questions.filter((q) =>
-      bookmarks.includes(q.id)
-    ).length;
-  }, [questions, bookmarks]);
-
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((question) => {
-      if (
-        showBookmarksOnly &&
-        !bookmarks.includes(question.id)
-      )
-        return false;
-
-      const classMatch =
-        selectedClass === "All" ||
-        question.class === selectedClass;
-
-      const yearMatch =
-        selectedYear === "All" ||
-        String(question.year) === selectedYear;
-
-      const monthMatch =
-        selectedMonth === "All" ||
-        question.month === selectedMonth;
-
-      const topicMatch =
-        selectedTopic === "All" ||
-        question.topic === selectedTopic;
-
-      const searchMatch =
-        search.trim() === "" ||
-        question.question
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.answer
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.topic
-          .toLowerCase()
-          .includes(search.toLowerCase());
-
-      return (
-        classMatch &&
-        yearMatch &&
-        monthMatch &&
-        topicMatch &&
-        searchMatch
-      );
-    });
-  }, [
-    questions,
-    search,
-    selectedClass,
-    selectedYear,
-    selectedMonth,
-    selectedTopic,
-    bookmarks,
-    showBookmarksOnly,
-  ]);
-
-  const currentQuestion = filteredQuestions[currentIndex];
-
-  const clearFilters = () => {
-    setSearch("");
-    setSelectedClass("All");
-    setSelectedYear("All");
-    setSelectedMonth("All");
-    setSelectedTopic("All");
-    setShowBookmarksOnly(false);
-  };
-
-  useEffect(() => {
-    setCurrentIndex(0);
-  }, [
-    search,
-    selectedClass,
-    selectedYear,
-    selectedMonth,
-    selectedTopic,
-    showBookmarksOnly,
-  ]);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(bookmarkStorageKey);
-
-      setBookmarks(
-        saved ? JSON.parse(saved) : []
-      );
-
-    } catch {
-      setBookmarks([]);
-    }
-  }, [bookmarkStorageKey]);
-
-  useEffect(() => {
-    if (currentIndex >= filteredQuestions.length) {
-      setCurrentIndex(
-        Math.max(filteredQuestions.length - 1, 0)
-      );
-    }
-  }, [filteredQuestions.length, currentIndex]);
-
-  const titles: Record<
-    string,
-    {
-      badge: string;
-      title: string;
-    }
-  > = {
-    general: {
-      badge: "MEKG",
-      title: "GENERAL WRITTEN",
-    },
-    mep: {
-      badge: "MEP",
-      title: "MEP WRITTEN",
-    },
-    motor: {
-      badge: "MEKM",
-      title: "MOTOR WRITTEN",
-    },
-    met: {
-      badge: "MET",
-      title: "ELECTRICAL WRITTEN",
-    },
-    naval: {
-      badge: "SHIP-CO",
-      title: "NAVAL WRITTEN",
-    },
-    ssep: {
-      badge: "SSEP",
-      title: "SAFETY WRITTEN",
-    },
-  };
-  const page = titles[category] ?? {
-    badge: category.toUpperCase(),
-    title: "Written Questions",
-  };
-
-  const toggleBookmark = (id: string) => {
-    setBookmarks((prev) => {
-      const updated = prev.includes(id)
-        ? prev.filter((item) => item !== id)
-        : [...prev, id];
-
-      localStorage.setItem(
-        bookmarkStorageKey,
-        JSON.stringify(updated)
-      );
-
-      return updated;
-    });
-  };
-
-  useEffect(() => {
-    const closeFilters = () => {
-      setShowFilters(false);
-    };
-
-    window.addEventListener(
-      "close-written-filters",
-      closeFilters
-    );
-
-    return () => {
-      window.removeEventListener(
-        "close-written-filters",
-        closeFilters
-      );
-    };
-  }, []);
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-5 py-8">
-
-        {/* HEADER CARD */}
-        <div className="mb-6 rounded-3xl border border-gray-200 bg-white px-5 py-5 shadow-sm">
-
-          {/* Top Row */}
-          <div className="flex items-center justify-between">
-
-            <Link
-              href="/"
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-
-            <div className="flex h-10 w-10 items-center justify-center">
-              <Sailboat
-                size={26}
-                strokeWidth={2}
-                className="rotate-[-8deg]"
-              />
-            </div>
-
-          </div>
-
-          {/* Greeting */}
-          <div className="mt-5">
-            <h2 className="text-lg font-bold leading-tight">
-              Hi, {name} 👋
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Welcome Back
-            </p>
-          </div>
-
-          {/* Quote */}
-          <div className="mt-4 border-l-4 border-black pl-3">
-            <p className="text-xs italic leading-5 text-gray-600">
-              Coffee. Questions. Repeat.
-            </p>
-          </div>
-
-          {/* Category */}
-          <div className="mt-4 flex items-center gap-2">
-
-            <div className="rounded-lg bg-black px-3 py-1 text-[10px] font-semibold tracking-wide text-white">
-              {page.badge}
-            </div>
-
-            <h1 className="text-sm font-bold tracking-tight text-gray-900">
-              {page.title}
-            </h1>
-
-          </div>
-
-          {/* Stats */}
-          <div className="mt-4 flex items-center gap-3 text-xs font-medium text-gray-500">
-
-            <span>
-              {questions.length} Questions
-            </span>
-
-            <span>•</span>
-
-            <span>
-              {topics.length} Topics
-            </span>
-
-          </div>
-
-        </div>
-
-        {/* SEARCH */}
-
-        <div className="mt-8">
-          <input
-            type="text"
-            placeholder="🔍 Search Questions..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
-          />
-        </div>
-
-        {/* FILTER BUTTON */}
-
-        {/* FILTER BUTTONS */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-black"
-          >
-            <div className="flex items-center gap-3">
-              <SlidersHorizontal size={16} />
-              <span className="font-semibold">
-                Filters
-              </span>
-            </div>
-
-            {showFilters ? (
-              <ChevronUp size={16} />
-            ) : (
-              <ChevronDown size={16} />
-            )}
-          </button>
-
-          <button
-            onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-            className={`flex items-center justify-center rounded-xl border px-4 py-3 shadow-sm transition ${showBookmarksOnly
-              ? "border-black bg-black text-white"
-              : "border-gray-200 bg-white hover:border-black"
-              }`}
-          >
-            🔖 Bookmarks ({bookmarkCount})
-          </button>
-
-        </div>
-
-        {/* FILTER PANEL */}
-
-        {showFilters && (
-          <div className="mt-4">
-            <WrittenFilters
-              selectedClass={selectedClass}
-              setSelectedClass={setSelectedClass}
-              selectedYear={selectedYear}
-              setSelectedYear={setSelectedYear}
-              selectedMonth={selectedMonth}
-              setSelectedMonth={setSelectedMonth}
-              selectedTopic={selectedTopic}
-              setSelectedTopic={setSelectedTopic}
-              years={years}
-              topics={topics}
-              onClearFilters={clearFilters}
-            />
-          </div>
-        )}
-
-        <div className="mt-8 mb-6 flex items-center justify-between gap-4">
-
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
-            Questions
-          </h2>
-
-          <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
-            <span className="text-gray-500">Current:</span>{" "}
-            <span className="font-bold text-black">
-              {filteredQuestions.length > 0
-                ? `${currentIndex + 1} / ${filteredQuestions.length}`
-                : "0 / 0"}
-            </span>
-
-            <span className="mx-2 text-gray-300">|</span>
-          </div>
-
-        </div>
-
-        {filteredQuestions.length === 0 ? (
-
-          <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-
-            <div className="text-5xl">
-              🔍
-            </div>
-
-            <h3 className="mt-4 text-lg font-semibold text-gray-900">
-              No questions found
-            </h3>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Try changing your search, filters or bookmarks.
-            </p>
-
-            <button
-              onClick={clearFilters}
-              className="
-        mt-6
-        rounded-xl
-        bg-black
-        px-5
-        py-3
-        text-sm
-        font-medium
-        text-white
-        transition
-        hover:opacity-90
-      "
-            >
-              Clear Filters
-            </button>
-
-          </div>
-
-        ) : (
-
-          <div className="mt-8">
-
-            <div id="question-card">
-              <WrittenCard
-                question={currentQuestion}
-                isBookmarked={bookmarks.includes(currentQuestion.id)}
-                onBookmark={() =>
-                  toggleBookmark(currentQuestion.id)
-                }
-                onPrevious={() =>
-                  setCurrentIndex((prev) => prev - 1)
-                }
-                onNext={() =>
-                  setCurrentIndex((prev) => prev + 1)
-                }
-                canGoPrevious={currentIndex > 0}
-                canGoNext={
-                  currentIndex <
-                  filteredQuestions.length - 1
-                }
-              />
-            </div>
-
-          </div>
-
-        )}
-
-      </div>
-    </main>
-  );
-}
-</file>
-
-<file path="hooks/useOralMmdPreference.ts">
-"use client";
-
-import { useEffect, useState } from "react";
-
-import {
-  fetchOralMmdPreference,
-  updateOralMmdPreference,
-} from "@/services/users/userPreference.client";
-
-
-export function useOralMmdPreference() {
-
-  const [mmd, setMmdState] =
-    useState<string | null>(null);
-
-
-  const [loading, setLoading] =
-    useState(true);
-
-
-
-  useEffect(() => {
-
-    let mounted = true;
-
-
-    async function loadPreference() {
-
-      try {
-
-        const data =
-          await fetchOralMmdPreference();
-
-      if (mounted) {
-            setMmdState(
-              data.oralMmd || "CHENNAI"
-            );
-          }
-
-
-     } catch (error) {
-    console.error(
-        "Failed loading MMD preference:",
-        error
-    );
-
-    if (mounted) {
-        setMmdState("Chennai");
-    }
-} finally {
-
-        if (mounted) {
-
-          setLoading(false);
-
-        }
-
-      }
-
-    }
-
-
-    loadPreference();
-
-
-    return () => {
-
-      mounted = false;
-
-    };
-
-
-  }, []);
-
-  const setMmd = async (
-    value: string
-  ) => {
-    // Update the UI immediately
-    setMmdState(value);
-
-    try {
-      // Save the preference in the background
-      await updateOralMmdPreference(value);
-    } catch (error) {
-      console.error(
-        "Failed saving MMD preference:",
-        error
-      );
-    }
-  };
-
-
-
-
-
-  return {
-
-    mmd,
-
-    loading,
-
-    setMmd,
-
-  };
-
-}
-</file>
-
-<file path="lib/cache/home-cache.ts">
-import { unstable_cache } from "next/cache";
-import { Timestamp } from "firebase-admin/firestore";
-import { adminDb } from "@/lib/firebase/firebase-admin";
-
-export const getHomeStats = unstable_cache(
-    async () => {
-
-        // Oral metadata
-        const oralSnapshot = await adminDb
-            .collection("oral_batches_metadata")
-            .doc("counters")
-            .get();
-
-        let oralStats = {};
-
-        if (oralSnapshot.exists) {
-
-            const data = oralSnapshot.data() ?? {};
-
-            oralStats = {
-                fn3: {
-                    questions: data.fn3?.questionCount ?? 0,
-                    topics: data.fn3?.topicCount ?? 0,
-                    updatedAt:
-                        (data.fn3?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                },
-
-                fn4b: {
-                    questions: data.fn4b?.questionCount ?? 0,
-                    topics: data.fn4b?.topicCount ?? 0,
-                    updatedAt:
-                        (data.fn4b?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                },
-
-                fn5: {
-                    questions: data.fn5?.questionCount ?? 0,
-                    topics: data.fn5?.topicCount ?? 0,
-                    updatedAt:
-                        (data.fn5?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                },
-
-                fn6: {
-                    questions: data.fn6?.questionCount ?? 0,
-                    topics: data.fn6?.topicCount ?? 0,
-                    updatedAt:
-                        (data.fn6?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                },
-            };
-        }
-
-        // Written metadata
-        const writtenSnapshot = await adminDb
-            .collection("written_batches_metadata")
-            .doc("counters")
-            .get();
-
-        let writtenStats = {};
-
-        if (writtenSnapshot.exists) {
-
-            const data = writtenSnapshot.data() ?? {};
-
-            writtenStats = Object.fromEntries(
-                Object.entries(data).map(
-                    ([key, value]: any) => [
-                        key,
-                        {
-                            questions: value.questionCount ?? 0,
-                            topics: value.topicCount ?? 0,
-                            batches: value.batchCount ?? 0,
-                            updatedAt:
-                                (value.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                        },
-                    ]
-                )
-            );
-        }
-
-        return {
-            oralStats,
-            writtenStats,
-        };
-    },
-    ["home-stats"],
-    {
-        revalidate: false,
-        tags: [
-            "oral_batches_metadata",
-            "written_batches_metadata",
-        ],
-    }
-);
-</file>
-
-<file path="providers/AuthContext.tsx">
-"use client";
-
-import {
-    onAuthStateChanged,
-    User,
-    signOut,
-} from "firebase/auth";
-
-import {
-    requestNotificationPermission,
-} from "@/lib/firebase/firebaseMessaging";
-
-import {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
-
-import {
-    auth,
-} from "@/lib/firebase/firebase";
-
-
-import {
-    initializeUser,
-    saveFCMToken,
-} from "@/services/users/userService";
-
-
-interface AuthContextType {
-
-    user: User | null;
-
-    loading: boolean;
-
-    role: "admin" | "student";
-
-}
-
-
-
-const AuthContext =
-    createContext<AuthContextType>({
-        user: null,
-
-        loading: true,
-
-        role: "student",
-    });
-
-
-
-
-export function AuthProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-
-
-    const [user, setUser] =
-        useState<User | null>(null);
-
-
-    const [loading, setLoading] =
-        useState(true);
-
-
-    const [role, setRole] =
-        useState<"admin" | "student">(
-            "student"
-        );
-
-
-
-
-    useEffect(() => {
-
-
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                async (firebaseUser) => {
-
-
-                    if (!firebaseUser) {
-                        setUser(null);
-                        setRole("student");
-                        setLoading(false);
-                        return;
-                    }
-
-                    // Make authenticated user available to UI immediately
-                    setUser(firebaseUser);
-                    setLoading(false);
-
-
-
-                    try {
-
-
-                        const token =
-                            await firebaseUser
-                                .getIdTokenResult(true);
-
-
-
-                        const isAdmin =
-                            token.claims.admin === true;
-
-                        console.log("ADMIN CHECK:", {
-                            email: firebaseUser.email,
-                            claims: token.claims,
-                            isAdmin,
-                        });
-
-
-
-                        setRole(
-                            isAdmin
-                                ? "admin"
-                                : "student"
-                        );
-
-                        const profile =
-                            await initializeUser({
-                                uid: firebaseUser.uid,
-                                displayName: firebaseUser.displayName,
-                                email: firebaseUser.email,
-                                photoURL: firebaseUser.photoURL,
-                            });
-
-                        if (profile.isBlocked) {
-
-                            await signOut(auth);
-
-                            setUser(null);
-
-                            setRole("student");
-
-                            setLoading(false);
-
-                            return;
-
-                        }
-
-                        setUser(firebaseUser);
-
-
-                        const fcmToken =
-                            await requestNotificationPermission();
-
-
-                        if (fcmToken) {
-
-                            console.log(
-                                "FCM TOKEN:",
-                                fcmToken
-                            );
-
-
-                            await saveFCMToken(
-                                firebaseUser.uid,
-                                fcmToken
-                            );
-
-                        }
-
-
-
-
-                    } catch (error) {
-
-
-                        console.error(
-                            "Authentication loading failed:",
-                            error
-                        );
-
-
-                        setRole("student");
-
-
-                    } finally {
-
-
-                        setLoading(false);
-
-                    }
-
-                }
-            );
-
-
-
-        return unsubscribe;
-
-
-    }, []);
-
-
-
-
-
-    return (
-
-        <AuthContext.Provider
-
-            value={{
-
-                user,
-
-                loading,
-
-                role,
-
-            }}
-
-        >
-
-            {children}
-
-        </AuthContext.Provider>
-
-    );
-
-}
-
-
-
-
-
-export function useAuth() {
-
-    return useContext(AuthContext);
-
-}
-</file>
-
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "@tanstack/react-virtual": "^3.14.9",
-    "dotenv": "^17.4.2",
-    "exceljs": "^4.4.0",
-    "firebase": "^12.15.0",
-    "firebase-admin": "^13.4.0",
-    "framer-motion": "^12.42.2",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "razorpay": "^2.9.8",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.1",
-    "typescript": "^5"
-  }
-}
-</file>
-
 <file path="app/(protected)/admin/manage/page.tsx">
 "use client";
 
@@ -20204,6 +19245,966 @@ export default function ManageWrittenQuestionsPage() {
     );
 
 
+}
+</file>
+
+<file path="app/(protected)/writtens/[category]/WrittensClient.tsx">
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Sailboat,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
+
+import WrittenCard from "@/components/questions/WrittenCard";
+import WrittenFilters from "@/components/questions/WrittenFilters";
+import { useAuth } from "@/providers/AuthContext";
+
+import {
+  WrittenQuestion,
+} from "@/services/writtens/written.service";
+
+
+export default function WrittensClient({
+  initialQuestions,
+  category,
+}: {
+  initialQuestions: WrittenQuestion[];
+  category: string;
+}) {
+
+  const { user } = useAuth();
+
+  const name =
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Sailor";
+
+  const questions = initialQuestions;
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedClass, setSelectedClass] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedMonth, setSelectedMonth] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+  const bookmarkStorageKey = `bookmarkedWrittenQuestions_${category}`;
+
+  const years = useMemo(() => {
+    return [...new Set(questions.map((q) => q.year))]
+      .sort((a, b) => b - a);
+  }, [questions]);
+
+  const topics = useMemo(() => {
+    return [...new Set(
+      questions
+        .map((q) => q.topic)
+        .filter(Boolean)
+    )].sort();
+  }, [questions]);
+
+  const bookmarkCount = useMemo(() => {
+    return questions.filter((q) =>
+      bookmarks.includes(q.id)
+    ).length;
+  }, [questions, bookmarks]);
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((question) => {
+      if (
+        showBookmarksOnly &&
+        !bookmarks.includes(question.id)
+      )
+        return false;
+
+      const classMatch =
+        selectedClass === "All" ||
+        question.class === selectedClass;
+
+      const yearMatch =
+        selectedYear === "All" ||
+        String(question.year) === selectedYear;
+
+      const monthMatch =
+        selectedMonth === "All" ||
+        question.month === selectedMonth;
+
+      const topicMatch =
+        selectedTopic === "All" ||
+        question.topic === selectedTopic;
+
+      const searchMatch =
+        search.trim() === "" ||
+        question.question
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.answer
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.topic
+          .toLowerCase()
+          .includes(search.toLowerCase());
+
+      return (
+        classMatch &&
+        yearMatch &&
+        monthMatch &&
+        topicMatch &&
+        searchMatch
+      );
+    });
+  }, [
+    questions,
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+    bookmarks,
+    showBookmarksOnly,
+  ]);
+
+  const currentQuestion = filteredQuestions[currentIndex];
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedClass("All");
+    setSelectedYear("All");
+    setSelectedMonth("All");
+    setSelectedTopic("All");
+    setShowBookmarksOnly(false);
+  };
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+    showBookmarksOnly,
+  ]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(bookmarkStorageKey);
+
+      setBookmarks(
+        saved ? JSON.parse(saved) : []
+      );
+
+    } catch {
+      setBookmarks([]);
+    }
+  }, [bookmarkStorageKey]);
+
+  useEffect(() => {
+    if (currentIndex >= filteredQuestions.length) {
+      setCurrentIndex(
+        Math.max(filteredQuestions.length - 1, 0)
+      );
+    }
+  }, [filteredQuestions.length, currentIndex]);
+
+  const titles: Record<
+    string,
+    {
+      badge: string;
+      title: string;
+    }
+  > = {
+    general: {
+      badge: "MEKG",
+      title: "GENERAL WRITTEN",
+    },
+    mep: {
+      badge: "MEP",
+      title: "MEP WRITTEN",
+    },
+    motor: {
+      badge: "MEKM",
+      title: "MOTOR WRITTEN",
+    },
+    met: {
+      badge: "MET",
+      title: "ELECTRICAL WRITTEN",
+    },
+    naval: {
+      badge: "SHIP-CO",
+      title: "NAVAL WRITTEN",
+    },
+    ssep: {
+      badge: "SSEP",
+      title: "SAFETY WRITTEN",
+    },
+  };
+  const page = titles[category] ?? {
+    badge: category.toUpperCase(),
+    title: "Written Questions",
+  };
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        bookmarkStorageKey,
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
+  };
+
+  useEffect(() => {
+    const closeFilters = () => {
+      setShowFilters(false);
+    };
+
+    window.addEventListener(
+      "close-written-filters",
+      closeFilters
+    );
+
+    return () => {
+      window.removeEventListener(
+        "close-written-filters",
+        closeFilters
+      );
+    };
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-5 py-8">
+
+        {/* HEADER CARD */}
+        <div className="mb-6 rounded-3xl border border-gray-200 bg-white px-5 py-5 shadow-sm">
+
+          {/* Top Row */}
+          <div className="flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
+            >
+              <ArrowLeft size={18} />
+            </Link>
+
+            <div className="flex h-10 w-10 items-center justify-center">
+              <Sailboat
+                size={26}
+                strokeWidth={2}
+                className="rotate-[-8deg]"
+              />
+            </div>
+
+          </div>
+
+          {/* Greeting */}
+          <div className="mt-5">
+            <h2 className="text-lg font-bold leading-tight">
+              Hi, {name} 👋
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Welcome Back
+            </p>
+          </div>
+
+          {/* Quote */}
+          <div className="mt-4 border-l-4 border-black pl-3">
+            <p className="text-xs italic leading-5 text-gray-600">
+              Coffee. Questions. Repeat.
+            </p>
+          </div>
+
+          {/* Category */}
+          <div className="mt-4 flex items-center gap-2">
+
+            <div className="rounded-lg bg-black px-3 py-1 text-[10px] font-semibold tracking-wide text-white">
+              {page.badge}
+            </div>
+
+            <h1 className="text-sm font-bold tracking-tight text-gray-900">
+              {page.title}
+            </h1>
+
+          </div>
+
+          {/* Stats */}
+          <div className="mt-4 flex items-center gap-3 text-xs font-medium text-gray-500">
+
+            <span>
+              {questions.length} Questions
+            </span>
+
+            <span>•</span>
+
+            <span>
+              {topics.length} Topics
+            </span>
+
+          </div>
+
+        </div>
+
+        {/* SEARCH */}
+
+        <div className="mt-8">
+          <input
+            type="text"
+            placeholder="🔍 Search Questions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
+          />
+        </div>
+
+        {/* FILTER BUTTON */}
+
+        {/* FILTER BUTTONS */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-black"
+          >
+            <div className="flex items-center gap-3">
+              <SlidersHorizontal size={16} />
+              <span className="font-semibold">
+                Filters
+              </span>
+            </div>
+
+            {showFilters ? (
+              <ChevronUp size={16} />
+            ) : (
+              <ChevronDown size={16} />
+            )}
+          </button>
+
+          <button
+            onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+            className={`flex items-center justify-center rounded-xl border px-4 py-3 shadow-sm transition ${showBookmarksOnly
+              ? "border-black bg-black text-white"
+              : "border-gray-200 bg-white hover:border-black"
+              }`}
+          >
+            🔖 Bookmarks ({bookmarkCount})
+          </button>
+
+        </div>
+
+        {/* FILTER PANEL */}
+
+        {showFilters && (
+          <div className="mt-4">
+            <WrittenFilters
+              selectedClass={selectedClass}
+              setSelectedClass={setSelectedClass}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              selectedTopic={selectedTopic}
+              setSelectedTopic={setSelectedTopic}
+              years={years}
+              topics={topics}
+              onClearFilters={clearFilters}
+            />
+          </div>
+        )}
+
+        <div className="mt-8 mb-6 flex items-center justify-between gap-4">
+
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+            Questions
+          </h2>
+
+          <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+            <span className="text-gray-500">Current:</span>{" "}
+            <span className="font-bold text-black">
+              {filteredQuestions.length > 0
+                ? `${currentIndex + 1} / ${filteredQuestions.length}`
+                : "0 / 0"}
+            </span>
+
+            <span className="mx-2 text-gray-300">|</span>
+          </div>
+
+        </div>
+
+        {filteredQuestions.length === 0 ? (
+
+          <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+
+            <div className="text-5xl">
+              🔍
+            </div>
+
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">
+              No questions found
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Try changing your search, filters or bookmarks.
+            </p>
+
+            <button
+              onClick={clearFilters}
+              className="
+        mt-6
+        rounded-xl
+        bg-black
+        px-5
+        py-3
+        text-sm
+        font-medium
+        text-white
+        transition
+        hover:opacity-90
+      "
+            >
+              Clear Filters
+            </button>
+
+          </div>
+
+        ) : (
+
+          <div className="mt-8">
+
+            <div id="question-card">
+              <WrittenCard
+                question={currentQuestion}
+                isBookmarked={bookmarks.includes(currentQuestion.id)}
+                onBookmark={() =>
+                  toggleBookmark(currentQuestion.id)
+                }
+                onPrevious={() =>
+                  setCurrentIndex((prev) => prev - 1)
+                }
+                onNext={() =>
+                  setCurrentIndex((prev) => prev + 1)
+                }
+                canGoPrevious={currentIndex > 0}
+                canGoNext={
+                  currentIndex <
+                  filteredQuestions.length - 1
+                }
+              />
+            </div>
+
+          </div>
+
+        )}
+
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="hooks/useOralMmdPreference.ts">
+"use client";
+
+import { useEffect, useState } from "react";
+
+import {
+  fetchOralMmdPreference,
+  updateOralMmdPreference,
+} from "@/services/users/userPreference.client";
+
+
+export function useOralMmdPreference() {
+
+  const [mmd, setMmdState] =
+    useState<string | null>(null);
+
+
+  const [loading, setLoading] =
+    useState(true);
+
+
+
+  useEffect(() => {
+
+    let mounted = true;
+
+
+    async function loadPreference() {
+
+      try {
+
+        const data =
+          await fetchOralMmdPreference();
+
+      if (mounted) {
+            setMmdState(
+              data.oralMmd || "CHENNAI"
+            );
+          }
+
+
+     } catch (error) {
+    console.error(
+        "Failed loading MMD preference:",
+        error
+    );
+
+    if (mounted) {
+        setMmdState("Chennai");
+    }
+} finally {
+
+        if (mounted) {
+
+          setLoading(false);
+
+        }
+
+      }
+
+    }
+
+
+    loadPreference();
+
+
+    return () => {
+
+      mounted = false;
+
+    };
+
+
+  }, []);
+
+  const setMmd = async (
+    value: string
+  ) => {
+    // Update the UI immediately
+    setMmdState(value);
+
+    try {
+      // Save the preference in the background
+      await updateOralMmdPreference(value);
+    } catch (error) {
+      console.error(
+        "Failed saving MMD preference:",
+        error
+      );
+    }
+  };
+
+
+
+
+
+  return {
+
+    mmd,
+
+    loading,
+
+    setMmd,
+
+  };
+
+}
+</file>
+
+<file path="lib/cache/home-cache.ts">
+import { unstable_cache } from "next/cache";
+import { Timestamp } from "firebase-admin/firestore";
+import { adminDb } from "@/lib/firebase/firebase-admin";
+
+export const getHomeStats = unstable_cache(
+    async () => {
+
+        // Oral metadata
+        const oralSnapshot = await adminDb
+            .collection("oral_batches_metadata")
+            .doc("counters")
+            .get();
+
+        let oralStats = {};
+
+        if (oralSnapshot.exists) {
+
+            const data = oralSnapshot.data() ?? {};
+
+            oralStats = {
+                fn3: {
+                    questions: data.fn3?.questionCount ?? 0,
+                    topics: data.fn3?.topicCount ?? 0,
+                    updatedAt:
+                        (data.fn3?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                },
+
+                fn4b: {
+                    questions: data.fn4b?.questionCount ?? 0,
+                    topics: data.fn4b?.topicCount ?? 0,
+                    updatedAt:
+                        (data.fn4b?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                },
+
+                fn5: {
+                    questions: data.fn5?.questionCount ?? 0,
+                    topics: data.fn5?.topicCount ?? 0,
+                    updatedAt:
+                        (data.fn5?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                },
+
+                fn6: {
+                    questions: data.fn6?.questionCount ?? 0,
+                    topics: data.fn6?.topicCount ?? 0,
+                    updatedAt:
+                        (data.fn6?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                },
+            };
+        }
+
+        // Written metadata
+        const writtenSnapshot = await adminDb
+            .collection("written_batches_metadata")
+            .doc("counters")
+            .get();
+
+        let writtenStats = {};
+
+        if (writtenSnapshot.exists) {
+
+            const data = writtenSnapshot.data() ?? {};
+
+            writtenStats = Object.fromEntries(
+                Object.entries(data).map(
+                    ([key, value]: any) => [
+                        key,
+                        {
+                            questions: value.questionCount ?? 0,
+                            topics: value.topicCount ?? 0,
+                            batches: value.batchCount ?? 0,
+                            updatedAt:
+                                (value.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                        },
+                    ]
+                )
+            );
+        }
+
+        return {
+            oralStats,
+            writtenStats,
+        };
+    },
+    ["home-stats"],
+    {
+        revalidate: false,
+        tags: [
+            "oral_batches_metadata",
+            "written_batches_metadata",
+        ],
+    }
+);
+</file>
+
+<file path="providers/AuthContext.tsx">
+"use client";
+
+import {
+    onAuthStateChanged,
+    User,
+    signOut,
+} from "firebase/auth";
+
+import {
+    requestNotificationPermission,
+} from "@/lib/firebase/firebaseMessaging";
+
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+
+import {
+    auth,
+} from "@/lib/firebase/firebase";
+
+
+import {
+    initializeUser,
+    saveFCMToken,
+} from "@/services/users/userService";
+
+
+interface AuthContextType {
+
+    user: User | null;
+
+    loading: boolean;
+
+    role: "admin" | "student";
+
+}
+
+
+
+const AuthContext =
+    createContext<AuthContextType>({
+        user: null,
+
+        loading: true,
+
+        role: "student",
+    });
+
+
+
+
+export function AuthProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+
+
+    const [user, setUser] =
+        useState<User | null>(null);
+
+
+    const [loading, setLoading] =
+        useState(true);
+
+
+    const [role, setRole] =
+        useState<"admin" | "student">(
+            "student"
+        );
+
+
+
+
+    useEffect(() => {
+
+
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                async (firebaseUser) => {
+
+
+                    if (!firebaseUser) {
+                        setUser(null);
+                        setRole("student");
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Make authenticated user available to UI immediately
+                    setUser(firebaseUser);
+                    setLoading(false);
+
+
+
+                    try {
+
+
+                        const token =
+                            await firebaseUser
+                                .getIdTokenResult(true);
+
+
+
+                        const isAdmin =
+                            token.claims.admin === true;
+
+                        console.log("ADMIN CHECK:", {
+                            email: firebaseUser.email,
+                            claims: token.claims,
+                            isAdmin,
+                        });
+
+
+
+                        setRole(
+                            isAdmin
+                                ? "admin"
+                                : "student"
+                        );
+
+                        const profile =
+                            await initializeUser({
+                                uid: firebaseUser.uid,
+                                displayName: firebaseUser.displayName,
+                                email: firebaseUser.email,
+                                photoURL: firebaseUser.photoURL,
+                            });
+
+                        if (profile.isBlocked) {
+
+                            await signOut(auth);
+
+                            setUser(null);
+
+                            setRole("student");
+
+                            setLoading(false);
+
+                            return;
+
+                        }
+
+                        setUser(firebaseUser);
+
+
+                        const fcmToken =
+                            await requestNotificationPermission();
+
+
+                        if (fcmToken) {
+
+                            console.log(
+                                "FCM TOKEN:",
+                                fcmToken
+                            );
+
+
+                            await saveFCMToken(
+                                firebaseUser.uid,
+                                fcmToken
+                            );
+
+                        }
+
+
+
+
+                    } catch (error) {
+
+
+                        console.error(
+                            "Authentication loading failed:",
+                            error
+                        );
+
+
+                        setRole("student");
+
+
+                    } finally {
+
+
+                        setLoading(false);
+
+                    }
+
+                }
+            );
+
+
+
+        return unsubscribe;
+
+
+    }, []);
+
+
+
+
+
+    return (
+
+        <AuthContext.Provider
+
+            value={{
+
+                user,
+
+                loading,
+
+                role,
+
+            }}
+
+        >
+
+            {children}
+
+        </AuthContext.Provider>
+
+    );
+
+}
+
+
+
+
+
+export function useAuth() {
+
+    return useContext(AuthContext);
+
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "@tanstack/react-virtual": "^3.14.9",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "firebase-admin": "^13.4.0",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "razorpay": "^2.9.8",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+  }
 }
 </file>
 
