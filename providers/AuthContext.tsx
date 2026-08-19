@@ -91,6 +91,10 @@ export function AuthProvider({
                         return;
                     }
 
+                    // Make authenticated user available to UI immediately
+                    setUser(firebaseUser);
+                    setLoading(false);
+
 
 
                     try {
