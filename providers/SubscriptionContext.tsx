@@ -71,13 +71,20 @@ export function SubscriptionProvider({
             null
         );
 
+    const [
+        showTrialModal,
+        setShowTrialModal,
+    ] = useState(false);
+
     useEffect(() => {
         async function loadSubscription() {
+
+            setLoading(true);
+            setShowTrialModal(false);
 
             if (role === "admin") {
                 setSubscription(null);
                 setLoading(false);
-                setShowTrialModal(false);
                 return;
             }
 
@@ -149,16 +156,10 @@ export function SubscriptionProvider({
             !subscriptionExpired
         );
 
-    const [
-        showTrialModal,
-        setShowTrialModal,
-    ] = useState(false);
-
     const showSubscriptionModal =
         role !== "admin" &&
         !!subscription &&
         (
-            subscription.status === "inactive" ||
             subscription.status === "expired" ||
             subscription.status === "cancelled" ||
             trialExpired ||
