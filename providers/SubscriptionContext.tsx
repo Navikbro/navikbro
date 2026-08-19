@@ -61,7 +61,7 @@ export function SubscriptionProvider({
 }: {
     children: React.ReactNode;
 }) {
-    const { user } = useAuth();
+    const { user, role } = useAuth();
 
     const [loading, setLoading] =
         useState(true);
@@ -73,6 +73,14 @@ export function SubscriptionProvider({
 
     useEffect(() => {
         async function loadSubscription() {
+
+            if (role === "admin") {
+                setSubscription(null);
+                setLoading(false);
+                setShowTrialModal(false);
+                return;
+            }
+
             if (!user) {
                 setSubscription(null);
                 setLoading(false);
@@ -115,7 +123,7 @@ export function SubscriptionProvider({
         }
 
         loadSubscription();
-    }, [user]);
+    }, [user, role]);
 
     const trialExpired =
         subscription
@@ -130,15 +138,16 @@ export function SubscriptionProvider({
             : false;
 
     const hasAccess =
-        !!subscription &&
+        role === "admin" ||
         (
-            subscription.status ===
-            "active" ||
-            subscription.status ===
-            "trial"
-        ) &&
-        !trialExpired &&
-        !subscriptionExpired;
+            !!subscription &&
+            (
+                subscription.status === "active" ||
+                subscription.status === "trial"
+            ) &&
+            !trialExpired &&
+            !subscriptionExpired
+        );
 
     const [
         showTrialModal,
@@ -146,14 +155,12 @@ export function SubscriptionProvider({
     ] = useState(false);
 
     const showSubscriptionModal =
+        role !== "admin" &&
         !!subscription &&
         (
-            subscription.status ===
-            "inactive" ||
-            subscription.status ===
-            "expired" ||
-            subscription.status ===
-            "cancelled" ||
+            subscription.status === "inactive" ||
+            subscription.status === "expired" ||
+            subscription.status === "cancelled" ||
             trialExpired ||
             subscriptionExpired
         );

@@ -411,6 +411,64 @@ export default function manifest(): MetadataRoute.Manifest {
 }
 </file>
 
+<file path="public/firebase-messaging-sw.js">
+importScripts(
+    "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"
+);
+
+importScripts(
+    "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"
+);
+
+
+firebase.initializeApp({
+    apiKey: "AIzaSyA-oP5hm_hVFd_lShfSAqSblkH5HVI4E3Q",
+    authDomain: "navik-bro.firebaseapp.com",
+    projectId: "navik-bro",
+    storageBucket: "navik-bro.firebasestorage.app",
+    messagingSenderId: "864304238896",
+    appId: "1:864304238896:web:33728bfabaf5bcfc5f78f5",
+    measurementId: "G-L0P830TCQJ"
+});
+
+
+const messaging =
+    firebase.messaging();
+
+
+messaging.onBackgroundMessage(
+    function (payload) {
+
+        console.log(
+            "Background message received:",
+            payload
+        );
+
+
+        const notificationTitle =
+            payload.notification.title;
+
+
+        const notificationOptions = {
+
+            body:
+                payload.notification.body,
+
+            icon:
+                "/icon.png",
+
+        };
+
+
+        self.registration.showNotification(
+            notificationTitle,
+            notificationOptions
+        );
+
+    }
+);
+</file>
+
 <file path="types/admin.ts">
 import { Timestamp } from "firebase/firestore";
 
@@ -5144,369 +5202,6 @@ export default function CategoryCard({
 }
 </file>
 
-<file path="components/home/Header.tsx">
-"use client";
-
-
-import {
-    Sailboat,
-    User,
-    LogOut
-} from "lucide-react";
-
-
-import {
-    signOut
-} from "firebase/auth";
-
-
-import {
-    auth
-} from "@/lib/firebase/firebase";
-
-
-import {
-    useAuth
-} from "@/providers/AuthContext";
-
-
-
-interface HeaderProps {
-
-    setShowAuth:
-    (show: boolean) => void;
-
-}
-
-
-
-export default function Header({
-
-    setShowAuth
-
-}: HeaderProps) {
-
-
-
-    const {
-        user
-
-    } = useAuth();
-
-
-
-
-    const handleLogout = async () => {
-
-
-        try {
-
-
-            if (user) {
-
-
-                localStorage.removeItem(
-
-                    `navik_profile_${user.uid}`
-
-                );
-
-
-            }
-
-
-
-            await signOut(auth);
-
-
-
-        } catch (error) {
-
-
-            console.error(
-                error
-            );
-
-
-        }
-
-
-    };
-
-
-
-
-    const shortEmail =
-        user?.email
-
-            ? user.email.length > 14
-
-                ? user.email.slice(0, 14) + "..."
-
-                : user.email
-
-            : "";
-
-
-
-
-    return (
-
-
-        <div
-
-            className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm"
-
-        >
-
-
-
-            <div
-
-                className="flex items-center justify-between"
-
-            >
-
-
-                {/* LEFT SIDE */}
-
-                <div
-                    className="
-    flex
-    items-center
-    gap-3
-    min-w-0
-  "
-                >
-                    {/* Sailboat */}
-                    <div
-                        className="
-      w-12
-      h-12
-      flex
-      items-center
-      justify-center
-      rotate-[-8deg]
-      flex-shrink-0
-    "
-                    >
-                        <Sailboat
-                            size={30}
-                            strokeWidth={2}
-                            className="text-black"
-                        />
-                    </div>
-
-                    {/* Brand */}
-                    <div
-                        className="
-      flex
-      flex-col
-      leading-tight
-    "
-                    >
-                        {/* NAVIK + bro */}
-                        <div className="relative inline-block w-fit">
-                            <h1
-                                className="
-          text-2xl
-          font-bold
-          tracking-tight
-          leading-none
-          text-black
-        "
-                            >
-                                NAVIK
-                            </h1>
-
-                            <span
-                                className="
-    absolute
-    left-full
-    ml-1
-    top-0
-    text-[10px]
-    font-bold
-    italic
-    lowercase
-    text-gray-700
-    leading-none
-  "
-                            >
-                                bro
-                            </span>
-                        </div>
-
-                        {/* Tagline */}
-                        <p
-                            className="
-        mt-1
-        text-[10px]
-        text-gray-500
-        leading-none
-      "
-                        >
-                            Sail Towards COC
-                        </p>
-                    </div>
-                </div>
-
-
-
-                {/* RIGHT SIDE */}
-
-
-
-                {
-                    user ?
-
-
-                        (
-
-                            <div
-
-                                className="
-                        flex
-                        items-center
-                        gap-3
-                        flex-shrink-0
-                        "
-
-                            >
-
-
-
-                                <div
-
-                                    className="
-                            bg-gray-100
-                            px-2
-                            py-2
-                            rounded-xl
-                            w-[80px]
-                            "
-
-                                >
-
-
-                                    <p
-
-                                        className="
-                                text-[9px]
-                                text-gray-500
-                                leading-none
-                                "
-
-                                    >
-
-                                        Signed in
-
-                                    </p>
-
-
-
-                                    <p
-
-                                        className="
-                                text-[11px]
-                                font-medium
-                                truncate
-                                "
-
-                                    >
-
-                                        {shortEmail}
-
-                                    </p>
-
-
-
-                                </div>
-
-
-
-
-                                <button
-
-                                    onClick={handleLogout}
-
-                                    className="
-                            w-10
-                            h-9
-                            rounded-2xl
-                            bg-black
-                            text-white
-                            flex
-                            items-center
-                            justify-center
-                            "
-
-                                >
-
-                                    <LogOut size={16} />
-
-
-                                </button>
-
-
-
-                            </div>
-
-
-                        )
-
-                        :
-
-
-                        (
-
-                            <button
-
-                                onClick={() => setShowAuth(true)}
-
-                                className="
-                        bg-black
-                        text-white
-                        px-4
-                        py-2
-                        rounded-xl
-                        flex
-                        items-center
-                        gap-1
-                        text-sm
-                        font-medium
-                        "
-
-                            >
-
-                                <User size={16} />
-
-                                Login
-
-
-                            </button>
-
-
-                        )
-
-                }
-
-
-
-
-            </div>
-
-
-
-        </div >
-
-
-    );
-
-
-}
-</file>
-
 <file path="components/home/HomeClient.tsx">
 "use client";
 
@@ -8933,64 +8628,6 @@ export function useSubscription() {
 }
 </file>
 
-<file path="public/firebase-messaging-sw.js">
-importScripts(
-    "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"
-);
-
-importScripts(
-    "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"
-);
-
-
-firebase.initializeApp({
-    apiKey: "AIzaSyA-oP5hm_hVFd_lShfSAqSblkH5HVI4E3Q",
-    authDomain: "navik-bro.firebaseapp.com",
-    projectId: "navik-bro",
-    storageBucket: "navik-bro.firebasestorage.app",
-    messagingSenderId: "864304238896",
-    appId: "1:864304238896:web:33728bfabaf5bcfc5f78f5",
-    measurementId: "G-L0P830TCQJ"
-});
-
-
-const messaging =
-    firebase.messaging();
-
-
-messaging.onBackgroundMessage(
-    function (payload) {
-
-        console.log(
-            "Background message received:",
-            payload
-        );
-
-
-        const notificationTitle =
-            payload.notification.title;
-
-
-        const notificationOptions = {
-
-            body:
-                payload.notification.body,
-
-            icon:
-                "/icon.png",
-
-        };
-
-
-        self.registration.showNotification(
-            notificationTitle,
-            notificationOptions
-        );
-
-    }
-);
-</file>
-
 <file path="scripts/createAdminCache.ts">
 import {
     doc,
@@ -11886,6 +11523,295 @@ export interface AppUser {
 }
 </file>
 
+<file path="app/(protected)/admin/notifications/page.tsx">
+"use client";
+
+import {
+    useState,
+} from "react";
+
+import { getAuth } from "firebase/auth";
+
+
+export default function AdminNotificationsPage() {
+
+
+    const [title, setTitle] =
+        useState("");
+
+
+    const [message, setMessage] =
+        useState("");
+
+
+    const [audience, setAudience] =
+        useState("all");
+
+
+    const [loading, setLoading] =
+        useState(false);
+
+
+    const [result, setResult] =
+        useState("");
+
+
+    async function sendNotification() {
+        if (!title || !message) {
+            setResult("Please fill all fields");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setResult("");
+
+            const user = getAuth().currentUser;
+
+            if (!user) {
+                throw new Error("Please sign in again.");
+            }
+
+            const token = await user.getIdToken();
+
+            const response = await fetch("/api/notifications/send-broadcast", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    title,
+                    body: message,
+                    batch: audience,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || data.message || "Request failed");
+            }
+
+            if (data.success) {
+                setResult(`Sent: ${data.sent}, Failed: ${data.failed}`);
+            } else {
+                setResult(data.message || data.error || "Failed");
+            }
+
+        } catch (error) {
+            console.error(error);
+
+            setResult(
+                error instanceof Error
+                    ? error.message
+                    : "Something went wrong"
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
+
+
+
+    return (
+
+        <div className="p-6 max-w-xl">
+
+
+            <h1 className="text-2xl font-bold">
+                Send Notification
+            </h1>
+
+
+
+            <div className="mt-6 space-y-4">
+
+
+                <div>
+
+                    <label>
+                        Title
+                    </label>
+
+
+                    <input
+
+                        value={title}
+
+                        onChange={
+                            (e) =>
+                                setTitle(
+                                    e.target.value
+                                )
+                        }
+
+                        className="
+                        mt-1
+                        w-full
+                        rounded-lg
+                        border
+                        p-3
+                        "
+
+                    />
+
+                </div>
+
+
+
+
+                <div>
+
+                    <label>
+                        Message
+                    </label>
+
+
+                    <textarea
+
+                        value={message}
+
+                        onChange={
+                            (e) =>
+                                setMessage(
+                                    e.target.value
+                                )
+                        }
+
+
+                        className="
+                        mt-1
+                        w-full
+                        rounded-lg
+                        border
+                        p-3
+                        h-32
+                        "
+
+                    />
+
+                </div>
+
+
+
+
+                <div>
+
+
+                    <label>
+                        Send To
+                    </label>
+
+
+                    <select
+
+                        value={audience}
+
+                        onChange={
+                            (e) =>
+                                setAudience(
+                                    e.target.value
+                                )
+                        }
+
+
+                        className="
+                        mt-1
+                        w-full
+                        rounded-lg
+                        border
+                        p-3
+                        "
+
+                    >
+
+                        <option value="all">
+                            All Students
+                        </option>
+
+
+                        <option value="FN3">
+                            FN3
+                        </option>
+
+
+                        <option value="FN4B-FN6">
+                            FN4B-FN6
+                        </option>
+
+
+                        <option value="FN5">
+                            FN5
+                        </option>
+
+
+                    </select>
+
+
+                </div>
+
+
+
+
+                <button
+
+                    onClick={
+                        sendNotification
+                    }
+
+
+                    disabled={
+                        loading
+                    }
+
+
+                    className="
+                    rounded-lg
+                    bg-blue-600
+                    px-5
+                    py-3
+                    text-white
+                    "
+
+                >
+
+                    {
+                        loading
+                            ? "Sending..."
+                            : "Send"
+                    }
+
+                </button>
+
+
+
+
+                {
+                    result && (
+
+                        <p className="mt-4">
+
+                            {result}
+
+                        </p>
+
+                    )
+                }
+
+
+
+            </div>
+
+
+        </div>
+
+    );
+
+}
+</file>
+
 <file path="app/(protected)/writtens/[category]/loading.tsx">
 export default function Loading() {
   return (
@@ -12568,6 +12494,378 @@ export default function UserTable({
         </>
 
     );
+
+}
+</file>
+
+<file path="components/home/Header.tsx">
+"use client";
+
+
+import {
+    Sailboat,
+    User,
+    LogOut
+} from "lucide-react";
+
+
+import {
+    signOut
+} from "firebase/auth";
+
+
+import {
+    auth
+} from "@/lib/firebase/firebase";
+
+
+import {
+    useAuth
+} from "@/providers/AuthContext";
+
+import { useState } from "react";
+
+
+
+interface HeaderProps {
+
+    setShowAuth:
+    (show: boolean) => void;
+
+}
+
+
+
+export default function Header({
+
+    setShowAuth
+
+}: HeaderProps) {
+
+
+
+    const {
+        user,
+        loading
+    } = useAuth();
+
+    const [loggingOut, setLoggingOut] = useState(false);
+
+
+    const handleLogout = async () => {
+
+
+        try {
+
+
+            if (user) {
+
+
+                localStorage.removeItem(
+
+                    `navik_profile_${user.uid}`
+
+                );
+
+
+            }
+
+
+
+            await signOut(auth);
+
+
+
+        } catch (error) {
+
+
+            console.error(
+                error
+            );
+
+
+        }
+
+
+    };
+
+
+
+
+    const shortEmail =
+        user?.email
+
+            ? user.email.length > 14
+
+                ? user.email.slice(0, 14) + "..."
+
+                : user.email
+
+            : "";
+
+
+
+
+    return (
+
+
+        <div
+
+            className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm"
+
+        >
+
+
+
+            <div
+
+                className="flex items-center justify-between"
+
+            >
+
+
+                {/* LEFT SIDE */}
+
+                <div
+                    className="
+    flex
+    items-center
+    gap-3
+    min-w-0
+  "
+                >
+                    {/* Sailboat */}
+                    <div
+                        className="
+      w-12
+      h-12
+      flex
+      items-center
+      justify-center
+      rotate-[-8deg]
+      flex-shrink-0
+    "
+                    >
+                        <Sailboat
+                            size={30}
+                            strokeWidth={2}
+                            className="text-black"
+                        />
+                    </div>
+
+                    {/* Brand */}
+                    <div
+                        className="
+      flex
+      flex-col
+      leading-tight
+    "
+                    >
+                        {/* NAVIK + bro */}
+                        <div className="relative inline-block w-fit">
+                            <h1
+                                className="
+          text-2xl
+          font-bold
+          tracking-tight
+          leading-none
+          text-black
+        "
+                            >
+                                NAVIK
+                            </h1>
+
+                            <span
+                                className="
+    absolute
+    left-full
+    ml-1
+    top-0
+    text-[10px]
+    font-bold
+    italic
+    lowercase
+    text-gray-700
+    leading-none
+  "
+                            >
+                                bro
+                            </span>
+                        </div>
+
+                        {/* Tagline */}
+                        <p
+                            className="
+        mt-1
+        text-[10px]
+        text-gray-500
+        leading-none
+      "
+                        >
+                            Sail Towards COC
+                        </p>
+                    </div>
+                </div>
+
+
+
+                {/* RIGHT SIDE */}
+
+
+
+                {
+                    loading ? (
+                        <div
+                            className="
+                w-20
+                h-9
+                rounded-xl
+                bg-gray-100
+                animate-pulse
+            "
+                        />
+                    ) : user ? (
+
+                        <div
+
+                            className="
+                        flex
+                        items-center
+                        gap-3
+                        flex-shrink-0
+                        "
+
+                        >
+
+
+
+                            <div
+
+                                className="
+                            bg-gray-100
+                            px-2
+                            py-2
+                            rounded-xl
+                            w-[80px]
+                            "
+
+                            >
+
+
+                                <p
+
+                                    className="
+                                text-[9px]
+                                text-gray-500
+                                leading-none
+                                "
+
+                                >
+
+                                    Signed in
+
+                                </p>
+
+
+
+                                <p
+
+                                    className="
+                                text-[11px]
+                                font-medium
+                                truncate
+                                "
+
+                                >
+
+                                    {shortEmail}
+
+                                </p>
+
+
+
+                            </div>
+
+
+
+
+                            <button
+
+                                onClick={handleLogout}
+
+                                className="
+                            w-10
+                            h-9
+                            rounded-2xl
+                            bg-black
+                            text-white
+                            flex
+                            items-center
+                            justify-center
+                            "
+
+                            >
+
+                                <LogOut size={16} />
+
+
+                            </button>
+
+
+
+                        </div>
+
+
+                    )
+
+                        :
+
+
+                        (
+
+                            <button
+
+                                onClick={() => setShowAuth(true)}
+
+                                className="
+                        bg-black
+                        text-white
+                        px-4
+                        py-2
+                        rounded-xl
+                        flex
+                        items-center
+                        gap-1
+                        text-sm
+                        font-medium
+                        "
+
+                            >
+
+                                <User size={16} />
+
+                                Login
+
+
+                            </button>
+
+
+                        )
+
+                }
+
+
+
+
+            </div>
+
+
+
+        </div >
+
+
+    );
+
 
 }
 </file>
@@ -14260,241 +14558,6 @@ export async function startSubscriptionPayment() {
 }
 </file>
 
-<file path="providers/AuthContext.tsx">
-"use client";
-
-import {
-    onAuthStateChanged,
-    User,
-    signOut,
-} from "firebase/auth";
-
-import {
-    requestNotificationPermission,
-} from "@/lib/firebase/firebaseMessaging";
-
-import {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
-
-import {
-    auth,
-} from "@/lib/firebase/firebase";
-
-
-import {
-    initializeUser,
-    saveFCMToken,
-} from "@/services/users/userService";
-
-
-interface AuthContextType {
-
-    user: User | null;
-
-    loading: boolean;
-
-    role: "admin" | "student";
-
-}
-
-
-
-const AuthContext =
-    createContext<AuthContextType>({
-        user: null,
-
-        loading: true,
-
-        role: "student",
-    });
-
-
-
-
-export function AuthProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-
-
-    const [user, setUser] =
-        useState<User | null>(null);
-
-
-    const [loading, setLoading] =
-        useState(true);
-
-
-    const [role, setRole] =
-        useState<"admin" | "student">(
-            "student"
-        );
-
-
-
-
-    useEffect(() => {
-
-
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                async (firebaseUser) => {
-
-
-                    if (!firebaseUser) {
-
-
-                        setRole("student");
-
-                        setLoading(false);
-
-                        return;
-
-                    }
-
-
-
-                    try {
-
-
-                        const token =
-                            await firebaseUser
-                                .getIdTokenResult(true);
-
-
-
-                        const isAdmin =
-                            token.claims.admin === true;
-
-
-
-                        setRole(
-                            isAdmin
-                                ? "admin"
-                                : "student"
-                        );
-
-                        const profile =
-                            await initializeUser({
-                                uid: firebaseUser.uid,
-                                displayName: firebaseUser.displayName,
-                                email: firebaseUser.email,
-                                photoURL: firebaseUser.photoURL,
-                            });
-
-                        if (profile.isBlocked) {
-
-                            await signOut(auth);
-
-                            setUser(null);
-
-                            setRole("student");
-
-                            setLoading(false);
-
-                            return;
-
-                        }
-
-                        setUser(firebaseUser);
-
-
-                        const fcmToken =
-                            await requestNotificationPermission();
-
-
-                        if (fcmToken) {
-
-                            console.log(
-                                "FCM TOKEN:",
-                                fcmToken
-                            );
-
-
-                            await saveFCMToken(
-                                firebaseUser.uid,
-                                fcmToken
-                            );
-
-                        }
-
-
-
-
-                    } catch (error) {
-
-
-                        console.error(
-                            "Authentication loading failed:",
-                            error
-                        );
-
-
-                        setRole("student");
-
-
-                    } finally {
-
-
-                        setLoading(false);
-
-                    }
-
-                }
-            );
-
-
-
-        return unsubscribe;
-
-
-    }, []);
-
-
-
-
-
-    return (
-
-        <AuthContext.Provider
-
-            value={{
-
-                user,
-
-                loading,
-
-                role,
-
-            }}
-
-        >
-
-            {children}
-
-        </AuthContext.Provider>
-
-    );
-
-}
-
-
-
-
-
-export function useAuth() {
-
-    return useContext(AuthContext);
-
-}
-</file>
-
 <file path="services/writtens/writtenMetadata.service.ts">
 import {
     doc,
@@ -14542,295 +14605,6 @@ export async function syncWrittenHomeMetadata() {
             categories: data,
             updatedAt: new Date()
         }
-    );
-
-}
-</file>
-
-<file path="app/(protected)/admin/notifications/page.tsx">
-"use client";
-
-import {
-    useState,
-} from "react";
-
-import { getAuth } from "firebase/auth";
-
-
-export default function AdminNotificationsPage() {
-
-
-    const [title, setTitle] =
-        useState("");
-
-
-    const [message, setMessage] =
-        useState("");
-
-
-    const [audience, setAudience] =
-        useState("all");
-
-
-    const [loading, setLoading] =
-        useState(false);
-
-
-    const [result, setResult] =
-        useState("");
-
-
-    async function sendNotification() {
-        if (!title || !message) {
-            setResult("Please fill all fields");
-            return;
-        }
-
-        try {
-            setLoading(true);
-            setResult("");
-
-            const user = getAuth().currentUser;
-
-            if (!user) {
-                throw new Error("Please sign in again.");
-            }
-
-            const token = await user.getIdToken();
-
-            const response = await fetch("/api/notifications/send-broadcast", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    title,
-                    body: message,
-                    batch: audience,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || data.message || "Request failed");
-            }
-
-            if (data.success) {
-                setResult(`Sent: ${data.sent}, Failed: ${data.failed}`);
-            } else {
-                setResult(data.message || data.error || "Failed");
-            }
-
-        } catch (error) {
-            console.error(error);
-
-            setResult(
-                error instanceof Error
-                    ? error.message
-                    : "Something went wrong"
-            );
-        } finally {
-            setLoading(false);
-        }
-    }
-
-
-
-
-    return (
-
-        <div className="p-6 max-w-xl">
-
-
-            <h1 className="text-2xl font-bold">
-                Send Notification
-            </h1>
-
-
-
-            <div className="mt-6 space-y-4">
-
-
-                <div>
-
-                    <label>
-                        Title
-                    </label>
-
-
-                    <input
-
-                        value={title}
-
-                        onChange={
-                            (e) =>
-                                setTitle(
-                                    e.target.value
-                                )
-                        }
-
-                        className="
-                        mt-1
-                        w-full
-                        rounded-lg
-                        border
-                        p-3
-                        "
-
-                    />
-
-                </div>
-
-
-
-
-                <div>
-
-                    <label>
-                        Message
-                    </label>
-
-
-                    <textarea
-
-                        value={message}
-
-                        onChange={
-                            (e) =>
-                                setMessage(
-                                    e.target.value
-                                )
-                        }
-
-
-                        className="
-                        mt-1
-                        w-full
-                        rounded-lg
-                        border
-                        p-3
-                        h-32
-                        "
-
-                    />
-
-                </div>
-
-
-
-
-                <div>
-
-
-                    <label>
-                        Send To
-                    </label>
-
-
-                    <select
-
-                        value={audience}
-
-                        onChange={
-                            (e) =>
-                                setAudience(
-                                    e.target.value
-                                )
-                        }
-
-
-                        className="
-                        mt-1
-                        w-full
-                        rounded-lg
-                        border
-                        p-3
-                        "
-
-                    >
-
-                        <option value="all">
-                            All Students
-                        </option>
-
-
-                        <option value="FN3">
-                            FN3
-                        </option>
-
-
-                        <option value="FN4B-FN6">
-                            FN4B-FN6
-                        </option>
-
-
-                        <option value="FN5">
-                            FN5
-                        </option>
-
-
-                    </select>
-
-
-                </div>
-
-
-
-
-                <button
-
-                    onClick={
-                        sendNotification
-                    }
-
-
-                    disabled={
-                        loading
-                    }
-
-
-                    className="
-                    rounded-lg
-                    bg-blue-600
-                    px-5
-                    py-3
-                    text-white
-                    "
-
-                >
-
-                    {
-                        loading
-                            ? "Sending..."
-                            : "Send"
-                    }
-
-                </button>
-
-
-
-
-                {
-                    result && (
-
-                        <p className="mt-4">
-
-                            {result}
-
-                        </p>
-
-                    )
-                }
-
-
-
-            </div>
-
-
-        </div>
-
     );
 
 }
@@ -16017,109 +15791,233 @@ export const SUBSCRIPTION = {
 } as const;
 </file>
 
-<file path="hooks/useOralMmdPreference.ts">
+<file path="providers/AuthContext.tsx">
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+    onAuthStateChanged,
+    User,
+    signOut,
+} from "firebase/auth";
 
 import {
-  fetchOralMmdPreference,
-  updateOralMmdPreference,
-} from "@/services/users/userPreference.client";
+    requestNotificationPermission,
+} from "@/lib/firebase/firebaseMessaging";
+
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+
+import {
+    auth,
+} from "@/lib/firebase/firebase";
 
 
-export function useOralMmdPreference() {
-
-  const [mmd, setMmdState] =
-    useState<string | null>(null);
-
-
-  const [loading, setLoading] =
-    useState(true);
+import {
+    initializeUser,
+    saveFCMToken,
+} from "@/services/users/userService";
 
 
+interface AuthContextType {
 
-  useEffect(() => {
+    user: User | null;
 
-    let mounted = true;
+    loading: boolean;
 
+    role: "admin" | "student";
 
-    async function loadPreference() {
-
-      try {
-
-        const data =
-          await fetchOralMmdPreference();
-
-      if (mounted) {
-            setMmdState(
-              data.oralMmd || "CHENNAI"
-            );
-          }
+}
 
 
-      } catch (error) {
 
-        console.error(
-          "Failed loading MMD preference:",
-          error
+const AuthContext =
+    createContext<AuthContextType>({
+        user: null,
+
+        loading: true,
+
+        role: "student",
+    });
+
+
+
+
+export function AuthProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+
+
+    const [user, setUser] =
+        useState<User | null>(null);
+
+
+    const [loading, setLoading] =
+        useState(true);
+
+
+    const [role, setRole] =
+        useState<"admin" | "student">(
+            "student"
         );
 
-      } finally {
-
-        if (mounted) {
-
-          setLoading(false);
-
-        }
-
-      }
-
-    }
-
-
-    loadPreference();
-
-
-    return () => {
-
-      mounted = false;
-
-    };
-
-
-  }, []);
-
-  const setMmd = async (
-    value: string
-  ) => {
-    // Update the UI immediately
-    setMmdState(value);
-
-    try {
-      // Save the preference in the background
-      await updateOralMmdPreference(value);
-    } catch (error) {
-      console.error(
-        "Failed saving MMD preference:",
-        error
-      );
-    }
-  };
 
 
 
+    useEffect(() => {
 
 
-  return {
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                async (firebaseUser) => {
 
-    mmd,
 
-    loading,
+                    if (!firebaseUser) {
+                        setUser(null);
+                        setRole("student");
+                        setLoading(false);
+                        return;
+                    }
 
-    setMmd,
 
-  };
+
+                    try {
+
+
+                        const token =
+                            await firebaseUser
+                                .getIdTokenResult(true);
+
+
+
+                        const isAdmin =
+                            token.claims.admin === true;
+
+
+
+                        setRole(
+                            isAdmin
+                                ? "admin"
+                                : "student"
+                        );
+
+                        const profile =
+                            await initializeUser({
+                                uid: firebaseUser.uid,
+                                displayName: firebaseUser.displayName,
+                                email: firebaseUser.email,
+                                photoURL: firebaseUser.photoURL,
+                            });
+
+                        if (profile.isBlocked) {
+
+                            await signOut(auth);
+
+                            setUser(null);
+
+                            setRole("student");
+
+                            setLoading(false);
+
+                            return;
+
+                        }
+
+                        setUser(firebaseUser);
+
+
+                        const fcmToken =
+                            await requestNotificationPermission();
+
+
+                        if (fcmToken) {
+
+                            console.log(
+                                "FCM TOKEN:",
+                                fcmToken
+                            );
+
+
+                            await saveFCMToken(
+                                firebaseUser.uid,
+                                fcmToken
+                            );
+
+                        }
+
+
+
+
+                    } catch (error) {
+
+
+                        console.error(
+                            "Authentication loading failed:",
+                            error
+                        );
+
+
+                        setRole("student");
+
+
+                    } finally {
+
+
+                        setLoading(false);
+
+                    }
+
+                }
+            );
+
+
+
+        return unsubscribe;
+
+
+    }, []);
+
+
+
+
+
+    return (
+
+        <AuthContext.Provider
+
+            value={{
+
+                user,
+
+                loading,
+
+                role,
+
+            }}
+
+        >
+
+            {children}
+
+        </AuthContext.Provider>
+
+    );
+
+}
+
+
+
+
+
+export function useAuth() {
+
+    return useContext(AuthContext);
 
 }
 </file>
@@ -19012,6 +18910,115 @@ export default function WrittensClient({
       </div>
     </main>
   );
+}
+</file>
+
+<file path="hooks/useOralMmdPreference.ts">
+"use client";
+
+import { useEffect, useState } from "react";
+
+import {
+  fetchOralMmdPreference,
+  updateOralMmdPreference,
+} from "@/services/users/userPreference.client";
+
+
+export function useOralMmdPreference() {
+
+  const [mmd, setMmdState] =
+    useState<string | null>(null);
+
+
+  const [loading, setLoading] =
+    useState(true);
+
+
+
+  useEffect(() => {
+
+    let mounted = true;
+
+
+    async function loadPreference() {
+
+      try {
+
+        const data =
+          await fetchOralMmdPreference();
+
+      if (mounted) {
+            setMmdState(
+              data.oralMmd || "CHENNAI"
+            );
+          }
+
+
+     } catch (error) {
+    console.error(
+        "Failed loading MMD preference:",
+        error
+    );
+
+    if (mounted) {
+        setMmdState("Chennai");
+    }
+} finally {
+
+        if (mounted) {
+
+          setLoading(false);
+
+        }
+
+      }
+
+    }
+
+
+    loadPreference();
+
+
+    return () => {
+
+      mounted = false;
+
+    };
+
+
+  }, []);
+
+  const setMmd = async (
+    value: string
+  ) => {
+    // Update the UI immediately
+    setMmdState(value);
+
+    try {
+      // Save the preference in the background
+      await updateOralMmdPreference(value);
+    } catch (error) {
+      console.error(
+        "Failed saving MMD preference:",
+        error
+      );
+    }
+  };
+
+
+
+
+
+  return {
+
+    mmd,
+
+    loading,
+
+    setMmd,
+
+  };
+
 }
 </file>
 

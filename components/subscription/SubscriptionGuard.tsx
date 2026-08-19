@@ -8,6 +8,8 @@ import SubscriptionModal from "@/components/subscription/SubscriptionModal";
 
 import { subscriptionsEnabled } from "@/lib/subscriptions/subscription";
 
+import { useAuth } from "@/providers/AuthContext";
+
 interface Props {
     children: ReactNode;
 }
@@ -23,8 +25,15 @@ export default function SubscriptionGuard({
         showSubscriptionModal,
     } = useSubscription();
 
+    const { role } = useAuth();
+
     // Development Mode
     if (!subscriptionsEnabled) {
+        return <>{children}</>;
+    }
+
+    // Admins never use the subscription system
+    if (role === "admin") {
         return <>{children}</>;
     }
 

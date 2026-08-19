@@ -43,10 +43,7 @@ export default function Header({
 
 
 
-    const {
-        user
-
-    } = useAuth();
+    const { user } = useAuth();
 
     const [loggingOut, setLoggingOut] = useState(false);
 
@@ -212,140 +209,56 @@ export default function Header({
 
 
 
-                {
-                    user ?
+                {user ? (
+                    <div className="flex items-center gap-3 flex-shrink-0">
 
+                        <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
+                            <p className="text-[9px] text-gray-500 leading-none">
+                                Signed in
+                            </p>
 
-                        (
+                            <p className="text-[11px] font-medium truncate">
+                                {shortEmail}
+                            </p>
+                        </div>
 
-                            <div
+                        <button
+                            onClick={handleLogout}
+                            className="
+                w-10
+                h-9
+                rounded-2xl
+                bg-black
+                text-white
+                flex
+                items-center
+                justify-center
+            "
+                        >
+                            <LogOut size={16} />
+                        </button>
 
-                                className="
-                        flex
-                        items-center
-                        gap-3
-                        flex-shrink-0
-                        "
-
-                            >
-
-
-
-                                <div
-
-                                    className="
-                            bg-gray-100
-                            px-2
-                            py-2
-                            rounded-xl
-                            w-[80px]
-                            "
-
-                                >
-
-
-                                    <p
-
-                                        className="
-                                text-[9px]
-                                text-gray-500
-                                leading-none
-                                "
-
-                                    >
-
-                                        Signed in
-
-                                    </p>
-
-
-
-                                    <p
-
-                                        className="
-                                text-[11px]
-                                font-medium
-                                truncate
-                                "
-
-                                    >
-
-                                        {shortEmail}
-
-                                    </p>
-
-
-
-                                </div>
-
-
-
-
-                                <button
-
-                                    onClick={handleLogout}
-
-                                    className="
-                            w-10
-                            h-9
-                            rounded-2xl
-                            bg-black
-                            text-white
-                            flex
-                            items-center
-                            justify-center
-                            "
-
-                                >
-
-                                    <LogOut size={16} />
-
-
-                                </button>
-
-
-
-                            </div>
-
-
-                        )
-
-                        :
-
-
-                        (
-
-                            <button
-
-                                onClick={() => setShowAuth(true)}
-
-                                className="
-                        bg-black
-                        text-white
-                        px-4
-                        py-2
-                        rounded-xl
-                        flex
-                        items-center
-                        gap-1
-                        text-sm
-                        font-medium
-                        "
-
-                            >
-
-                                <User size={16} />
-
-                                Login
-
-
-                            </button>
-
-
-                        )
-
-                }
-
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setShowAuth(true)}
+                        className="
+            bg-black
+            text-white
+            px-4
+            py-2
+            rounded-xl
+            flex
+            items-center
+            gap-1
+            text-sm
+            font-medium
+        "
+                    >
+                        <User size={16} />
+                        Login
+                    </button>
+                )}
 
 
 

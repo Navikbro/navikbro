@@ -105,6 +105,12 @@ export function AuthProvider({
                         const isAdmin =
                             token.claims.admin === true;
 
+                        console.log("ADMIN CHECK:", {
+                            email: firebaseUser.email,
+                            claims: token.claims,
+                            isAdmin,
+                        });
+
 
 
                         setRole(
