@@ -33,7 +33,7 @@ export function useOralMmdPreference() {
 
       if (mounted) {
             setMmdState(
-              data.oralMmd || "CHENNAI"
+              data.oralMmd || "Chennai"
             );
           }
 
