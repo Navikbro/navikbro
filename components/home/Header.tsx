@@ -22,6 +22,8 @@ import {
     useAuth
 } from "@/providers/AuthContext";
 
+import { useState } from "react";
+
 
 
 interface HeaderProps {
@@ -46,7 +48,7 @@ export default function Header({
 
     } = useAuth();
 
-
+    const [loggingOut, setLoggingOut] = useState(false);
 
 
     const handleLogout = async () => {

@@ -411,6 +411,53 @@ export default function manifest(): MetadataRoute.Manifest {
 }
 </file>
 
+<file path="types/admin.ts">
+import { Timestamp } from "firebase/firestore";
+
+export interface CachedUser {
+    uid: string;
+
+    name: string;
+
+    email: string;
+
+    photoURL: string | null;
+
+    plan: string;
+
+    status: string;
+
+    endDate: Timestamp | null;
+
+    isBlocked: boolean;
+}
+
+export interface UserPage {
+    pageNumber: number;
+
+    totalUsers: number;
+
+    updatedAt: Timestamp;
+
+    users: CachedUser[];
+}
+
+export interface DashboardStats {
+
+    totalUsers: number;
+
+    activeSubscriptions: number;
+
+    expiredSubscriptions: number;
+
+    blockedUsers: number;
+
+    newUsersToday: number;
+
+    updatedAt: Timestamp | null;
+}
+</file>
+
 <file path="types/question.ts">
 export interface Question {
   id: string;
@@ -3291,6 +3338,145 @@ export default function OralTopicsAdminPage() {
 }
 </file>
 
+<file path="app/(protected)/admin/users/page.tsx">
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+import UserTable from "@/components/admin/UserTable";
+
+import {
+    getAdminUserPage,
+} from "@/services/admin/adminUserService";
+
+import {
+    CachedUser,
+} from "@/types/admin";
+
+export default function AdminUsersPage() {
+
+    const [users, setUsers] =
+        useState<CachedUser[]>([]);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [search, setSearch] =
+        useState("");
+
+    useEffect(() => {
+
+        async function loadUsers() {
+
+            try {
+
+                const page =
+                    await getAdminUserPage(1);
+
+                if (page) {
+                    setUsers(page.users ?? []);
+                }
+
+            } catch (error) {
+
+                console.error(error);
+
+            } finally {
+
+                setLoading(false);
+
+            }
+
+        }
+
+        loadUsers();
+
+    }, []);
+
+    const filteredUsers = useMemo(() => {
+
+        const query =
+            search.toLowerCase().trim();
+
+        if (!query) {
+            return users;
+        }
+
+        return users.filter((user) =>
+
+            user.name
+                .toLowerCase()
+                .includes(query)
+
+            ||
+
+            user.email
+                .toLowerCase()
+                .includes(query)
+
+        );
+
+    }, [users, search]);
+
+    return (
+
+        <div className="p-6">
+
+            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
+                <div>
+
+                    <h1 className="text-3xl font-bold">
+                        User Management
+                    </h1>
+
+                    <p className="mt-1 text-gray-500">
+                        Manage students and subscriptions
+                    </p>
+
+                </div>
+
+                <div className="rounded-xl border bg-white px-5 py-3 shadow-sm">
+
+                    <p className="text-sm text-gray-500">
+                        Total Users
+                    </p>
+
+                    <p className="text-2xl font-bold">
+                        {users.length}
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div className="mb-6">
+
+                <input
+                    type="text"
+                    placeholder="Search by name or email..."
+                    value={search}
+                    onChange={(e) =>
+                        setSearch(e.target.value)
+                    }
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500"
+                />
+
+            </div>
+
+            <UserTable
+                users={filteredUsers}
+                setUsers={setUsers}
+                loading={loading}
+            />
+
+        </div>
+
+    );
+
+}
+</file>
+
 <file path="app/(protected)/admin/layout.tsx">
 import AdminRoute from "@/components/admin/AdminRoute";
 
@@ -4564,6 +4750,176 @@ export default function AdminRoute({
 }
 </file>
 
+<file path="components/admin/EditSubscriptionModal.tsx">
+"use client";
+
+import { useState } from "react";
+
+import { CachedUser } from "@/types/admin";
+
+import type {
+    SubscriptionPlan,
+    SubscriptionStatus,
+} from "@/types/user";
+
+interface EditSubscriptionModalProps {
+    user: CachedUser | null;
+    open: boolean;
+    onClose: () => void;
+    onSave: (
+        plan: SubscriptionPlan,
+        status: SubscriptionStatus,
+        endDate: string | null
+    ) => Promise<void>;
+}
+
+export default function EditSubscriptionModal({
+    user,
+    open,
+    onClose,
+    onSave,
+}: EditSubscriptionModalProps) {
+
+    const [plan, setPlan] =
+        useState<SubscriptionPlan>(
+            (user?.plan as SubscriptionPlan) ?? "free"
+        );
+
+    const [status, setStatus] =
+        useState<SubscriptionStatus>(
+            (user?.status as SubscriptionStatus) ?? "inactive"
+        );
+
+    const [endDate, setEndDate] =
+        useState("");
+
+    if (!open || !user) {
+        return null;
+    }
+
+    return (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+
+                <h2 className="mb-6 text-xl font-bold">
+                    Edit Subscription
+                </h2>
+
+                <div className="space-y-4">
+
+                    <div>
+
+                        <label className="mb-2 block text-sm font-medium">
+                            Plan
+                        </label>
+
+                        <select
+                            value={plan}
+                            onChange={(e) =>
+                                setPlan(e.target.value as SubscriptionPlan)
+                            }
+
+                            className="w-full rounded-lg border p-2"
+                        >
+                            <option value="free">
+                                Free
+                            </option>
+
+                            <option value="trial">
+                                Trial
+                            </option>
+
+                            <option value="monthly">
+                                Monthly
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div>
+
+                        <label className="mb-2 block text-sm font-medium">
+                            Status
+                        </label>
+
+                        <select
+                            value={status}
+                            onChange={(e) =>
+                                setStatus(e.target.value as SubscriptionStatus)
+                            }
+                            className="w-full rounded-lg border p-2"
+                        >
+                            <option value="inactive">
+                                Inactive
+                            </option>
+
+                            <option value="active">
+                                Active
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div>
+
+                        <label className="mb-2 block text-sm font-medium">
+                            End Date
+                        </label>
+
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) =>
+                                setEndDate(e.target.value)
+                            }
+                            className="w-full rounded-lg border p-2"
+                        />
+
+                    </div>
+
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+
+                    <button
+                        onClick={onClose}
+                        className="rounded-lg border px-4 py-2"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        onClick={async () => {
+
+                            await onSave(
+                                plan,
+                                status,
+                                endDate || null
+                            );
+
+                            onClose();
+
+                        }}
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                    >
+                        Save
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    );
+
+}
+</file>
+
 <file path="components/auth/ProtectedRoute.tsx">
 "use client";
 
@@ -5400,325 +5756,6 @@ export default function SectionHeading({
       {title}
     </h2>
   );
-}
-</file>
-
-<file path="components/orals/OralTopicsClient.tsx">
-"use client";
-
-import {
-    useEffect,
-    useState,
-} from "react";
-
-import TopicCard, {
-    type TopicCardTopic,
-} from "@/components/orals/TopicCard";
-
-
-/* =========================================================
-   CLIENT TOPIC TYPE
-
-   Values are already serialized by the server page.
-========================================================= */
-
-export interface SerializedOralTopic
-    extends TopicCardTopic {
-    category?: string;
-    updatedAt?: string | number | null;
-    createdAt?: string | number | null;
-    questionCount?: number;
-    class?: string;
-}
-
-
-/* =========================================================
-   PROPS
-========================================================= */
-
-interface OralTopicsClientProps {
-    topics: SerializedOralTopic[];
-    category: string;
-}
-
-
-/* =========================================================
-   COMPONENT
-========================================================= */
-
-export default function OralTopicsClient({
-    topics,
-    category,
-}: OralTopicsClientProps) {
-    const [
-        selectedIndex,
-        setSelectedIndex,
-    ] = useState(0);
-
-
-    /* =====================================================
-       KEEP INDEX VALID WHEN TOPICS CHANGE
-    ===================================================== */
-
-    useEffect(() => {
-        setSelectedIndex((current) =>
-            Math.min(
-                current,
-                Math.max(
-                    0,
-                    topics.length - 1
-                )
-            )
-        );
-    }, [topics.length]);
-
-
-    /* =====================================================
-       EMPTY STATE
-    ===================================================== */
-
-    if (topics.length === 0) {
-        return (
-            <div className="mt-5">
-
-                {/* CATEGORY HEADER */}
-
-                <div className="mb-6">
-                    <div
-                        className="
-                            flex
-                            items-center
-                            justify-between
-                            gap-4
-                        "
-                    >
-                        <div>
-                            <p
-                                className="
-                                    text-xs
-                                    font-bold
-                                    uppercase
-                                    tracking-wider
-                                    text-gray-400
-                                "
-                            >
-                                Oral Topics
-                            </p>
-
-                            <h1
-                                className="
-                                    mt-1
-                                    text-2xl
-                                    font-bold
-                                    tracking-tight
-                                    text-gray-900
-                                    sm:text-3xl
-                                "
-                            >
-                                {category.toUpperCase()}
-                            </h1>
-                        </div>
-
-                        <div
-                            className="
-                                shrink-0
-                                rounded-full
-                                bg-white
-                                px-3
-                                py-1.5
-                                text-xs
-                                font-semibold
-                                text-gray-600
-                                shadow-sm
-                                ring-1
-                                ring-gray-200
-                            "
-                        >
-                            0 Topics
-                        </div>
-                    </div>
-                </div>
-
-
-                {/* EMPTY */}
-
-                <div
-                    className="
-                        rounded-2xl
-                        border
-                        border-gray-200
-                        bg-white
-                        px-5
-                        py-12
-                        text-center
-                        shadow-sm
-                    "
-                >
-                    <p
-                        className="
-                            text-sm
-                            font-medium
-                            text-gray-700
-                        "
-                    >
-                        No topics found.
-                    </p>
-
-                    <p
-                        className="
-                            mt-1
-                            text-sm
-                            text-gray-500
-                        "
-                    >
-                        Topics will appear here
-                        when they are available.
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-
-    /* =====================================================
-       SELECTED TOPIC
-    ===================================================== */
-
-    const selectedTopic =
-        topics[selectedIndex];
-
-
-    /*
-     * This should theoretically never happen because
-     * selectedIndex is kept within bounds above.
-     *
-     * The guard makes the component defensive against
-     * unexpected prop changes during rendering.
-     */
-
-    if (!selectedTopic) {
-        return null;
-    }
-
-
-    /* =====================================================
-       TOPIC VIEW
-       
-       IMPORTANT:
-       There is ONLY ONE TopicCard.
-
-       Previous / Next changes the topic
-       inside this same viewer.
-    ===================================================== */
-
-    return (
-        <div className="mt-5">
-
-            {/* CATEGORY HEADER */}
-
-            <div className="mb-6">
-                <div
-                    className="
-                        flex
-                        items-center
-                        justify-between
-                        gap-4
-                    "
-                >
-                    <div>
-                        <p
-                            className="
-                                text-xs
-                                font-bold
-                                uppercase
-                                tracking-wider
-                                text-gray-400
-                            "
-                        >
-                            Oral Topics
-                        </p>
-
-                        <h1
-                            className="
-                                mt-1
-                                text-2xl
-                                font-bold
-                                tracking-tight
-                                text-gray-900
-                                sm:text-3xl
-                            "
-                        >
-                            {category.toUpperCase()}
-                        </h1>
-                    </div>
-
-                    <div
-                        className="
-                            shrink-0
-                            rounded-full
-                            bg-white
-                            px-3
-                            py-1.5
-                            text-xs
-                            font-semibold
-                            text-gray-600
-                            shadow-sm
-                            ring-1
-                            ring-gray-200
-                        "
-                    >
-                        {selectedIndex + 1} /{" "}
-                        {topics.length}
-                    </div>
-                </div>
-            </div>
-
-
-            {/* =================================================
-                SINGLE TOPIC VIEWER
-
-                Intentionally ONE TopicCard.
-            ================================================= */}
-
-            <TopicCard
-                topic={{
-                    id: selectedTopic.id,
-                    name: selectedTopic.name,
-                    overview:
-                        selectedTopic.overview,
-                }}
-
-                onPrevious={() => {
-                    setSelectedIndex(
-                        (current) =>
-                            Math.max(
-                                0,
-                                current - 1
-                            )
-                    );
-                }}
-
-                onNext={() => {
-                    setSelectedIndex(
-                        (current) =>
-                            Math.min(
-                                topics.length - 1,
-                                current + 1
-                            )
-                    );
-                }}
-
-                canGoPrevious={
-                    selectedIndex > 0
-                }
-
-                canGoNext={
-                    selectedIndex <
-                    topics.length - 1
-                }
-            />
-        </div>
-    );
 }
 </file>
 
@@ -7634,132 +7671,6 @@ export default function SubscriptionRoute({
 }
 </file>
 
-<file path="hooks/useOralMmdPreference.ts">
-"use client";
-
-import { useEffect, useState } from "react";
-
-import {
-  fetchOralMmdPreference,
-  updateOralMmdPreference,
-} from "@/services/users/userPreference.client";
-
-
-export function useOralMmdPreference() {
-
-  const [mmd, setMmdState] =
-    useState<string | null>(null);
-
-
-  const [loading, setLoading] =
-    useState(true);
-
-
-
-  useEffect(() => {
-
-    let mounted = true;
-
-
-    async function loadPreference() {
-
-      try {
-
-        const data =
-          await fetchOralMmdPreference();
-
-
-        if (
-          mounted &&
-          data.oralMmd
-        ) {
-
-          setMmdState(
-            data.oralMmd
-          );
-
-        }
-
-
-      } catch (error) {
-
-        console.error(
-          "Failed loading MMD preference:",
-          error
-        );
-
-      } finally {
-
-        if (mounted) {
-
-          setLoading(false);
-
-        }
-
-      }
-
-    }
-
-
-    loadPreference();
-
-
-    return () => {
-
-      mounted = false;
-
-    };
-
-
-  }, []);
-
-
-
-  const setMmd = async (
-    value: string
-  ) => {
-
-    try {
-
-      await updateOralMmdPreference(
-        value
-      );
-
-
-      setMmdState(
-        value
-      );
-
-
-    } catch (error) {
-
-      console.error(
-        "Failed saving MMD preference:",
-        error
-      );
-
-
-      throw error;
-
-    }
-
-  };
-
-
-
-  return {
-
-    mmd,
-
-    loading,
-
-    setMmd,
-
-  };
-
-}
-</file>
-
 <file path="hooks/useRazorpay.ts">
 "use client";
 
@@ -8814,243 +8725,6 @@ export async function getWrittenStats(category: string) {
 }
 </file>
 
-<file path="providers/AuthContext.tsx">
-"use client";
-
-import {
-    onAuthStateChanged,
-    User,
-    signOut,
-} from "firebase/auth";
-
-import {
-    requestNotificationPermission,
-} from "@/lib/firebase/firebaseMessaging";
-
-import {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
-
-import {
-    auth,
-} from "@/lib/firebase/firebase";
-
-
-import {
-    initializeUser,
-    saveFCMToken,
-} from "@/services/users/userService";
-
-
-interface AuthContextType {
-
-    user: User | null;
-
-    loading: boolean;
-
-    role: "admin" | "student";
-
-}
-
-
-
-const AuthContext =
-    createContext<AuthContextType>({
-        user: null,
-
-        loading: true,
-
-        role: "student",
-    });
-
-
-
-
-export function AuthProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-
-
-    const [user, setUser] =
-        useState<User | null>(null);
-
-
-    const [loading, setLoading] =
-        useState(true);
-
-
-    const [role, setRole] =
-        useState<"admin" | "student">(
-            "student"
-        );
-
-
-
-
-    useEffect(() => {
-
-
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                async (firebaseUser) => {
-
-
-                    setUser(firebaseUser);
-
-
-
-                    if (!firebaseUser) {
-
-
-                        setRole("student");
-
-                        setLoading(false);
-
-                        return;
-
-                    }
-
-
-
-                    try {
-
-
-                        const token =
-                            await firebaseUser
-                                .getIdTokenResult(true);
-
-
-
-                        const isAdmin =
-                            token.claims.admin === true;
-
-
-
-                        setRole(
-                            isAdmin
-                                ? "admin"
-                                : "student"
-                        );
-
-                        const profile =
-                            await initializeUser({
-                                uid: firebaseUser.uid,
-                                displayName: firebaseUser.displayName,
-                                email: firebaseUser.email,
-                                photoURL: firebaseUser.photoURL,
-                            });
-
-                        if (profile.isBlocked) {
-
-                            await signOut(auth);
-
-                            setUser(null);
-
-                            setRole("student");
-
-                            setLoading(false);
-
-                            return;
-
-                        }
-
-
-                        const fcmToken =
-                            await requestNotificationPermission();
-
-
-                        if (fcmToken) {
-
-                            console.log(
-                                "FCM TOKEN:",
-                                fcmToken
-                            );
-
-
-                            await saveFCMToken(
-                                firebaseUser.uid,
-                                fcmToken
-                            );
-
-                        }
-
-
-
-
-                    } catch (error) {
-
-
-                        console.error(
-                            "Authentication loading failed:",
-                            error
-                        );
-
-
-                        setRole("student");
-
-
-                    } finally {
-
-
-                        setLoading(false);
-
-                    }
-
-                }
-            );
-
-
-
-        return unsubscribe;
-
-
-    }, []);
-
-
-
-
-
-    return (
-
-        <AuthContext.Provider
-
-            value={{
-
-                user,
-
-                loading,
-
-                role,
-
-            }}
-
-        >
-
-            {children}
-
-        </AuthContext.Provider>
-
-    );
-
-}
-
-
-
-
-
-export function useAuth() {
-
-    return useContext(AuthContext);
-
-}
-</file>
-
 <file path="providers/SubscriptionContext.tsx">
 "use client";
 
@@ -9315,6 +8989,85 @@ messaging.onBackgroundMessage(
 
     }
 );
+</file>
+
+<file path="scripts/createAdminCache.ts">
+import {
+    doc,
+    setDoc,
+    serverTimestamp,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase/firebase";
+
+
+async function createAdminCache() {
+
+    const pageRef = doc(
+        db,
+        "adminCache",
+        "users",
+        "pages",
+        "page_1"
+    );
+
+
+    await setDoc(pageRef, {
+
+        pageNumber: 1,
+
+        totalUsers: 0,
+
+        users: [],
+
+        updatedAt: serverTimestamp(),
+
+    });
+
+
+    console.log("Admin cache created successfully");
+
+    process.exit(0);
+}
+
+
+createAdminCache();
+</file>
+
+<file path="scripts/testAdminUser.ts">
+import { addUserToAdminCache } from "@/services/admin/adminUserService";
+
+
+async function test() {
+
+    await addUserToAdminCache({
+
+        uid: "test-user-001",
+
+        name: "Test Student",
+
+        email: "test@student.com",
+
+        plan: "free",
+
+        status: "active",
+
+        endDate: null,
+
+        photoURL: null,
+
+        isBlocked: false,
+
+    });
+
+
+    console.log("Test user added to admin cache");
+
+    process.exit(0);
+}
+
+
+test();
 </file>
 
 <file path="services/admin/admin.ts">
@@ -12060,10 +11813,57 @@ export async function initializeUser(
 }
 </file>
 
-<file path="types/admin.ts">
+<file path="types/user.ts">
 import { Timestamp } from "firebase/firestore";
 
-export interface CachedUser {
+export type UserRole = "student" | "admin";
+
+export type SubscriptionPlan =
+    | "free"
+    | "trial"
+    | "monthly"
+    | "quarterly"
+    | "yearly"
+    | "lifetime";
+
+export type SubscriptionStatus =
+    | "inactive"
+    | "trial"
+    | "active"
+    | "expired"
+    | "cancelled";
+
+export interface UserSubscription {
+    plan: SubscriptionPlan;
+
+    status: SubscriptionStatus;
+
+    startDate: Timestamp | null;
+
+    endDate: Timestamp | null;
+
+    paymentId: string | null;
+
+    autoRenew: boolean;
+
+    trialStartDate: Timestamp | null;
+
+    trialEndDate: Timestamp | null;
+
+    amount: number | null;
+
+    lockedPrice: number | null;
+
+    currency?: string;
+}
+
+export interface UserStats {
+    loginCount: number;
+
+    lastLogin: Timestamp | null;
+}
+
+export interface AppUser {
     uid: string;
 
     name: string;
@@ -12072,466 +11872,17 @@ export interface CachedUser {
 
     photoURL: string | null;
 
-    plan: string;
+    role: UserRole;
 
-    status: string;
-
-    endDate: Timestamp | null;
-
-    isBlocked: boolean;
-}
-
-export interface UserPage {
-    pageNumber: number;
-
-    totalUsers: number;
+    createdAt: Timestamp;
 
     updatedAt: Timestamp;
 
-    users: CachedUser[];
-}
+    isBlocked: boolean;
 
-export interface DashboardStats {
+    subscription: UserSubscription;
 
-    totalUsers: number;
-
-    activeSubscriptions: number;
-
-    expiredSubscriptions: number;
-
-    blockedUsers: number;
-
-    newUsersToday: number;
-
-    updatedAt: Timestamp | null;
-}
-</file>
-
-<file path="app/(protected)/admin/notifications/page.tsx">
-"use client";
-
-import {
-    useState,
-} from "react";
-
-import { getAuth } from "firebase/auth";
-
-
-export default function AdminNotificationsPage() {
-
-
-    const [title, setTitle] =
-        useState("");
-
-
-    const [message, setMessage] =
-        useState("");
-
-
-    const [audience, setAudience] =
-        useState("all");
-
-
-    const [loading, setLoading] =
-        useState(false);
-
-
-    const [result, setResult] =
-        useState("");
-
-
-    async function sendNotification() {
-        if (!title || !message) {
-            setResult("Please fill all fields");
-            return;
-        }
-
-        try {
-            setLoading(true);
-            setResult("");
-
-            const user = getAuth().currentUser;
-
-            if (!user) {
-                throw new Error("Please sign in again.");
-            }
-
-            const token = await user.getIdToken();
-
-            const response = await fetch("/api/notifications/send-broadcast", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    title,
-                    body: message,
-                    batch: audience,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || data.message || "Request failed");
-            }
-
-            if (data.success) {
-                setResult(`Sent: ${data.sent}, Failed: ${data.failed}`);
-            } else {
-                setResult(data.message || data.error || "Failed");
-            }
-
-        } catch (error) {
-            console.error(error);
-
-            setResult(
-                error instanceof Error
-                    ? error.message
-                    : "Something went wrong"
-            );
-        } finally {
-            setLoading(false);
-        }
-    }
-
-
-
-
-    return (
-
-        <div className="p-6 max-w-xl">
-
-
-            <h1 className="text-2xl font-bold">
-                Send Notification
-            </h1>
-
-
-
-            <div className="mt-6 space-y-4">
-
-
-                <div>
-
-                    <label>
-                        Title
-                    </label>
-
-
-                    <input
-
-                        value={title}
-
-                        onChange={
-                            (e) =>
-                                setTitle(
-                                    e.target.value
-                                )
-                        }
-
-                        className="
-                        mt-1
-                        w-full
-                        rounded-lg
-                        border
-                        p-3
-                        "
-
-                    />
-
-                </div>
-
-
-
-
-                <div>
-
-                    <label>
-                        Message
-                    </label>
-
-
-                    <textarea
-
-                        value={message}
-
-                        onChange={
-                            (e) =>
-                                setMessage(
-                                    e.target.value
-                                )
-                        }
-
-
-                        className="
-                        mt-1
-                        w-full
-                        rounded-lg
-                        border
-                        p-3
-                        h-32
-                        "
-
-                    />
-
-                </div>
-
-
-
-
-                <div>
-
-
-                    <label>
-                        Send To
-                    </label>
-
-
-                    <select
-
-                        value={audience}
-
-                        onChange={
-                            (e) =>
-                                setAudience(
-                                    e.target.value
-                                )
-                        }
-
-
-                        className="
-                        mt-1
-                        w-full
-                        rounded-lg
-                        border
-                        p-3
-                        "
-
-                    >
-
-                        <option value="all">
-                            All Students
-                        </option>
-
-
-                        <option value="FN3">
-                            FN3
-                        </option>
-
-
-                        <option value="FN4B-FN6">
-                            FN4B-FN6
-                        </option>
-
-
-                        <option value="FN5">
-                            FN5
-                        </option>
-
-
-                    </select>
-
-
-                </div>
-
-
-
-
-                <button
-
-                    onClick={
-                        sendNotification
-                    }
-
-
-                    disabled={
-                        loading
-                    }
-
-
-                    className="
-                    rounded-lg
-                    bg-blue-600
-                    px-5
-                    py-3
-                    text-white
-                    "
-
-                >
-
-                    {
-                        loading
-                            ? "Sending..."
-                            : "Send"
-                    }
-
-                </button>
-
-
-
-
-                {
-                    result && (
-
-                        <p className="mt-4">
-
-                            {result}
-
-                        </p>
-
-                    )
-                }
-
-
-
-            </div>
-
-
-        </div>
-
-    );
-
-}
-</file>
-
-<file path="app/(protected)/admin/users/page.tsx">
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-
-import UserTable from "@/components/admin/UserTable";
-
-import {
-    getAdminUserPage,
-} from "@/services/admin/adminUserService";
-
-import {
-    CachedUser,
-} from "@/types/admin";
-
-export default function AdminUsersPage() {
-
-    const [users, setUsers] =
-        useState<CachedUser[]>([]);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [search, setSearch] =
-        useState("");
-
-    useEffect(() => {
-
-        async function loadUsers() {
-
-            try {
-
-                const page =
-                    await getAdminUserPage(1);
-
-                if (page) {
-                    setUsers(page.users ?? []);
-                }
-
-            } catch (error) {
-
-                console.error(error);
-
-            } finally {
-
-                setLoading(false);
-
-            }
-
-        }
-
-        loadUsers();
-
-    }, []);
-
-    const filteredUsers = useMemo(() => {
-
-        const query =
-            search.toLowerCase().trim();
-
-        if (!query) {
-            return users;
-        }
-
-        return users.filter((user) =>
-
-            user.name
-                .toLowerCase()
-                .includes(query)
-
-            ||
-
-            user.email
-                .toLowerCase()
-                .includes(query)
-
-        );
-
-    }, [users, search]);
-
-    return (
-
-        <div className="p-6">
-
-            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-                <div>
-
-                    <h1 className="text-3xl font-bold">
-                        User Management
-                    </h1>
-
-                    <p className="mt-1 text-gray-500">
-                        Manage students and subscriptions
-                    </p>
-
-                </div>
-
-                <div className="rounded-xl border bg-white px-5 py-3 shadow-sm">
-
-                    <p className="text-sm text-gray-500">
-                        Total Users
-                    </p>
-
-                    <p className="text-2xl font-bold">
-                        {users.length}
-                    </p>
-
-                </div>
-
-            </div>
-
-            <div className="mb-6">
-
-                <input
-                    type="text"
-                    placeholder="Search by name or email..."
-                    value={search}
-                    onChange={(e) =>
-                        setSearch(e.target.value)
-                    }
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500"
-                />
-
-            </div>
-
-            <UserTable
-                users={filteredUsers}
-                setUsers={setUsers}
-                loading={loading}
-            />
-
-        </div>
-
-    );
-
+    stats: UserStats;
 }
 </file>
 
@@ -12708,74 +12059,6 @@ export async function rejectCommunityAnswer(
 }
 </file>
 
-<file path="app/api/orals/questions/route.ts">
-import { NextRequest, NextResponse } from "next/server";
-
-import {
-    getCachedOralQuestions,
-} from "@/lib/cache/oral-cache";
-
-export async function POST(
-    req: NextRequest
-) {
-
-    try {
-
-        const {
-            category,
-            mmd,
-        } = await req.json();
-
-
-        if (!category || !mmd) {
-
-            return NextResponse.json(
-                {
-                    error:
-                        "Category and MMD required",
-                },
-                {
-                    status: 400,
-                }
-            );
-
-        }
-
-
-        const questions =
-            await getCachedOralQuestions(
-                category,
-                mmd
-            );
-
-
-        return NextResponse.json({
-            questions,
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Failed to load oral questions:",
-            error
-        );
-
-
-        return NextResponse.json(
-            {
-                error:
-                    "Failed to load questions",
-            },
-            {
-                status: 500,
-            }
-        );
-
-    }
-
-}
-</file>
-
 <file path="app/layout.tsx">
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
@@ -12817,170 +12100,472 @@ export default function RootLayout({
 }
 </file>
 
-<file path="components/admin/EditSubscriptionModal.tsx">
+<file path="components/admin/UserTable.tsx">
 "use client";
 
 import { useState } from "react";
 
 import { CachedUser } from "@/types/admin";
 
-import type {
-    SubscriptionPlan,
-    SubscriptionStatus,
-} from "@/types/user";
+import EditSubscriptionModal from "@/components/admin/EditSubscriptionModal";
 
-interface EditSubscriptionModalProps {
-    user: CachedUser | null;
-    open: boolean;
-    onClose: () => void;
-    onSave: (
-        plan: SubscriptionPlan,
-        status: SubscriptionStatus,
-        endDate: string | null
-    ) => Promise<void>;
+import { Timestamp } from "firebase/firestore";
+
+import {
+    updateUserSubscription,
+} from "@/services/users/userService";
+
+import {
+    updateCachedSubscription,
+} from "@/services/admin/adminUserService";
+
+import {
+    blockUser,
+    unblockUser,
+} from "@/services/users/userService";
+
+import {
+    toggleCachedUserBlock,
+} from "@/services/admin/adminUserService";
+
+interface UserTableProps {
+    users: CachedUser[];
+
+    setUsers: React.Dispatch<
+        React.SetStateAction<CachedUser[]>
+    >;
+
+    loading: boolean;
 }
 
-export default function EditSubscriptionModal({
-    user,
-    open,
-    onClose,
-    onSave,
-}: EditSubscriptionModalProps) {
+function formatEndDate(
+    endDate: CachedUser["endDate"]
+) {
 
-    const [plan, setPlan] =
-        useState<SubscriptionPlan>(
-            (user?.plan as SubscriptionPlan) ?? "free"
+    if (!endDate) {
+        return "--";
+    }
+
+    return endDate
+        .toDate()
+        .toLocaleDateString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            }
         );
 
-    const [status, setStatus] =
-        useState<SubscriptionStatus>(
-            (user?.status as SubscriptionStatus) ?? "inactive"
+}
+
+function getDaysRemaining(
+    endDate: CachedUser["endDate"]
+) {
+
+    if (!endDate) {
+        return "--";
+    }
+
+    const today = new Date();
+
+    const expiry =
+        endDate.toDate();
+
+    const diff =
+        expiry.getTime() -
+        today.getTime();
+
+    const days =
+        Math.ceil(
+            diff /
+            (1000 * 60 * 60 * 24)
         );
 
-    const [endDate, setEndDate] =
-        useState("");
+    if (days < 0) {
+        return "Expired";
+    }
 
-    if (!open || !user) {
-        return null;
+    return `${days} Days`;
+
+}
+
+export default function UserTable({
+    users,
+    setUsers,
+    loading,
+}: UserTableProps) {
+
+    const [selectedUser, setSelectedUser] =
+        useState<CachedUser | null>(null);
+
+    const [modalOpen, setModalOpen] =
+        useState(false);
+
+    async function handleToggleBlock(
+        uid: string,
+        isBlocked: boolean
+    ) {
+
+        try {
+
+            if (isBlocked) {
+
+                await unblockUser(uid);
+
+                await toggleCachedUserBlock(
+                    uid,
+                    false
+                );
+
+            } else {
+
+                await blockUser(uid);
+
+                await toggleCachedUserBlock(
+                    uid,
+                    true
+                );
+
+            }
+
+            setUsers((previousUsers) =>
+                previousUsers.map((user) =>
+                    user.uid === uid
+                        ? {
+                            ...user,
+                            isBlocked: !isBlocked,
+                        }
+                        : user
+                )
+            );
+
+        } catch (error) {
+
+            console.error(error);
+
+        }
+
+    }
+
+    if (loading) {
+
+        return (
+
+            <div className="rounded-xl border bg-white p-8 text-center">
+
+                Loading users...
+
+            </div>
+
+        );
+
+    }
+
+    if (users.length === 0) {
+
+        return (
+
+            <div className="rounded-xl border bg-white p-8 text-center">
+
+                No users found.
+
+            </div>
+
+        );
+
     }
 
     return (
 
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <>
 
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow">
 
-                <h2 className="mb-6 text-xl font-bold">
-                    Edit Subscription
-                </h2>
+                <div className="overflow-x-auto">
 
-                <div className="space-y-4">
+                    <table className="min-w-full">
 
-                    <div>
+                        <thead className="bg-gray-100">
 
-                        <label className="mb-2 block text-sm font-medium">
-                            Plan
-                        </label>
+                            <tr className="text-left">
 
-                        <select
-                            value={plan}
-                            onChange={(e) =>
-                                setPlan(e.target.value as SubscriptionPlan)
-                            }
+                                <th className="px-6 py-4 font-semibold">
+                                    User
+                                </th>
 
-                            className="w-full rounded-lg border p-2"
-                        >
-                            <option value="free">
-                                Free
-                            </option>
+                                <th className="px-6 py-4 font-semibold">
+                                    Email
+                                </th>
 
-                            <option value="trial">
-                                Trial
-                            </option>
+                                <th className="px-6 py-4 font-semibold">
+                                    Plan
+                                </th>
 
-                            <option value="monthly">
-                                Monthly
-                            </option>
+                                <th className="px-6 py-4 font-semibold">
+                                    Subscription
+                                </th>
 
-                        </select>
+                                <th className="px-6 py-4 font-semibold">
+                                    Account
+                                </th>
 
-                    </div>
+                                <th className="px-6 py-4 font-semibold">
+                                    End Date
+                                </th>
 
-                    <div>
+                                <th className="px-6 py-4 font-semibold">
+                                    Days Left
+                                </th>
 
-                        <label className="mb-2 block text-sm font-medium">
-                            Status
-                        </label>
+                                <th className="px-6 py-4 font-semibold">
+                                    Actions
+                                </th>
 
-                        <select
-                            value={status}
-                            onChange={(e) =>
-                                setStatus(e.target.value as SubscriptionStatus)
-                            }
-                            className="w-full rounded-lg border p-2"
-                        >
-                            <option value="inactive">
-                                Inactive
-                            </option>
+                            </tr>
 
-                            <option value="active">
-                                Active
-                            </option>
+                        </thead>
 
-                        </select>
+                        <tbody>
 
-                    </div>
+                            {users.map((user) => (
 
-                    <div>
+                                <tr
+                                    key={user.uid}
+                                    className="border-t hover:bg-gray-50"
+                                >
 
-                        <label className="mb-2 block text-sm font-medium">
-                            End Date
-                        </label>
+                                    <td className="px-6 py-4">
 
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) =>
-                                setEndDate(e.target.value)
-                            }
-                            className="w-full rounded-lg border p-2"
-                        />
+                                        <div className="flex items-center gap-3">
 
-                    </div>
+                                            {user.photoURL ? (
 
-                </div>
+                                                <img
+                                                    src={user.photoURL}
+                                                    alt={user.name}
+                                                    className="h-11 w-11 rounded-full object-cover"
+                                                />
 
-                <div className="mt-6 flex justify-end gap-3">
+                                            ) : (
 
-                    <button
-                        onClick={onClose}
-                        className="rounded-lg border px-4 py-2"
-                    >
-                        Cancel
-                    </button>
+                                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 font-bold text-white">
 
-                    <button
-                        onClick={async () => {
+                                                    {user.name
+                                                        .split(" ")
+                                                        .map(word => word[0])
+                                                        .join("")
+                                                        .slice(0, 2)
+                                                        .toUpperCase()}
 
-                            await onSave(
-                                plan,
-                                status,
-                                endDate || null
-                            );
+                                                </div>
 
-                            onClose();
+                                            )}
 
-                        }}
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-                    >
-                        Save
-                    </button>
+                                            <span className="font-semibold">
+
+                                                {user.name}
+
+                                            </span>
+
+                                        </div>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        {user.email}
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">
+
+                                            {user.plan}
+
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
+
+                                            {user.status}
+
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <span
+                                            className={`rounded-full px-3 py-1 text-sm ${user.isBlocked
+                                                ? "bg-red-100 text-red-700"
+                                                : "bg-green-100 text-green-700"
+                                                }`}
+                                        >
+
+                                            {user.isBlocked
+                                                ? "Blocked"
+                                                : "Active"}
+
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4 text-gray-500">
+
+                                        {formatEndDate(user.endDate)}
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <span
+                                            className={`font-medium ${getDaysRemaining(user.endDate) === "Expired"
+                                                ? "text-red-600"
+                                                : "text-green-600"
+                                                }`}
+                                        >
+                                            {getDaysRemaining(user.endDate)}
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <div className="flex gap-2">
+
+                                            <button
+                                                onClick={() => {
+
+                                                    setSelectedUser(user);
+
+                                                    setModalOpen(true);
+
+                                                }}
+                                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                                            >
+                                                Edit
+                                            </button>
+
+                                            <button
+                                                onClick={() =>
+                                                    handleToggleBlock(
+                                                        user.uid,
+                                                        user.isBlocked
+                                                    )
+                                                }
+                                                className={`rounded-lg px-4 py-2 text-sm text-white ${user.isBlocked
+                                                    ? "bg-green-600 hover:bg-green-700"
+                                                    : "bg-red-600 hover:bg-red-700"
+                                                    }`}
+                                            >
+                                                {user.isBlocked
+                                                    ? "Unblock"
+                                                    : "Block"}
+                                            </button>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            ))}
+
+                        </tbody>
+
+                    </table>
 
                 </div>
 
             </div>
 
-        </div>
+            <EditSubscriptionModal
+
+                user={selectedUser}
+
+                open={modalOpen}
+
+                onClose={() => {
+
+                    setModalOpen(false);
+
+                    setSelectedUser(null);
+
+                }}
+                onSave={async (
+                    plan,
+                    status,
+                    endDate
+                ) => {
+
+                    if (!selectedUser) {
+                        return;
+                    }
+
+                    try {
+
+                        const timestamp =
+                            endDate
+                                ? Timestamp.fromDate(
+                                    new Date(endDate)
+                                )
+                                : null;
+
+
+                        await updateUserSubscription(
+                            selectedUser.uid,
+                            {
+                                plan,
+                                status,
+                                endDate: timestamp,
+                            }
+                        );
+                        
+                        await updateCachedSubscription(
+
+                            selectedUser.uid,
+
+                            plan,
+
+                            status,
+
+                            timestamp,
+
+                        );
+
+                        setUsers((previousUsers) =>
+                            previousUsers.map((user) =>
+                                user.uid === selectedUser.uid
+                                    ? {
+                                        ...user,
+                                        plan,
+                                        status,
+                                        endDate: timestamp,
+                                    }
+                                    : user
+                            )
+                        );
+
+                        setModalOpen(false);
+
+                        setSelectedUser(null);
+
+                    } catch (error) {
+
+                        console.error(error);
+
+                    }
+
+                }}
+
+            />
+
+        </>
 
     );
 
@@ -13011,6 +12596,253 @@ export default function UserGreeting() {
       </p>
     </>
   );
+}
+</file>
+
+<file path="components/orals/OralTopicsClient.tsx">
+"use client";
+
+import {
+    useEffect,
+    useState,
+} from "react";
+
+import TopicCard, {
+    type TopicCardTopic,
+} from "@/components/orals/TopicCard";
+
+
+/* =========================================================
+   CLIENT TOPIC TYPE
+========================================================= */
+
+export interface SerializedOralTopic
+    extends TopicCardTopic {
+    category?: string;
+    updatedAt?: string | number | null;
+    createdAt?: string | number | null;
+    questionCount?: number;
+    class?: string;
+}
+
+
+/* =========================================================
+   PROPS
+========================================================= */
+
+interface OralTopicsClientProps {
+    topics: SerializedOralTopic[];
+}
+
+
+/* =========================================================
+   COMPONENT
+========================================================= */
+
+export default function OralTopicsClient({
+    topics,
+}: OralTopicsClientProps) {
+
+    const [
+        selectedIndex,
+        setSelectedIndex,
+    ] = useState(0);
+
+
+    /* =====================================================
+       KEEP INDEX VALID WHEN TOPICS CHANGE
+    ===================================================== */
+
+    useEffect(() => {
+        setSelectedIndex((current) =>
+            Math.min(
+                current,
+                Math.max(
+                    0,
+                    topics.length - 1
+                )
+            )
+        );
+    }, [topics.length]);
+
+
+    /* =====================================================
+       EMPTY STATE
+    ===================================================== */
+
+    if (topics.length === 0) {
+        return (
+            <div className="mt-2">
+
+                <div
+                    className="
+                        rounded-2xl
+                        border
+                        border-gray-200
+                        bg-white
+                        px-5
+                        py-12
+                        text-center
+                        shadow-sm
+                    "
+                >
+
+                    <p
+                        className="
+                            text-sm
+                            font-medium
+                            text-gray-700
+                        "
+                    >
+                        No topics found.
+                    </p>
+
+                    <p
+                        className="
+                            mt-1
+                            text-sm
+                            text-gray-500
+                        "
+                    >
+                        Topics will appear here
+                        when they are available.
+                    </p>
+
+                </div>
+
+            </div>
+        );
+    }
+
+
+    /* =====================================================
+       SELECTED TOPIC
+    ===================================================== */
+
+    const selectedTopic =
+        topics[selectedIndex];
+
+
+    if (!selectedTopic) {
+        return null;
+    }
+
+
+    /* =====================================================
+       TOPIC VIEW
+    ===================================================== */
+
+    return (
+        <div className="mt-2">
+
+            {/* =================================================
+                TOPIC COUNTER
+
+                Example:
+                1 / 1
+                1 / 5
+                2 / 5
+            ================================================= */}
+
+            <div
+                className="
+                    mb-3
+                    flex
+                    justify-end
+                "
+            >
+                <div
+                    className="
+                        shrink-0
+                        rounded-full
+                        bg-white
+                        px-3
+                        py-1.5
+                        text-xs
+                        font-semibold
+                        text-gray-600
+                        shadow-sm
+                        ring-1
+                        ring-gray-200
+                    "
+                >
+                    {selectedIndex + 1} /{" "}
+                    {topics.length}
+                </div>
+            </div>
+
+
+            {/* =================================================
+                TOPIC NAME
+
+                This is intentionally OUTSIDE TopicCard.
+            ================================================= */}
+
+            <h1
+                className="
+                    mb-4
+                    text-2xl
+                    font-bold
+                    tracking-tight
+                    text-gray-900
+                    sm:text-3xl
+                "
+            >
+                {selectedTopic.name}
+            </h1>
+
+
+            {/* =================================================
+                TOPIC CARD
+
+                Topic name is still passed because
+                TopicCardTopic requires it.
+
+                If TopicCard currently renders its own
+                title, remove that title from TopicCard.tsx
+                so only the heading above is visible.
+            ================================================= */}
+
+            <TopicCard
+                topic={{
+                    id: selectedTopic.id,
+                    name: selectedTopic.name,
+                    overview:
+                        selectedTopic.overview,
+                }}
+
+                onPrevious={() => {
+                    setSelectedIndex(
+                        (current) =>
+                            Math.max(
+                                0,
+                                current - 1
+                            )
+                    );
+                }}
+
+                onNext={() => {
+                    setSelectedIndex(
+                        (current) =>
+                            Math.min(
+                                topics.length - 1,
+                                current + 1
+                            )
+                    );
+                }}
+
+                canGoPrevious={
+                    selectedIndex > 0
+                }
+
+                canGoNext={
+                    selectedIndex <
+                    topics.length - 1
+                }
+            />
+
+        </div>
+    );
 }
 </file>
 
@@ -14428,83 +14260,239 @@ export async function startSubscriptionPayment() {
 }
 </file>
 
-<file path="scripts/createAdminCache.ts">
+<file path="providers/AuthContext.tsx">
+"use client";
+
 import {
-    doc,
-    setDoc,
-    serverTimestamp,
-} from "firebase/firestore";
+    onAuthStateChanged,
+    User,
+    signOut,
+} from "firebase/auth";
 
-import { db } from "@/lib/firebase/firebase";
+import {
+    requestNotificationPermission,
+} from "@/lib/firebase/firebaseMessaging";
+
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+
+import {
+    auth,
+} from "@/lib/firebase/firebase";
 
 
-async function createAdminCache() {
+import {
+    initializeUser,
+    saveFCMToken,
+} from "@/services/users/userService";
 
-    const pageRef = doc(
-        db,
-        "adminCache",
-        "users",
-        "pages",
-        "page_1"
+
+interface AuthContextType {
+
+    user: User | null;
+
+    loading: boolean;
+
+    role: "admin" | "student";
+
+}
+
+
+
+const AuthContext =
+    createContext<AuthContextType>({
+        user: null,
+
+        loading: true,
+
+        role: "student",
+    });
+
+
+
+
+export function AuthProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+
+
+    const [user, setUser] =
+        useState<User | null>(null);
+
+
+    const [loading, setLoading] =
+        useState(true);
+
+
+    const [role, setRole] =
+        useState<"admin" | "student">(
+            "student"
+        );
+
+
+
+
+    useEffect(() => {
+
+
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                async (firebaseUser) => {
+
+
+                    if (!firebaseUser) {
+
+
+                        setRole("student");
+
+                        setLoading(false);
+
+                        return;
+
+                    }
+
+
+
+                    try {
+
+
+                        const token =
+                            await firebaseUser
+                                .getIdTokenResult(true);
+
+
+
+                        const isAdmin =
+                            token.claims.admin === true;
+
+
+
+                        setRole(
+                            isAdmin
+                                ? "admin"
+                                : "student"
+                        );
+
+                        const profile =
+                            await initializeUser({
+                                uid: firebaseUser.uid,
+                                displayName: firebaseUser.displayName,
+                                email: firebaseUser.email,
+                                photoURL: firebaseUser.photoURL,
+                            });
+
+                        if (profile.isBlocked) {
+
+                            await signOut(auth);
+
+                            setUser(null);
+
+                            setRole("student");
+
+                            setLoading(false);
+
+                            return;
+
+                        }
+
+                        setUser(firebaseUser);
+
+
+                        const fcmToken =
+                            await requestNotificationPermission();
+
+
+                        if (fcmToken) {
+
+                            console.log(
+                                "FCM TOKEN:",
+                                fcmToken
+                            );
+
+
+                            await saveFCMToken(
+                                firebaseUser.uid,
+                                fcmToken
+                            );
+
+                        }
+
+
+
+
+                    } catch (error) {
+
+
+                        console.error(
+                            "Authentication loading failed:",
+                            error
+                        );
+
+
+                        setRole("student");
+
+
+                    } finally {
+
+
+                        setLoading(false);
+
+                    }
+
+                }
+            );
+
+
+
+        return unsubscribe;
+
+
+    }, []);
+
+
+
+
+
+    return (
+
+        <AuthContext.Provider
+
+            value={{
+
+                user,
+
+                loading,
+
+                role,
+
+            }}
+
+        >
+
+            {children}
+
+        </AuthContext.Provider>
+
     );
 
-
-    await setDoc(pageRef, {
-
-        pageNumber: 1,
-
-        totalUsers: 0,
-
-        users: [],
-
-        updatedAt: serverTimestamp(),
-
-    });
-
-
-    console.log("Admin cache created successfully");
-
-    process.exit(0);
 }
 
 
-createAdminCache();
-</file>
-
-<file path="scripts/testAdminUser.ts">
-import { addUserToAdminCache } from "@/services/admin/adminUserService";
 
 
-async function test() {
 
-    await addUserToAdminCache({
+export function useAuth() {
 
-        uid: "test-user-001",
+    return useContext(AuthContext);
 
-        name: "Test Student",
-
-        email: "test@student.com",
-
-        plan: "free",
-
-        status: "active",
-
-        endDate: null,
-
-        photoURL: null,
-
-        isBlocked: false,
-
-    });
-
-
-    console.log("Test user added to admin cache");
-
-    process.exit(0);
 }
-
-
-test();
 </file>
 
 <file path="services/writtens/writtenMetadata.service.ts">
@@ -14559,433 +14547,292 @@ export async function syncWrittenHomeMetadata() {
 }
 </file>
 
-<file path="types/user.ts">
-import { Timestamp } from "firebase/firestore";
-
-export type UserRole = "student" | "admin";
-
-export type SubscriptionPlan =
-    | "free"
-    | "trial"
-    | "monthly"
-    | "quarterly"
-    | "yearly"
-    | "lifetime";
-
-export type SubscriptionStatus =
-    | "inactive"
-    | "trial"
-    | "active"
-    | "expired"
-    | "cancelled";
-
-export interface UserSubscription {
-    plan: SubscriptionPlan;
-
-    status: SubscriptionStatus;
-
-    startDate: Timestamp | null;
-
-    endDate: Timestamp | null;
-
-    paymentId: string | null;
-
-    autoRenew: boolean;
-
-    trialStartDate: Timestamp | null;
-
-    trialEndDate: Timestamp | null;
-
-    amount: number | null;
-
-    lockedPrice: number | null;
-
-    currency?: string;
-}
-
-export interface UserStats {
-    loginCount: number;
-
-    lastLogin: Timestamp | null;
-}
-
-export interface AppUser {
-    uid: string;
-
-    name: string;
-
-    email: string;
-
-    photoURL: string | null;
-
-    role: UserRole;
-
-    createdAt: Timestamp;
-
-    updatedAt: Timestamp;
-
-    isBlocked: boolean;
-
-    subscription: UserSubscription;
-
-    stats: UserStats;
-}
-</file>
-
-<file path="app/(protected)/orals/[category]/topics/page.tsx">
-import { notFound } from "next/navigation";
-
-import OralTopicsClient from "@/components/orals/OralTopicsClient";
+<file path="app/(protected)/admin/notifications/page.tsx">
+"use client";
 
 import {
-  getCachedOralTopics,
-} from "@/lib/cache/oral-topics-cache";
+    useState,
+} from "react";
+
+import { getAuth } from "firebase/auth";
 
 
-/* =========================================================
-   PARAMS
-========================================================= */
-
-interface PageProps {
-  params: Promise<{
-    category: string;
-  }>;
-}
+export default function AdminNotificationsPage() {
 
 
-/* =========================================================
-   NORMALIZE CATEGORY
-========================================================= */
-
-function normalizeCategory(
-  category: string
-): string {
-  const value =
-    category
-      .trim()
-      .toLowerCase();
-
-  const map: Record<string, string> = {
-    safety: "fn3",
-    fn3: "fn3",
-
-    motor: "fn4b",
-    fn4b: "fn4b",
-
-    electrical: "fn5",
-    fn5: "fn5",
-
-    mep: "fn6",
-    fn6: "fn6",
-  };
-
-  return map[value] ?? value;
-}
+    const [title, setTitle] =
+        useState("");
 
 
-/* =========================================================
-   SERIALIZE FIRESTORE VALUES
-========================================================= */
+    const [message, setMessage] =
+        useState("");
 
-function serializeFirestoreValue(
-  value: unknown
-): string | number | null {
 
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return null;
-  }
+    const [audience, setAudience] =
+        useState("all");
 
-  /* -----------------------------------------
-     Already plain values
-  ----------------------------------------- */
 
-  if (
-    typeof value === "string" ||
-    typeof value === "number"
-  ) {
-    return value;
-  }
+    const [loading, setLoading] =
+        useState(false);
 
-  /* -----------------------------------------
-     Firestore Timestamp with toDate()
-  ----------------------------------------- */
 
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "toDate" in value &&
-    typeof (
-      value as {
-        toDate?: unknown;
-      }
-    ).toDate === "function"
-  ) {
-    return (
-      value as {
-        toDate: () => Date;
-      }
-    )
-      .toDate()
-      .toISOString();
-  }
+    const [result, setResult] =
+        useState("");
 
-  /* -----------------------------------------
-     Firestore Timestamp-like object
-  ----------------------------------------- */
 
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "seconds" in value
-  ) {
-    const timestamp =
-      value as {
-        seconds?: number;
-        nanoseconds?: number;
-      };
+    async function sendNotification() {
+        if (!title || !message) {
+            setResult("Please fill all fields");
+            return;
+        }
 
-    if (
-      typeof timestamp.seconds ===
-      "number"
-    ) {
-      return new Date(
-        timestamp.seconds * 1000 +
-        Math.floor(
-          (
-            timestamp.nanoseconds ??
-            0
-          ) / 1_000_000
-        )
-      ).toISOString();
+        try {
+            setLoading(true);
+            setResult("");
+
+            const user = getAuth().currentUser;
+
+            if (!user) {
+                throw new Error("Please sign in again.");
+            }
+
+            const token = await user.getIdToken();
+
+            const response = await fetch("/api/notifications/send-broadcast", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    title,
+                    body: message,
+                    batch: audience,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || data.message || "Request failed");
+            }
+
+            if (data.success) {
+                setResult(`Sent: ${data.sent}, Failed: ${data.failed}`);
+            } else {
+                setResult(data.message || data.error || "Failed");
+            }
+
+        } catch (error) {
+            console.error(error);
+
+            setResult(
+                error instanceof Error
+                    ? error.message
+                    : "Something went wrong"
+            );
+        } finally {
+            setLoading(false);
+        }
     }
-  }
-
-  return null;
-}
 
 
-/* =========================================================
-   SERIALIZED TOPIC TYPE
-
-   IMPORTANT:
-   Everything here must be a plain
-   Server → Client serializable value.
-========================================================= */
-
-interface SerializedTopic {
-  id: string;
-
-  name: string;
-
-  overview: string;
-
-  category: string;
-
-  class: string;
-
-  questionCount: number;
-
-  createdAt: string | number | null;
-
-  updatedAt: string | number | null;
-}
 
 
-/* =========================================================
-   SERIALIZE TOPIC
-========================================================= */
+    return (
 
-function serializeTopic(
-  topic: Record<string, unknown>,
-  category: string
-): SerializedTopic {
-
-  return {
-    id:
-      typeof topic.id === "string"
-        ? topic.id
-        : "",
-
-    name:
-      typeof topic.name === "string"
-        ? topic.name
-        : "",
-
-    overview:
-      typeof topic.overview ===
-        "string"
-        ? topic.overview
-        : "",
-
-    category:
-      typeof topic.category ===
-        "string"
-        ? topic.category
-        : category,
-
-    class:
-      typeof topic.class ===
-        "string"
-        ? topic.class
-        : "",
-
-    questionCount:
-      typeof topic.questionCount ===
-        "number"
-        ? Math.max(
-          0,
-          topic.questionCount
-        )
-        : 0,
-
-    createdAt:
-      serializeFirestoreValue(
-        topic.createdAt
-      ),
-
-    updatedAt:
-      serializeFirestoreValue(
-        topic.updatedAt
-      ),
-  };
-}
+        <div className="p-6 max-w-xl">
 
 
-/* =========================================================
-   PAGE
-========================================================= */
-
-export default async function OralTopicsPage({
-  params,
-}: PageProps) {
-
-  const { category } =
-    await params;
+            <h1 className="text-2xl font-bold">
+                Send Notification
+            </h1>
 
 
-  /* =====================================================
-     NORMALIZE URL CATEGORY
 
-     safety    → fn3
-     motor     → fn4b
-     electrical → fn5
-     mep       → fn6
-  ===================================================== */
-
-  const normalizedCategory =
-    normalizeCategory(category);
+            <div className="mt-6 space-y-4">
 
 
-  /* =====================================================
-     VALID CATEGORIES
-  ===================================================== */
+                <div>
 
-  const validCategories = [
-    "fn3",
-    "fn4b",
-    "fn5",
-    "fn6",
-  ];
+                    <label>
+                        Title
+                    </label>
 
 
-  if (
-    !validCategories.includes(
-      normalizedCategory
-    )
-  ) {
-    notFound();
-  }
+                    <input
+
+                        value={title}
+
+                        onChange={
+                            (e) =>
+                                setTitle(
+                                    e.target.value
+                                )
+                        }
+
+                        className="
+                        mt-1
+                        w-full
+                        rounded-lg
+                        border
+                        p-3
+                        "
+
+                    />
+
+                </div>
 
 
-  /* =====================================================
-     LOAD ALL TOPICS
 
-     Your service currently exports:
 
-     getAllOralTopics()
+                <div>
 
-     NOT:
+                    <label>
+                        Message
+                    </label>
 
-     getOralTopics()
-  ===================================================== */
 
-  const rawTopics =
-    await getCachedOralTopics(
-      normalizedCategory
+                    <textarea
+
+                        value={message}
+
+                        onChange={
+                            (e) =>
+                                setMessage(
+                                    e.target.value
+                                )
+                        }
+
+
+                        className="
+                        mt-1
+                        w-full
+                        rounded-lg
+                        border
+                        p-3
+                        h-32
+                        "
+
+                    />
+
+                </div>
+
+
+
+
+                <div>
+
+
+                    <label>
+                        Send To
+                    </label>
+
+
+                    <select
+
+                        value={audience}
+
+                        onChange={
+                            (e) =>
+                                setAudience(
+                                    e.target.value
+                                )
+                        }
+
+
+                        className="
+                        mt-1
+                        w-full
+                        rounded-lg
+                        border
+                        p-3
+                        "
+
+                    >
+
+                        <option value="all">
+                            All Students
+                        </option>
+
+
+                        <option value="FN3">
+                            FN3
+                        </option>
+
+
+                        <option value="FN4B-FN6">
+                            FN4B-FN6
+                        </option>
+
+
+                        <option value="FN5">
+                            FN5
+                        </option>
+
+
+                    </select>
+
+
+                </div>
+
+
+
+
+                <button
+
+                    onClick={
+                        sendNotification
+                    }
+
+
+                    disabled={
+                        loading
+                    }
+
+
+                    className="
+                    rounded-lg
+                    bg-blue-600
+                    px-5
+                    py-3
+                    text-white
+                    "
+
+                >
+
+                    {
+                        loading
+                            ? "Sending..."
+                            : "Send"
+                    }
+
+                </button>
+
+
+
+
+                {
+                    result && (
+
+                        <p className="mt-4">
+
+                            {result}
+
+                        </p>
+
+                    )
+                }
+
+
+
+            </div>
+
+
+        </div>
+
     );
 
-
-  /* =====================================================
-     FILTER BY CATEGORY
-
-     This keeps the topic page completely
-     independent from old oral question data.
-  ===================================================== */
-
-  const categoryTopics =
-    rawTopics.filter(
-      (topic) =>
-        (
-          topic.category ??
-          ""
-        )
-          .trim()
-          .toLowerCase() ===
-        normalizedCategory
-    );
-
-
-  /* =====================================================
-     CONVERT FIRESTORE DATA TO
-     PLAIN CLIENT-SAFE OBJECTS
-  ===================================================== */
-
-  const topics =
-    categoryTopics.map(
-      (topic) =>
-        serializeTopic(
-          topic as unknown as Record<
-            string,
-            unknown
-          >,
-          normalizedCategory
-        )
-    );
-
-
-  /* =====================================================
-     PAGE
-  ===================================================== */
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-
-      <div
-        className="
-                    mx-auto
-                    max-w-7xl
-                    px-4
-                    py-6
-                    sm:px-5
-                    sm:py-8
-                    md:px-6
-                "
-      >
-
-        <OralTopicsClient
-          topics={topics}
-          category={
-            normalizedCategory
-          }
-        />
-
-      </div>
-
-    </main>
-  );
 }
 </file>
 
@@ -15000,6 +14847,97 @@ export default function Loading() {
             </div>
         </main>
     );
+}
+</file>
+
+<file path="app/api/orals/questions/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+
+import {
+    getCachedOralQuestions,
+} from "@/lib/cache/oral-cache";
+
+import {
+    getOralBatchQuestion,
+} from "@/services/orals/oralBatch.service";
+
+export async function POST(
+    req: NextRequest
+) {
+
+    try {
+
+        const {
+            category,
+            mmd,
+            batchNumber,
+        } = await req.json();
+
+
+        if (!category || !mmd) {
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Category and MMD required",
+                },
+                {
+                    status: 400,
+                }
+            );
+
+        }
+
+
+        let questions;
+
+
+        if (
+            typeof batchNumber === "number"
+        ) {
+
+            questions =
+                await getOralBatchQuestion(
+                    category,
+                    mmd,
+                    batchNumber
+                );
+
+        } else {
+
+            questions =
+                await getCachedOralQuestions(
+                    category,
+                    mmd
+                );
+
+        }
+
+
+        return NextResponse.json({
+            questions,
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Failed to load oral questions:",
+            error
+        );
+
+
+        return NextResponse.json(
+            {
+                error:
+                    "Failed to load questions",
+            },
+            {
+                status: 500,
+            }
+        );
+
+    }
+
 }
 </file>
 
@@ -15134,478 +15072,6 @@ export async function POST() {
         );
 
     }
-}
-</file>
-
-<file path="components/admin/UserTable.tsx">
-"use client";
-
-import { useState } from "react";
-
-import { CachedUser } from "@/types/admin";
-
-import EditSubscriptionModal from "@/components/admin/EditSubscriptionModal";
-
-import { Timestamp } from "firebase/firestore";
-
-import {
-    updateUserSubscription,
-} from "@/services/users/userService";
-
-import {
-    updateCachedSubscription,
-} from "@/services/admin/adminUserService";
-
-import {
-    blockUser,
-    unblockUser,
-} from "@/services/users/userService";
-
-import {
-    toggleCachedUserBlock,
-} from "@/services/admin/adminUserService";
-
-interface UserTableProps {
-    users: CachedUser[];
-
-    setUsers: React.Dispatch<
-        React.SetStateAction<CachedUser[]>
-    >;
-
-    loading: boolean;
-}
-
-function formatEndDate(
-    endDate: CachedUser["endDate"]
-) {
-
-    if (!endDate) {
-        return "--";
-    }
-
-    return endDate
-        .toDate()
-        .toLocaleDateString(
-            "en-IN",
-            {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-            }
-        );
-
-}
-
-function getDaysRemaining(
-    endDate: CachedUser["endDate"]
-) {
-
-    if (!endDate) {
-        return "--";
-    }
-
-    const today = new Date();
-
-    const expiry =
-        endDate.toDate();
-
-    const diff =
-        expiry.getTime() -
-        today.getTime();
-
-    const days =
-        Math.ceil(
-            diff /
-            (1000 * 60 * 60 * 24)
-        );
-
-    if (days < 0) {
-        return "Expired";
-    }
-
-    return `${days} Days`;
-
-}
-
-export default function UserTable({
-    users,
-    setUsers,
-    loading,
-}: UserTableProps) {
-
-    const [selectedUser, setSelectedUser] =
-        useState<CachedUser | null>(null);
-
-    const [modalOpen, setModalOpen] =
-        useState(false);
-
-    async function handleToggleBlock(
-        uid: string,
-        isBlocked: boolean
-    ) {
-
-        try {
-
-            if (isBlocked) {
-
-                await unblockUser(uid);
-
-                await toggleCachedUserBlock(
-                    uid,
-                    false
-                );
-
-            } else {
-
-                await blockUser(uid);
-
-                await toggleCachedUserBlock(
-                    uid,
-                    true
-                );
-
-            }
-
-            setUsers((previousUsers) =>
-                previousUsers.map((user) =>
-                    user.uid === uid
-                        ? {
-                            ...user,
-                            isBlocked: !isBlocked,
-                        }
-                        : user
-                )
-            );
-
-        } catch (error) {
-
-            console.error(error);
-
-        }
-
-    }
-
-    if (loading) {
-
-        return (
-
-            <div className="rounded-xl border bg-white p-8 text-center">
-
-                Loading users...
-
-            </div>
-
-        );
-
-    }
-
-    if (users.length === 0) {
-
-        return (
-
-            <div className="rounded-xl border bg-white p-8 text-center">
-
-                No users found.
-
-            </div>
-
-        );
-
-    }
-
-    return (
-
-        <>
-
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow">
-
-                <div className="overflow-x-auto">
-
-                    <table className="min-w-full">
-
-                        <thead className="bg-gray-100">
-
-                            <tr className="text-left">
-
-                                <th className="px-6 py-4 font-semibold">
-                                    User
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Email
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Plan
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Subscription
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Account
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    End Date
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Days Left
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Actions
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-                        <tbody>
-
-                            {users.map((user) => (
-
-                                <tr
-                                    key={user.uid}
-                                    className="border-t hover:bg-gray-50"
-                                >
-
-                                    <td className="px-6 py-4">
-
-                                        <div className="flex items-center gap-3">
-
-                                            {user.photoURL ? (
-
-                                                <img
-                                                    src={user.photoURL}
-                                                    alt={user.name}
-                                                    className="h-11 w-11 rounded-full object-cover"
-                                                />
-
-                                            ) : (
-
-                                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 font-bold text-white">
-
-                                                    {user.name
-                                                        .split(" ")
-                                                        .map(word => word[0])
-                                                        .join("")
-                                                        .slice(0, 2)
-                                                        .toUpperCase()}
-
-                                                </div>
-
-                                            )}
-
-                                            <span className="font-semibold">
-
-                                                {user.name}
-
-                                            </span>
-
-                                        </div>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        {user.email}
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">
-
-                                            {user.plan}
-
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
-
-                                            {user.status}
-
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span
-                                            className={`rounded-full px-3 py-1 text-sm ${user.isBlocked
-                                                ? "bg-red-100 text-red-700"
-                                                : "bg-green-100 text-green-700"
-                                                }`}
-                                        >
-
-                                            {user.isBlocked
-                                                ? "Blocked"
-                                                : "Active"}
-
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4 text-gray-500">
-
-                                        {formatEndDate(user.endDate)}
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span
-                                            className={`font-medium ${getDaysRemaining(user.endDate) === "Expired"
-                                                ? "text-red-600"
-                                                : "text-green-600"
-                                                }`}
-                                        >
-                                            {getDaysRemaining(user.endDate)}
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <div className="flex gap-2">
-
-                                            <button
-                                                onClick={() => {
-
-                                                    setSelectedUser(user);
-
-                                                    setModalOpen(true);
-
-                                                }}
-                                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-                                            >
-                                                Edit
-                                            </button>
-
-                                            <button
-                                                onClick={() =>
-                                                    handleToggleBlock(
-                                                        user.uid,
-                                                        user.isBlocked
-                                                    )
-                                                }
-                                                className={`rounded-lg px-4 py-2 text-sm text-white ${user.isBlocked
-                                                    ? "bg-green-600 hover:bg-green-700"
-                                                    : "bg-red-600 hover:bg-red-700"
-                                                    }`}
-                                            >
-                                                {user.isBlocked
-                                                    ? "Unblock"
-                                                    : "Block"}
-                                            </button>
-
-                                        </div>
-
-                                    </td>
-
-                                </tr>
-
-                            ))}
-
-                        </tbody>
-
-                    </table>
-
-                </div>
-
-            </div>
-
-            <EditSubscriptionModal
-
-                user={selectedUser}
-
-                open={modalOpen}
-
-                onClose={() => {
-
-                    setModalOpen(false);
-
-                    setSelectedUser(null);
-
-                }}
-                onSave={async (
-                    plan,
-                    status,
-                    endDate
-                ) => {
-
-                    if (!selectedUser) {
-                        return;
-                    }
-
-                    try {
-
-                        const timestamp =
-                            endDate
-                                ? Timestamp.fromDate(
-                                    new Date(endDate)
-                                )
-                                : null;
-
-
-                        await updateUserSubscription(
-                            selectedUser.uid,
-                            {
-                                plan,
-                                status,
-                                endDate: timestamp,
-                            }
-                        );
-                        
-                        await updateCachedSubscription(
-
-                            selectedUser.uid,
-
-                            plan,
-
-                            status,
-
-                            timestamp,
-
-                        );
-
-                        setUsers((previousUsers) =>
-                            previousUsers.map((user) =>
-                                user.uid === selectedUser.uid
-                                    ? {
-                                        ...user,
-                                        plan,
-                                        status,
-                                        endDate: timestamp,
-                                    }
-                                    : user
-                            )
-                        );
-
-                        setModalOpen(false);
-
-                        setSelectedUser(null);
-
-                    } catch (error) {
-
-                        console.error(error);
-
-                    }
-
-                }}
-
-            />
-
-        </>
-
-    );
-
 }
 </file>
 
@@ -16549,6 +16015,113 @@ export const SUBSCRIPTION = {
         durationDays: 30,
     },
 } as const;
+</file>
+
+<file path="hooks/useOralMmdPreference.ts">
+"use client";
+
+import { useEffect, useState } from "react";
+
+import {
+  fetchOralMmdPreference,
+  updateOralMmdPreference,
+} from "@/services/users/userPreference.client";
+
+
+export function useOralMmdPreference() {
+
+  const [mmd, setMmdState] =
+    useState<string | null>(null);
+
+
+  const [loading, setLoading] =
+    useState(true);
+
+
+
+  useEffect(() => {
+
+    let mounted = true;
+
+
+    async function loadPreference() {
+
+      try {
+
+        const data =
+          await fetchOralMmdPreference();
+
+      if (mounted) {
+            setMmdState(
+              data.oralMmd || "CHENNAI"
+            );
+          }
+
+
+      } catch (error) {
+
+        console.error(
+          "Failed loading MMD preference:",
+          error
+        );
+
+      } finally {
+
+        if (mounted) {
+
+          setLoading(false);
+
+        }
+
+      }
+
+    }
+
+
+    loadPreference();
+
+
+    return () => {
+
+      mounted = false;
+
+    };
+
+
+  }, []);
+
+  const setMmd = async (
+    value: string
+  ) => {
+    // Update the UI immediately
+    setMmdState(value);
+
+    try {
+      // Save the preference in the background
+      await updateOralMmdPreference(value);
+    } catch (error) {
+      console.error(
+        "Failed saving MMD preference:",
+        error
+      );
+    }
+  };
+
+
+
+
+
+  return {
+
+    mmd,
+
+    loading,
+
+    setMmd,
+
+  };
+
+}
 </file>
 
 <file path="services/writtens/written.service.ts">
@@ -17851,6 +17424,366 @@ export default function WrittenUploadPage() {
 }
 </file>
 
+<file path="app/(protected)/orals/[category]/topics/page.tsx">
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+
+import OralTopicsClient from "@/components/orals/OralTopicsClient";
+
+import {
+  getCachedOralTopics,
+} from "@/lib/cache/oral-topics-cache";
+
+
+/* =========================================================
+   PARAMS
+========================================================= */
+
+interface PageProps {
+  params: Promise<{
+    category: string;
+  }>;
+}
+
+
+/* =========================================================
+   NORMALIZE CATEGORY
+========================================================= */
+
+function normalizeCategory(
+  category: string
+): string {
+  const value =
+    category
+      .trim()
+      .toLowerCase();
+
+  const map: Record<string, string> = {
+    safety: "fn3",
+    fn3: "fn3",
+
+    motor: "fn4b",
+    fn4b: "fn4b",
+
+    electrical: "fn5",
+    fn5: "fn5",
+
+    mep: "fn6",
+    fn6: "fn6",
+  };
+
+  return map[value] ?? value;
+}
+
+
+/* =========================================================
+   SERIALIZE FIRESTORE VALUES
+========================================================= */
+
+function serializeFirestoreValue(
+  value: unknown
+): string | number | null {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+    return value;
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "toDate" in value &&
+    typeof (
+      value as {
+        toDate?: unknown;
+      }
+    ).toDate === "function"
+  ) {
+    return (
+      value as {
+        toDate: () => Date;
+      }
+    )
+      .toDate()
+      .toISOString();
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "seconds" in value
+  ) {
+    const timestamp =
+      value as {
+        seconds?: number;
+        nanoseconds?: number;
+      };
+
+    if (
+      typeof timestamp.seconds ===
+      "number"
+    ) {
+      return new Date(
+        timestamp.seconds * 1000 +
+        Math.floor(
+          (
+            timestamp.nanoseconds ??
+            0
+          ) / 1_000_000
+        )
+      ).toISOString();
+    }
+  }
+
+  return null;
+}
+
+
+/* =========================================================
+   SERIALIZED TOPIC TYPE
+========================================================= */
+
+interface SerializedTopic {
+  id: string;
+  name: string;
+  overview: string;
+  category: string;
+  class: string;
+  questionCount: number;
+  createdAt: string | number | null;
+  updatedAt: string | number | null;
+}
+
+
+/* =========================================================
+   SERIALIZE TOPIC
+========================================================= */
+
+function serializeTopic(
+  topic: Record<string, unknown>,
+  category: string
+): SerializedTopic {
+
+  return {
+    id:
+      typeof topic.id === "string"
+        ? topic.id
+        : "",
+
+    name:
+      typeof topic.name === "string"
+        ? topic.name
+        : "",
+
+    overview:
+      typeof topic.overview ===
+        "string"
+        ? topic.overview
+        : "",
+
+    category:
+      typeof topic.category ===
+        "string"
+        ? topic.category
+        : category,
+
+    class:
+      typeof topic.class ===
+        "string"
+        ? topic.class
+        : "",
+
+    questionCount:
+      typeof topic.questionCount ===
+        "number"
+        ? Math.max(
+            0,
+            topic.questionCount
+          )
+        : 0,
+
+    createdAt:
+      serializeFirestoreValue(
+        topic.createdAt
+      ),
+
+    updatedAt:
+      serializeFirestoreValue(
+        topic.updatedAt
+      ),
+  };
+}
+
+
+/* =========================================================
+   PAGE
+========================================================= */
+
+export default async function OralTopicsPage({
+  params,
+}: PageProps) {
+
+  const { category } =
+    await params;
+
+
+  /* =======================================================
+     NORMALIZE URL CATEGORY
+  ======================================================= */
+
+  const normalizedCategory =
+    normalizeCategory(category);
+
+
+  /* =======================================================
+     VALID CATEGORIES
+  ======================================================= */
+
+  const validCategories = [
+    "fn3",
+    "fn4b",
+    "fn5",
+    "fn6",
+  ];
+
+  if (
+    !validCategories.includes(
+      normalizedCategory
+    )
+  ) {
+    notFound();
+  }
+
+
+  /* =======================================================
+     LOAD TOPICS
+  ======================================================= */
+
+  const rawTopics =
+    await getCachedOralTopics(
+      normalizedCategory
+    );
+
+
+  /* =======================================================
+     FILTER BY CATEGORY
+  ======================================================= */
+
+  const categoryTopics =
+    rawTopics.filter(
+      (topic) =>
+        (
+          topic.category ??
+          ""
+        )
+          .trim()
+          .toLowerCase() ===
+        normalizedCategory
+    );
+
+
+  /* =======================================================
+     SERIALIZE
+  ======================================================= */
+
+  const topics =
+    categoryTopics.map(
+      (topic) =>
+        serializeTopic(
+          topic as unknown as Record<
+            string,
+            unknown
+          >,
+          normalizedCategory
+        )
+    );
+
+
+  /* =======================================================
+     PAGE
+  ======================================================= */
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+
+      {/* =================================================
+          BACK BUTTON
+      ================================================= */}
+
+      <div
+        className="
+          mx-auto
+          max-w-7xl
+          px-4
+          pt-6
+          sm:px-5
+          sm:pt-8
+          md:px-6
+        "
+      >
+
+        <Link
+          href={`/orals/${normalizedCategory}`}
+          className="
+            flex
+            h-10
+            w-10
+            items-center
+            justify-center
+            rounded-2xl
+            border
+            border-gray-200
+            bg-white
+            transition
+            hover:bg-gray-50
+          "
+          aria-label="Back to oral category"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+
+      </div>
+
+
+      {/* =================================================
+          TOPIC CONTENT
+      ================================================= */}
+
+      <div
+        className="
+          mx-auto
+          max-w-7xl
+          px-4
+          pb-6
+          pt-4
+          sm:px-5
+          sm:pb-8
+          md:px-6
+        "
+      >
+
+        <OralTopicsClient
+          topics={topics}
+        
+        />
+
+      </div>
+
+    </main>
+  );
+}
+</file>
+
 <file path="components/orals/OralCategoryClient.tsx">
 "use client";
 
@@ -18075,6 +18008,52 @@ export async function getCachedWrittenQuestions(
     return getWrittenQuestionsCache(
         category
     )();
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "@tanstack/react-virtual": "^3.14.9",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "firebase-admin": "^13.4.0",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "razorpay": "^2.9.8",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+  }
 }
 </file>
 
@@ -19129,52 +19108,6 @@ export const getHomeStats = unstable_cache(
         ],
     }
 );
-</file>
-
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "@tanstack/react-virtual": "^3.14.9",
-    "exceljs": "^4.4.0",
-    "firebase": "^12.15.0",
-    "firebase-admin": "^13.4.0",
-    "framer-motion": "^12.42.2",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "razorpay": "^2.9.8",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.1",
-    "typescript": "^5"
-  }
-}
 </file>
 
 <file path="app/(protected)/admin/manage/page.tsx">
@@ -20548,6 +20481,8 @@ export default function OralCategorySkeleton() {
 
             </div>
 
+            <div className="h-[45px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
+
 
             {/* =====================================================
                 SEARCH
@@ -20574,9 +20509,9 @@ export default function OralCategorySkeleton() {
             ===================================================== */}
             <div className="mt-4 grid grid-cols-2 gap-3">
 
-                <div className="h-[46px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
+                <div className="h-[45px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
 
-                <div className="h-[46px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
+                <div className="h-[45px] w-full rounded-xl border border-gray-200 bg-white shadow-sm animate-pulse" />
 
             </div>
 
@@ -20710,6 +20645,9 @@ export default function QuestionsContainer({
 
   const requestIdRef = useRef(0);
 
+  const backgroundLoadIdRef =
+    useRef(0);
+
   async function loadMmdQuestions(
     selectedMmd: string
   ) {
@@ -20723,12 +20661,14 @@ export default function QuestionsContainer({
           method: "POST",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           body: JSON.stringify({
             category,
             mmd: selectedMmd,
+            batchNumber: mmdData[selectedMmd]?.batchCount ?? 1,
           }),
 
           cache: "no-store",
@@ -20746,18 +20686,41 @@ export default function QuestionsContainer({
 
       // Ignore stale request
       if (
-        requestId !== requestIdRef.current
+        requestId !==
+        requestIdRef.current
       ) {
         return;
       }
 
+      const firstBatchQuestions:
+        OralBatchQuestion[] =
+        data.questions ?? [];
+
       setQuestions(
-        data.questions ?? []
+        firstBatchQuestions
       );
+
+      const batchCount =
+        mmdData[selectedMmd]?.batchCount ?? 0;
+
+      if (batchCount > 1) {
+        const loadId =
+          ++backgroundLoadIdRef.current;
+
+        void loadRemainingBatches(
+          selectedMmd,
+          batchCount - 1,
+          1,
+          loadId
+        );
+      }
+
     } catch (error) {
+
       // Ignore stale request errors
       if (
-        requestId !== requestIdRef.current
+        requestId !==
+        requestIdRef.current
       ) {
         return;
       }
@@ -20768,20 +20731,126 @@ export default function QuestionsContainer({
       );
 
       setQuestions([]);
+
     } finally {
-      // Only the latest request controls loading state
+
+      // Only the latest request controls
+      // the initial loading state
       if (
-        requestId === requestIdRef.current
+        requestId ===
+        requestIdRef.current
       ) {
         setQuestionsLoading(false);
         onInitialLoadComplete();
       }
+
     }
   }
-  /*
-   * Load the user's remembered MMD
-   * when the page opens.
-   */
+
+
+  async function loadRemainingBatches(
+    selectedMmd: string,
+    firstBatch: number,
+    batchCount: number,
+    loadId: number
+  ) {
+    for (
+      let batchNumber = firstBatch;
+      batchNumber >= batchCount;
+      batchNumber--
+    ) {
+
+      // Stop if the user has changed MMD
+      const isCurrentLoad =
+        loadId ===
+        backgroundLoadIdRef.current;
+
+      if (!isCurrentLoad) {
+        return;
+      }
+
+      try {
+
+        const res = await fetch(
+          "/api/orals/questions",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              category,
+              mmd: selectedMmd,
+              batchNumber,
+            }),
+
+            cache: "no-store",
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error(
+            `Failed to load batch ${batchNumber}`
+          );
+        }
+
+        const data =
+          await res.json();
+
+        // User changed MMD while
+        // this batch was loading.
+        if (
+          loadId !==
+          backgroundLoadIdRef.current
+        ) {
+          return;
+        }
+
+        const newQuestions:
+          OralBatchQuestion[] =
+          data.questions ?? [];
+
+        setQuestions(
+          (currentQuestions) => {
+
+            const existingIds =
+              new Set(
+                currentQuestions.map(
+                  (question) =>
+                    question.id
+                )
+              );
+
+            const uniqueQuestions =
+              newQuestions.filter(
+                (question) =>
+                  !existingIds.has(
+                    question.id
+                  )
+              );
+
+            return [
+              ...currentQuestions,
+              ...uniqueQuestions,
+            ];
+          }
+        );
+
+      } catch (error) {
+
+        console.error(
+          `Failed loading oral batch ${batchNumber}:`,
+          error
+        );
+
+        // Continue loading the next batch.
+      }
+    }
+  }
+
   useEffect(() => {
     if (loading) return;
 
@@ -22077,6 +22146,622 @@ export default function WrittenCard({
 }
 </file>
 
+<file path="components/questions/QuestionsList.tsx">
+"use client"
+
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import type {
+  OralBatchQuestion,
+  OralFilters,
+} from "@/services/orals/oralBatch.service";
+
+import { useVirtualizer } from "@tanstack/react-virtual";
+
+import InsightSwitcher from "@/components/home/InsightSwitcher";
+
+import {
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
+
+import QuestionRow from "@/components/questions/QuestionRow";
+import QuestionViewer from "@/components/questions/QuestionViewer";
+
+
+interface Props {
+  category: string;
+  questions: OralBatchQuestion[];
+  filters?: OralFilters;
+
+  mmdData: Record<
+    string,
+    {
+      questionCount: number;
+      batchCount: number;
+      topics: string[];
+      surveyors: string[];
+    }
+  >;
+
+  selectedMmd: string;
+
+  setSelectedMmd: (
+    value: string
+  ) => void;
+
+  totalQuestions: number;
+  questionsLoading: boolean;
+}
+
+export default function QuestionsList({
+  category,
+  questions,
+  filters,
+  mmdData,
+  selectedMmd,
+  setSelectedMmd,
+  totalQuestions,
+  questionsLoading,
+}: Props) {
+
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [bookmarks, setBookmarks] =
+    useState<string[]>([]);
+
+  const bookmarkSet = useMemo(
+    () => new Set(bookmarks),
+    [bookmarks]
+  );
+
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+
+  const activeMmd = selectedMmd;
+
+  const [selectedSurveyor, setSelectedSurveyor] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+  const [selectedClass, setSelectedClass] = useState("All");
+
+  useEffect(() => {
+
+    setSelectedTopic("All");
+    setSelectedSurveyor("All");
+    setSelectedClass("All");
+
+  }, [activeMmd]);
+
+  const topics = useMemo(() => {
+
+    if (mmdData[activeMmd]) {
+      return mmdData[activeMmd].topics;
+    }
+
+    return filters?.topics ?? [];
+
+  }, [
+    activeMmd,
+    mmdData,
+    filters,
+  ]);
+
+  const surveyors = useMemo(() => {
+    if (mmdData[activeMmd]) {
+      return mmdData[activeMmd].surveyors;
+    }
+
+    return filters?.surveyors ?? [];
+
+  }, [
+    activeMmd,
+    mmdData,
+    filters,
+  ]);
+
+  const mmds = useMemo(
+    () => filters?.mmds ?? [],
+    [filters]
+  );
+
+  const classes = useMemo(
+    () => filters?.classes ?? [],
+    [filters]
+  );
+
+  const showMmd = selectedMmd !== "All";
+  const showSurveyor = selectedSurveyor !== "All";
+  const showTopic = selectedTopic !== "All";
+
+  const normalizedSearch =
+    search.trim().toLowerCase();
+
+  const filteredQuestions = useMemo(() => {
+
+    return questions.filter((q) => {
+      if (q.isActive === false) return false;
+      if (showBookmarksOnly && !bookmarkSet.has(q.id))
+        return false;
+
+      if (
+        selectedMmd &&
+        q.mmd !== selectedMmd
+      )
+        return false;
+
+      if (
+        selectedSurveyor !== "All" &&
+        q.surveyor !== selectedSurveyor
+      )
+        return false;
+
+      if (
+        selectedTopic !== "All" &&
+        q.topic !== selectedTopic
+      )
+        return false;
+
+      if (
+        selectedClass !== "All" &&
+        q.class !== selectedClass
+      )
+        return false;
+
+      if (
+        normalizedSearch &&
+        !(
+          q.question
+            .toLowerCase()
+            .includes(normalizedSearch) ||
+          (q.answer ?? "").toLowerCase()
+            .includes(normalizedSearch) ||
+          q.topic
+            .toLowerCase()
+            .includes(normalizedSearch) ||
+          q.mmd
+            .toLowerCase()
+            .includes(normalizedSearch) ||
+          q.surveyor
+            .toLowerCase()
+            .includes(normalizedSearch)
+        )
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    questions,
+    normalizedSearch,
+    activeMmd,
+    selectedSurveyor,
+    selectedTopic,
+    selectedClass,
+    bookmarkSet,
+    showBookmarksOnly,
+  ]);
+
+  const bookmarksCount = useMemo(() => {
+    return filteredQuestions.filter((q) =>
+      bookmarkSet.has(q.id)
+    ).length;
+  }, [filteredQuestions, bookmarkSet]);
+
+  const [selectedIndex, setSelectedIndex] =
+    useState<number | null>(null);
+
+  const viewerHistoryRef = useRef(false);
+
+  useEffect(() => {
+    if (questionsLoading) {
+      setSelectedIndex(null);
+    }
+  }, [questionsLoading]);
+
+  const parentRef =
+    useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredQuestions.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 148,
+    overscan: 12,
+    useFlushSync: false,
+  });
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedSurveyor("All");
+    setSelectedTopic("All");
+    setSelectedClass("All");
+    setShowBookmarksOnly(false);
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (viewerHistoryRef.current) {
+        viewerHistoryRef.current = false;
+        setSelectedIndex(null);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+
+  useEffect(() => {
+    const saved = localStorage.getItem("bookmarkedQuestions");
+
+    if (saved) {
+      setBookmarks(JSON.parse(saved));
+    }
+  }, []);
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        "bookmarkedQuestions",
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
+  };
+
+  const selectedQuestion = useMemo(() => {
+    if (selectedIndex === null) return null;
+
+    return filteredQuestions[selectedIndex] ?? null;
+  }, [selectedIndex, filteredQuestions]);
+
+  return (
+    <>
+      {/* INSIGHT SWITCHER */}
+      <InsightSwitcher
+        category={category}
+        current="questions"
+      />
+
+      {/* SEARCH */}
+      <div className="mt-8">
+        <input
+          type="text"
+          placeholder="🔍 Search Questions..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
+        />
+      </div>
+
+      {/* MMD SELECTOR */}
+      <div className="mt-4">
+        <select
+          value={activeMmd}
+          onChange={(e) => {
+            setSelectedMmd(e.target.value);
+          }}
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
+        >
+          {mmds.map((mmd) => (
+            <option key={mmd} value={mmd}>
+              {mmd}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* FILTER BUTTON */}
+      <div className="mt-4 grid grid-cols-2 gap-3">
+
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-black"
+        >
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal size={16} />
+            <span className="font-semibold">Filters</span>
+          </div>
+
+          {showFilters ? (
+            <ChevronUp size={16} />
+          ) : (
+            <ChevronDown size={16} />
+          )}
+        </button>
+
+        <button
+          onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+          className={`flex items-center justify-center rounded-xl border px-4 py-3 shadow-sm transition ${showBookmarksOnly
+            ? "border-black bg-black text-white"
+            : "border-gray-200 bg-white hover:border-black"
+            }`}
+        >
+          🔖 Bookmarks (
+          {bookmarksCount}
+          )
+        </button>
+
+      </div>
+
+      {/* FILTERS */}
+      {
+        showFilters && (
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+
+            <div className="grid gap-4 md:grid-cols-3">
+
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">Class</option>
+
+                {classes.map((questionClass) => (
+                  <option key={questionClass} value={questionClass}>
+                    {questionClass}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedSurveyor}
+                onChange={(e) => setSelectedSurveyor(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Surveyors</option>
+
+                {surveyors.map((surveyor) => (
+                  <option key={surveyor} value={surveyor}>
+                    {surveyor}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedTopic}
+                onChange={(e) => setSelectedTopic(e.target.value)}
+                className="rounded-xl border border-gray-300 p-3"
+              >
+                <option value="All">All Topics</option>
+
+                {topics.map((topic) => (
+                  <option key={topic} value={topic}>
+                    {topic}
+                  </option>
+                ))}
+              </select>
+
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                onClick={() => setShowFilters(false)}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                ✕ Close
+              </button>
+
+              <button
+                onClick={clearFilters}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
+
+          </div>
+        )
+      }
+
+
+
+
+      {/* HEADING */}
+      <div className="mt-8 mb-6 flex items-center justify-between gap-4">
+
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+          Questions
+        </h2>
+
+        <div className="text-right text-xs sm:text-sm font-medium text-gray-700">
+          {" "}
+          <span className="font-bold text-black">
+            {filteredQuestions.length}
+          </span>{" "}
+          /{" "}
+          <span className="font-bold text-black">
+            {totalQuestions}
+          </span>{" "}
+
+        </div>
+
+      </div>
+
+      {/* QUESTIONS */}
+      <div
+        ref={parentRef}
+        className="overflow-y-auto"
+        style={{
+          height: "calc(100vh - 150px)",
+        }}
+      >
+
+        {questionsLoading ? (
+          <div className="space-y-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[124px] rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"
+              >
+                <div className="animate-pulse">
+
+                  {/* Question + Bookmark */}
+                  <div className="flex items-start justify-between gap-4">
+
+                    {/* Question text */}
+                    <div className="flex-1 space-y-2">
+                      <div className="h-5 w-4/5 rounded-md bg-gray-200" />
+                      <div className="h-5 w-2/5 rounded-md bg-gray-200" />
+                    </div>
+
+                    {/* Bookmark skeleton */}
+                    <div className="h-6 w-5 shrink-0 rounded bg-gray-200" />
+
+                  </div>
+
+                  {/* Metadata pills */}
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <div className="h-7 w-28 rounded-full bg-gray-200" />
+                    <div className="h-7 w-24 rounded-full bg-gray-200" />
+                  </div>
+
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredQuestions.length === 0 ? (
+
+          <div className="rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+
+            <div className="text-5xl">🔍</div>
+
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">
+              No questions found
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Try changing your search, filters or bookmarks.
+            </p>
+
+            <button
+              onClick={clearFilters}
+              className="mt-6 rounded-xl bg-black px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+            >
+              Clear Filters
+            </button>
+
+          </div>
+
+        ) : (
+
+
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              position: "relative",
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const q = filteredQuestions[virtualRow.index];
+
+              return (
+                <div
+                  key={q.id}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  className="w-full pb-5"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+
+                  <QuestionRow
+                    question={q.question}
+                    examDate={q.examDate}
+                    mmd={q.mmd}
+                    surveyor={q.surveyor}
+                    topic={q.topic}
+                    showMmd={showMmd}
+                    showSurveyor={showSurveyor}
+                    showTopic={showTopic}
+                    isBookmarked={bookmarkSet.has(q.id)}
+                    onBookmark={() => toggleBookmark(q.id)}
+                    onClick={() => {
+                      setSelectedIndex(virtualRow.index);
+
+                      window.history.pushState(
+                        { questionViewer: true },
+                        "",
+                        window.location.href
+                      );
+
+                      viewerHistoryRef.current = true;
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+        )}
+
+      </div>
+
+      <QuestionViewer
+        open={selectedQuestion !== null}
+        questions={filteredQuestions}
+        currentIndex={selectedIndex}
+        bookmarked={
+          selectedQuestion
+            ? bookmarkSet.has(selectedQuestion.id)
+            : false
+        }
+        onClose={() => {
+          if (viewerHistoryRef.current) {
+            viewerHistoryRef.current = false;
+            window.history.back();
+          } else {
+            setSelectedIndex(null);
+          }
+        }}
+        onBookmark={() => {
+          if (!selectedQuestion) return;
+
+          toggleBookmark(selectedQuestion.id);
+        }}
+        onPrevious={() => {
+          setSelectedIndex((prev) => {
+            if (prev === null || prev <= 0) return prev;
+            return prev - 1;
+          });
+        }}
+        onNext={() => {
+          setSelectedIndex((prev) => {
+            if (
+              prev === null ||
+              prev >= filteredQuestions.length - 1
+            )
+              return prev;
+
+            return prev + 1;
+          });
+        }}
+      />
+
+    </>
+  )
+}
+</file>
+
 <file path="services/orals/oralBatch.service.ts">
 import {
     collection,
@@ -22645,6 +23330,66 @@ export async function getOralBatchDocuments(
     return snapshot.docs.map((doc) => ({
         ...(doc.data() as OralBatchDocument),
     }));
+}
+
+export async function getOralBatchQuestion(
+    category: string,
+    mmd: string,
+    batchNumber: number
+): Promise<OralBatchQuestion[]> {
+
+    const normalizedCategory =
+        category.trim().toLowerCase();
+
+    const normalizedMmd =
+        mmd.trim();
+
+    const batchQuery = query(
+        collection(db, "oral_batches"),
+        where(
+            "category",
+            "==",
+            normalizedCategory
+        ),
+        where(
+            "mmd",
+            "==",
+            normalizedMmd
+        ),
+        where(
+            "batchNumber",
+            "==",
+            batchNumber
+        )
+    );
+
+    const snapshot =
+        await getDocs(batchQuery);
+
+    if (snapshot.empty) {
+        return [];
+    }
+
+    const questions: OralBatchQuestion[] = [];
+
+    snapshot.forEach((docSnap) => {
+        const data =
+            docSnap.data();
+
+        const batchQuestions =
+            Array.isArray(data.questions)
+                ? data.questions
+                : [];
+
+        for (const question of batchQuestions) {
+            questions.push({
+                ...question,
+                mmd: question.mmd ?? normalizedMmd,
+            });
+        }
+    });
+
+    return questions;
 }
 
 export async function getOralBatchQuestions(
@@ -23430,622 +24175,6 @@ export async function generateOralTopics() {
 
     console.log("Finished generating oral topics.");
 
-}
-</file>
-
-<file path="components/questions/QuestionsList.tsx">
-"use client"
-
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-
-import type {
-  OralBatchQuestion,
-  OralFilters,
-} from "@/services/orals/oralBatch.service";
-
-import { useVirtualizer } from "@tanstack/react-virtual";
-
-import InsightSwitcher from "@/components/home/InsightSwitcher";
-
-import {
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
-} from "lucide-react";
-
-import QuestionRow from "@/components/questions/QuestionRow";
-import QuestionViewer from "@/components/questions/QuestionViewer";
-
-
-interface Props {
-  category: string;
-  questions: OralBatchQuestion[];
-  filters?: OralFilters;
-
-  mmdData: Record<
-    string,
-    {
-      questionCount: number;
-      batchCount: number;
-      topics: string[];
-      surveyors: string[];
-    }
-  >;
-
-  selectedMmd: string;
-
-  setSelectedMmd: (
-    value: string
-  ) => void;
-
-  totalQuestions: number;
-  questionsLoading: boolean;
-}
-
-export default function QuestionsList({
-  category,
-  questions,
-  filters,
-  mmdData,
-  selectedMmd,
-  setSelectedMmd,
-  totalQuestions,
-  questionsLoading,
-}: Props) {
-
-  const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-
-  const [bookmarks, setBookmarks] =
-    useState<string[]>([]);
-
-  const bookmarkSet = useMemo(
-    () => new Set(bookmarks),
-    [bookmarks]
-  );
-
-  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
-
-  const activeMmd = selectedMmd;
-
-  const [selectedSurveyor, setSelectedSurveyor] = useState("All");
-  const [selectedTopic, setSelectedTopic] = useState("All");
-  const [selectedClass, setSelectedClass] = useState("All");
-
-  useEffect(() => {
-
-    setSelectedTopic("All");
-    setSelectedSurveyor("All");
-    setSelectedClass("All");
-
-  }, [activeMmd]);
-
-  const topics = useMemo(() => {
-
-    if (mmdData[activeMmd]) {
-      return mmdData[activeMmd].topics;
-    }
-
-    return filters?.topics ?? [];
-
-  }, [
-    activeMmd,
-    mmdData,
-    filters,
-  ]);
-
-  const surveyors = useMemo(() => {
-    if (mmdData[activeMmd]) {
-      return mmdData[activeMmd].surveyors;
-    }
-
-    return filters?.surveyors ?? [];
-
-  }, [
-    activeMmd,
-    mmdData,
-    filters,
-  ]);
-
-  const mmds = useMemo(
-    () => filters?.mmds ?? [],
-    [filters]
-  );
-
-  const classes = useMemo(
-    () => filters?.classes ?? [],
-    [filters]
-  );
-
-  const showMmd = selectedMmd !== "All";
-  const showSurveyor = selectedSurveyor !== "All";
-  const showTopic = selectedTopic !== "All";
-
-  const normalizedSearch =
-    search.trim().toLowerCase();
-
-  const filteredQuestions = useMemo(() => {
-
-    return questions.filter((q) => {
-      if (q.isActive === false) return false;
-      if (showBookmarksOnly && !bookmarkSet.has(q.id))
-        return false;
-
-      if (
-        selectedMmd &&
-        q.mmd !== selectedMmd
-      )
-        return false;
-
-      if (
-        selectedSurveyor !== "All" &&
-        q.surveyor !== selectedSurveyor
-      )
-        return false;
-
-      if (
-        selectedTopic !== "All" &&
-        q.topic !== selectedTopic
-      )
-        return false;
-
-      if (
-        selectedClass !== "All" &&
-        q.class !== selectedClass
-      )
-        return false;
-
-      if (
-        normalizedSearch &&
-        !(
-          q.question
-            .toLowerCase()
-            .includes(normalizedSearch) ||
-          (q.answer ?? "").toLowerCase()
-            .includes(normalizedSearch) ||
-          q.topic
-            .toLowerCase()
-            .includes(normalizedSearch) ||
-          q.mmd
-            .toLowerCase()
-            .includes(normalizedSearch) ||
-          q.surveyor
-            .toLowerCase()
-            .includes(normalizedSearch)
-        )
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [
-    questions,
-    normalizedSearch,
-    activeMmd,
-    selectedSurveyor,
-    selectedTopic,
-    selectedClass,
-    bookmarkSet,
-    showBookmarksOnly,
-  ]);
-
-  const bookmarksCount = useMemo(() => {
-    return filteredQuestions.filter((q) =>
-      bookmarkSet.has(q.id)
-    ).length;
-  }, [filteredQuestions, bookmarkSet]);
-
-  const [selectedIndex, setSelectedIndex] =
-    useState<number | null>(null);
-
-  const viewerHistoryRef = useRef(false);
-
-  useEffect(() => {
-    if (questionsLoading) {
-      setSelectedIndex(null);
-    }
-  }, [questionsLoading]);
-
-  const parentRef =
-    useRef<HTMLDivElement>(null);
-
-  const rowVirtualizer = useVirtualizer({
-    count: filteredQuestions.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 148,
-    overscan: 12,
-    useFlushSync: false,
-  });
-
-  const clearFilters = () => {
-    setSearch("");
-    setSelectedSurveyor("All");
-    setSelectedTopic("All");
-    setSelectedClass("All");
-    setShowBookmarksOnly(false);
-  };
-
-  useEffect(() => {
-    const handlePopState = () => {
-      if (viewerHistoryRef.current) {
-        viewerHistoryRef.current = false;
-        setSelectedIndex(null);
-      }
-    };
-
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, []);
-
-
-  useEffect(() => {
-    const saved = localStorage.getItem("bookmarkedQuestions");
-
-    if (saved) {
-      setBookmarks(JSON.parse(saved));
-    }
-  }, []);
-
-  const toggleBookmark = (id: string) => {
-    setBookmarks((prev) => {
-      const updated = prev.includes(id)
-        ? prev.filter((item) => item !== id)
-        : [...prev, id];
-
-      localStorage.setItem(
-        "bookmarkedQuestions",
-        JSON.stringify(updated)
-      );
-
-      return updated;
-    });
-  };
-
-  const selectedQuestion = useMemo(() => {
-    if (selectedIndex === null) return null;
-
-    return filteredQuestions[selectedIndex] ?? null;
-  }, [selectedIndex, filteredQuestions]);
-
-  return (
-    <>
-      {/* INSIGHT SWITCHER */}
-      <InsightSwitcher
-        category={category}
-        current="questions"
-      />
-
-      {/* SEARCH */}
-      <div className="mt-8">
-        <input
-          type="text"
-          placeholder="🔍 Search Questions..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
-        />
-      </div>
-
-      {/* MMD SELECTOR */}
-      <div className="mt-4">
-        <select
-          value={activeMmd}
-          onChange={(e) => {
-            setSelectedMmd(e.target.value);
-          }}
-          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
-        >
-          {mmds.map((mmd) => (
-            <option key={mmd} value={mmd}>
-              {mmd}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* FILTER BUTTON */}
-      <div className="mt-4 grid grid-cols-2 gap-3">
-
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-black"
-        >
-          <div className="flex items-center gap-3">
-            <SlidersHorizontal size={16} />
-            <span className="font-semibold">Filters</span>
-          </div>
-
-          {showFilters ? (
-            <ChevronUp size={16} />
-          ) : (
-            <ChevronDown size={16} />
-          )}
-        </button>
-
-        <button
-          onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-          className={`flex items-center justify-center rounded-xl border px-4 py-3 shadow-sm transition ${showBookmarksOnly
-            ? "border-black bg-black text-white"
-            : "border-gray-200 bg-white hover:border-black"
-            }`}
-        >
-          🔖 Bookmarks (
-          {bookmarksCount}
-          )
-        </button>
-
-      </div>
-
-      {/* FILTERS */}
-      {
-        showFilters && (
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-
-            <div className="grid gap-4 md:grid-cols-3">
-
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">Class</option>
-
-                {classes.map((questionClass) => (
-                  <option key={questionClass} value={questionClass}>
-                    {questionClass}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedSurveyor}
-                onChange={(e) => setSelectedSurveyor(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">All Surveyors</option>
-
-                {surveyors.map((surveyor) => (
-                  <option key={surveyor} value={surveyor}>
-                    {surveyor}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
-                className="rounded-xl border border-gray-300 p-3"
-              >
-                <option value="All">All Topics</option>
-
-                {topics.map((topic) => (
-                  <option key={topic} value={topic}>
-                    {topic}
-                  </option>
-                ))}
-              </select>
-
-            </div>
-
-            <div className="mt-4 flex items-center justify-between">
-              <button
-                onClick={() => setShowFilters(false)}
-                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
-              >
-                ✕ Close
-              </button>
-
-              <button
-                onClick={clearFilters}
-                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 transition-colors"
-              >
-                Clear Filters
-              </button>
-            </div>
-
-          </div>
-        )
-      }
-
-
-
-
-      {/* HEADING */}
-      <div className="mt-8 mb-6 flex items-center justify-between gap-4">
-
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
-          Questions
-        </h2>
-
-        <div className="text-right text-xs sm:text-sm font-medium text-gray-700">
-          {" "}
-          <span className="font-bold text-black">
-            {filteredQuestions.length}
-          </span>{" "}
-          /{" "}
-          <span className="font-bold text-black">
-            {totalQuestions}
-          </span>{" "}
-
-        </div>
-
-      </div>
-
-      {/* QUESTIONS */}
-      <div
-        ref={parentRef}
-        className="overflow-y-auto"
-        style={{
-          height: "calc(100vh - 150px)",
-        }}
-      >
-
-        {questionsLoading ? (
-          <div className="space-y-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[124px] rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"
-              >
-                <div className="animate-pulse">
-
-                  {/* Question + Bookmark */}
-                  <div className="flex items-start justify-between gap-4">
-
-                    {/* Question text */}
-                    <div className="flex-1 space-y-2">
-                      <div className="h-5 w-4/5 rounded-md bg-gray-200" />
-                      <div className="h-5 w-2/5 rounded-md bg-gray-200" />
-                    </div>
-
-                    {/* Bookmark skeleton */}
-                    <div className="h-6 w-5 shrink-0 rounded bg-gray-200" />
-
-                  </div>
-
-                  {/* Metadata pills */}
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <div className="h-7 w-28 rounded-full bg-gray-200" />
-                    <div className="h-7 w-24 rounded-full bg-gray-200" />
-                  </div>
-
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filteredQuestions.length === 0 ? (
-
-          <div className="rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-
-            <div className="text-5xl">🔍</div>
-
-            <h3 className="mt-4 text-lg font-semibold text-gray-900">
-              No questions found
-            </h3>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Try changing your search, filters or bookmarks.
-            </p>
-
-            <button
-              onClick={clearFilters}
-              className="mt-6 rounded-xl bg-black px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
-            >
-              Clear Filters
-            </button>
-
-          </div>
-
-        ) : (
-
-
-          <div
-            style={{
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              position: "relative",
-            }}
-          >
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const q = filteredQuestions[virtualRow.index];
-
-              return (
-                <div
-                  key={q.id}
-                  ref={rowVirtualizer.measureElement}
-                  data-index={virtualRow.index}
-                  className="w-full pb-5"
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-
-                  <QuestionRow
-                    question={q.question}
-                    examDate={q.examDate}
-                    mmd={q.mmd}
-                    surveyor={q.surveyor}
-                    topic={q.topic}
-                    showMmd={showMmd}
-                    showSurveyor={showSurveyor}
-                    showTopic={showTopic}
-                    isBookmarked={bookmarkSet.has(q.id)}
-                    onBookmark={() => toggleBookmark(q.id)}
-                    onClick={() => {
-                      setSelectedIndex(virtualRow.index);
-
-                      window.history.pushState(
-                        { questionViewer: true },
-                        "",
-                        window.location.href
-                      );
-
-                      viewerHistoryRef.current = true;
-                    }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-        )}
-
-      </div>
-
-      <QuestionViewer
-        open={selectedQuestion !== null}
-        questions={filteredQuestions}
-        currentIndex={selectedIndex}
-        bookmarked={
-          selectedQuestion
-            ? bookmarkSet.has(selectedQuestion.id)
-            : false
-        }
-        onClose={() => {
-          if (viewerHistoryRef.current) {
-            viewerHistoryRef.current = false;
-            window.history.back();
-          } else {
-            setSelectedIndex(null);
-          }
-        }}
-        onBookmark={() => {
-          if (!selectedQuestion) return;
-
-          toggleBookmark(selectedQuestion.id);
-        }}
-        onPrevious={() => {
-          setSelectedIndex((prev) => {
-            if (prev === null || prev <= 0) return prev;
-            return prev - 1;
-          });
-        }}
-        onNext={() => {
-          setSelectedIndex((prev) => {
-            if (
-              prev === null ||
-              prev >= filteredQuestions.length - 1
-            )
-              return prev;
-
-            return prev + 1;
-          });
-        }}
-      />
-
-    </>
-  )
 }
 </file>
 

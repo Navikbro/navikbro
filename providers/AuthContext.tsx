@@ -85,14 +85,10 @@ export function AuthProvider({
 
 
                     if (!firebaseUser) {
-
-
+                        setUser(null);
                         setRole("student");
-
                         setLoading(false);
-
                         return;
-
                     }
 
 
