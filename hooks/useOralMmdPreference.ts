@@ -31,23 +31,23 @@ export function useOralMmdPreference() {
         const data =
           await fetchOralMmdPreference();
 
-        if (mounted) {
-          setMmdState(
-            data.oralMmd || "CHENNAI"
-          );
-        }
+      if (mounted) {
+            setMmdState(
+              data.oralMmd || "CHENNAI"
+            );
+          }
 
 
-      } catch (error) {
-        console.error(
-          "Failed loading MMD preference:",
-          error
-        );
+     } catch (error) {
+    console.error(
+        "Failed loading MMD preference:",
+        error
+    );
 
-        if (mounted) {
-          setMmdState("CHENNAI");
-        }
-      } finally {
+    if (mounted) {
+        setMmdState("Chennai");
+    }
+} finally {
 
         if (mounted) {
 
