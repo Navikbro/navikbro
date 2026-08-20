@@ -359,7 +359,6 @@ export default function QuestionsList({
                 onChange={(e) => setSelectedClass(e.target.value)}
                 className="rounded-xl border border-gray-300 p-3"
               >
-                <option value="All">Class</option>
 
                 {classes.map((questionClass) => (
                   <option key={questionClass} value={questionClass}>
