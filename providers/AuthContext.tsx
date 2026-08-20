@@ -43,7 +43,6 @@ export function AuthProvider({
 }: {
     children: React.ReactNode;
 }) {
-
     const [user, setUser] =
         useState<User | null>(null);
 
@@ -56,7 +55,6 @@ export function AuthProvider({
         );
 
     useEffect(() => {
-
         let mounted = true;
 
         /*
@@ -79,7 +77,6 @@ export function AuthProvider({
          */
         getRedirectResult(auth)
             .then((result) => {
-
                 if (!mounted) return;
 
                 if (result?.user) {
@@ -88,10 +85,8 @@ export function AuthProvider({
                         result.user.uid
                     );
                 }
-
             })
             .catch((error: any) => {
-
                 console.error(
                     "Google redirect sign-in failed:",
                     {
@@ -119,14 +114,14 @@ export function AuthProvider({
             onAuthStateChanged(
                 auth,
                 async (firebaseUser) => {
-
                     if (!mounted) return;
 
                     /*
+                     * -------------------------------------------------
                      * USER SIGNED OUT
+                     * -------------------------------------------------
                      */
                     if (!firebaseUser) {
-
                         setUser(null);
                         setRole("student");
                         setLoading(false);
@@ -135,18 +130,22 @@ export function AuthProvider({
                     }
 
                     /*
-                     * IMPORTANT:
+                     * -------------------------------------------------
+                     * IMPORTANT SUBSCRIPTION FIX
+                     * -------------------------------------------------
                      *
-                     * Firebase has already authenticated the user.
+                     * DO NOT expose the Firebase user to the rest
+                     * of the application yet.
                      *
-                     * Make the user available to the application
-                     * immediately.
+                     * We first make sure users/{uid} exists and is
+                     * fully initialized.
+                     *
+                     * This prevents SubscriptionContext from asking
+                     * Firestore for the subscription before
+                     * initializeUser() has created it.
                      */
-                    setUser(firebaseUser);
-                    setLoading(false);
 
                     try {
-
                         /*
                          * -------------------------------------------------
                          * ADMIN CLAIM
@@ -175,6 +174,11 @@ export function AuthProvider({
                             }
                         );
 
+                        /*
+                         * Set role before initialization finishes.
+                         *
+                         * This does NOT expose the user yet.
+                         */
                         setRole(
                             isAdmin
                                 ? "admin"
@@ -185,6 +189,13 @@ export function AuthProvider({
                          * -------------------------------------------------
                          * INITIALIZE FIRESTORE USER
                          * -------------------------------------------------
+                         *
+                         * CRITICAL:
+                         *
+                         * This MUST finish before setUser().
+                         *
+                         * SubscriptionContext therefore cannot run
+                         * against a missing users/{uid} document.
                          */
                         const profile =
                             await initializeUser({
@@ -209,7 +220,6 @@ export function AuthProvider({
                          * -------------------------------------------------
                          */
                         if (profile.isBlocked) {
-
                             await signOut(auth);
 
                             if (!mounted) return;
@@ -222,18 +232,34 @@ export function AuthProvider({
                         }
 
                         /*
-                         * Keep the authenticated user.
+                         * -------------------------------------------------
+                         * IMPORTANT
+                         * -------------------------------------------------
+                         *
+                         * Firestore initialization has completed.
+                         *
+                         * NOW the application is allowed to see
+                         * the authenticated user.
                          */
                         setUser(firebaseUser);
 
-                    } catch (error) {
-
                         /*
-                         * IMPORTANT:
+                         * Authentication + user initialization are now
+                         * completely ready.
+                         */
+                        setLoading(false);
+
+                    } catch (error) {
+                        /*
+                         * -------------------------------------------------
+                         * POST-AUTHENTICATION INITIALIZATION FAILURE
+                         * -------------------------------------------------
                          *
-                         * A Firestore/FCM/admin initialization problem
-                         * must NOT turn a successful Google authentication
-                         * into a fake "login failed" state.
+                         * Firebase authentication itself succeeded.
+                         *
+                         * Keep the user authenticated, but only expose
+                         * the user AFTER the initialization attempt has
+                         * completed.
                          */
                         console.error(
                             "Post-authentication initialization failed:",
@@ -245,16 +271,14 @@ export function AuthProvider({
                         /*
                          * Firebase authentication itself succeeded,
                          * therefore keep the user authenticated.
+                         *
+                         * SubscriptionContext will still wait until
+                         * AuthContext loading is finished before checking
+                         * the subscription.
                          */
                         setUser(firebaseUser);
                         setRole("student");
-
-                    } finally {
-
-                        if (mounted) {
-                            setLoading(false);
-                        }
-
+                        setLoading(false);
                     }
 
                     /*
@@ -270,18 +294,13 @@ export function AuthProvider({
                     void setupNotifications(
                         firebaseUser.uid
                     );
-
                 }
             );
 
         return () => {
-
             mounted = false;
-
             unsubscribe();
-
         };
-
     }, []);
 
     return (
@@ -311,9 +330,7 @@ export function AuthProvider({
 async function setupNotifications(
     uid: string
 ) {
-
     try {
-
         if (typeof window === "undefined") {
             return;
         }
@@ -336,7 +353,6 @@ async function setupNotifications(
         );
 
     } catch (error) {
-
         /*
          * Notification failure is non-critical.
          *
@@ -347,9 +363,7 @@ async function setupNotifications(
             "FCM setup skipped:",
             error
         );
-
     }
-
 }
 
 

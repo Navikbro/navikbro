@@ -8059,29 +8059,6 @@ export const adminDb =
     getFirestore(adminApp);
 </file>
 
-<file path="lib/firebase/firebase.ts">
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyA-oP5hm_hVFd_lShfSAqSblkH5HVI4E3Q",
-    authDomain: "navik-bro.firebaseapp.com",
-    projectId: "navik-bro",
-    storageBucket: "navik-bro.firebasestorage.app",
-    messagingSenderId: "864304238896",
-    appId: "1:864304238896:web:33728bfabaf5bcfc5f78f5",
-    measurementId: "G-L0P830TCQJ"
-};
-
-const app = initializeApp(firebaseConfig);
-
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-
-export default app;
-</file>
-
 <file path="lib/firebase/firebaseMessaging.ts">
 import {
     getMessaging,
@@ -13863,6 +13840,53 @@ export async function getCachedOralMmdMetadata(
 }
 </file>
 
+<file path="lib/firebase/firebase.ts">
+import { initializeApp } from "firebase/app";
+import {
+    getAuth,
+    setPersistence,
+    browserLocalPersistence,
+} from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyA-oP5hm_hVFd_lShfSAqSblkH5HVI4E3Q",
+    authDomain: "navik-bro.firebaseapp.com",
+    projectId: "navik-bro",
+    storageBucket: "navik-bro.firebasestorage.app",
+    messagingSenderId: "864304238896",
+    appId: "1:864304238896:web:33728bfabaf5bcfc5f78f5",
+    measurementId: "G-L0P830TCQJ",
+};
+
+const app = initializeApp(firebaseConfig);
+
+export const auth = getAuth(app);
+
+export const db = getFirestore(app);
+
+/*
+ * Keep Firebase authentication persistent across:
+ * - page refresh
+ * - browser restart
+ * - mobile browser reopening
+ *
+ * This is intentionally fire-and-forget.
+ * The actual Google login also explicitly sets persistence
+ * before starting the authentication flow.
+ */
+if (typeof window !== "undefined") {
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+        console.error(
+            "Firebase persistence setup failed:",
+            error
+        );
+    });
+}
+
+export default app;
+</file>
+
 <file path="lib/payments/payment.ts">
 "use client";
 
@@ -14007,6 +14031,366 @@ export async function syncWrittenHomeMetadata() {
 }
 </file>
 
+<file path="app/(protected)/orals/[category]/topics/page.tsx">
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+
+import OralTopicsClient from "@/components/orals/OralTopicsClient";
+
+import {
+  getCachedOralTopics,
+} from "@/lib/cache/oral-topics-cache";
+
+
+/* =========================================================
+   PARAMS
+========================================================= */
+
+interface PageProps {
+  params: Promise<{
+    category: string;
+  }>;
+}
+
+
+/* =========================================================
+   NORMALIZE CATEGORY
+========================================================= */
+
+function normalizeCategory(
+  category: string
+): string {
+  const value =
+    category
+      .trim()
+      .toLowerCase();
+
+  const map: Record<string, string> = {
+    safety: "fn3",
+    fn3: "fn3",
+
+    motor: "fn4b",
+    fn4b: "fn4b",
+
+    electrical: "fn5",
+    fn5: "fn5",
+
+    mep: "fn6",
+    fn6: "fn6",
+  };
+
+  return map[value] ?? value;
+}
+
+
+/* =========================================================
+   SERIALIZE FIRESTORE VALUES
+========================================================= */
+
+function serializeFirestoreValue(
+  value: unknown
+): string | number | null {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+    return value;
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "toDate" in value &&
+    typeof (
+      value as {
+        toDate?: unknown;
+      }
+    ).toDate === "function"
+  ) {
+    return (
+      value as {
+        toDate: () => Date;
+      }
+    )
+      .toDate()
+      .toISOString();
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "seconds" in value
+  ) {
+    const timestamp =
+      value as {
+        seconds?: number;
+        nanoseconds?: number;
+      };
+
+    if (
+      typeof timestamp.seconds ===
+      "number"
+    ) {
+      return new Date(
+        timestamp.seconds * 1000 +
+        Math.floor(
+          (
+            timestamp.nanoseconds ??
+            0
+          ) / 1_000_000
+        )
+      ).toISOString();
+    }
+  }
+
+  return null;
+}
+
+
+/* =========================================================
+   SERIALIZED TOPIC TYPE
+========================================================= */
+
+interface SerializedTopic {
+  id: string;
+  name: string;
+  overview: string;
+  category: string;
+  class: string;
+  questionCount: number;
+  createdAt: string | number | null;
+  updatedAt: string | number | null;
+}
+
+
+/* =========================================================
+   SERIALIZE TOPIC
+========================================================= */
+
+function serializeTopic(
+  topic: Record<string, unknown>,
+  category: string
+): SerializedTopic {
+
+  return {
+    id:
+      typeof topic.id === "string"
+        ? topic.id
+        : "",
+
+    name:
+      typeof topic.name === "string"
+        ? topic.name
+        : "",
+
+    overview:
+      typeof topic.overview ===
+        "string"
+        ? topic.overview
+        : "",
+
+    category:
+      typeof topic.category ===
+        "string"
+        ? topic.category
+        : category,
+
+    class:
+      typeof topic.class ===
+        "string"
+        ? topic.class
+        : "",
+
+    questionCount:
+      typeof topic.questionCount ===
+        "number"
+        ? Math.max(
+            0,
+            topic.questionCount
+          )
+        : 0,
+
+    createdAt:
+      serializeFirestoreValue(
+        topic.createdAt
+      ),
+
+    updatedAt:
+      serializeFirestoreValue(
+        topic.updatedAt
+      ),
+  };
+}
+
+
+/* =========================================================
+   PAGE
+========================================================= */
+
+export default async function OralTopicsPage({
+  params,
+}: PageProps) {
+
+  const { category } =
+    await params;
+
+
+  /* =======================================================
+     NORMALIZE URL CATEGORY
+  ======================================================= */
+
+  const normalizedCategory =
+    normalizeCategory(category);
+
+
+  /* =======================================================
+     VALID CATEGORIES
+  ======================================================= */
+
+  const validCategories = [
+    "fn3",
+    "fn4b",
+    "fn5",
+    "fn6",
+  ];
+
+  if (
+    !validCategories.includes(
+      normalizedCategory
+    )
+  ) {
+    notFound();
+  }
+
+
+  /* =======================================================
+     LOAD TOPICS
+  ======================================================= */
+
+  const rawTopics =
+    await getCachedOralTopics(
+      normalizedCategory
+    );
+
+
+  /* =======================================================
+     FILTER BY CATEGORY
+  ======================================================= */
+
+  const categoryTopics =
+    rawTopics.filter(
+      (topic) =>
+        (
+          topic.category ??
+          ""
+        )
+          .trim()
+          .toLowerCase() ===
+        normalizedCategory
+    );
+
+
+  /* =======================================================
+     SERIALIZE
+  ======================================================= */
+
+  const topics =
+    categoryTopics.map(
+      (topic) =>
+        serializeTopic(
+          topic as unknown as Record<
+            string,
+            unknown
+          >,
+          normalizedCategory
+        )
+    );
+
+
+  /* =======================================================
+     PAGE
+  ======================================================= */
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+
+      {/* =================================================
+          BACK BUTTON
+      ================================================= */}
+
+      <div
+        className="
+          mx-auto
+          max-w-7xl
+          px-4
+          pt-6
+          sm:px-5
+          sm:pt-8
+          md:px-6
+        "
+      >
+
+        <Link
+          href={`/orals/${normalizedCategory}`}
+          className="
+            flex
+            h-10
+            w-10
+            items-center
+            justify-center
+            rounded-2xl
+            border
+            border-gray-200
+            bg-white
+            transition
+            hover:bg-gray-50
+          "
+          aria-label="Back to oral category"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+
+      </div>
+
+
+      {/* =================================================
+          TOPIC CONTENT
+      ================================================= */}
+
+      <div
+        className="
+          mx-auto
+          max-w-7xl
+          px-4
+          pb-6
+          pt-4
+          sm:px-5
+          sm:pb-8
+          md:px-6
+        "
+      >
+
+        <OralTopicsClient
+          topics={topics}
+        
+        />
+
+      </div>
+
+    </main>
+  );
+}
+</file>
+
 <file path="app/(protected)/orals/[category]/loading.tsx">
 import OralCategorySkeleton from "@/components/orals/OralCategorySkeleton";
 
@@ -14018,6 +14402,474 @@ export default function Loading() {
             </div>
         </main>
     );
+}
+</file>
+
+<file path="app/(protected)/writtens/[category]/WrittensClient.tsx">
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Sailboat,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
+
+import WrittenCard from "@/components/questions/WrittenCard";
+import WrittenFilters from "@/components/questions/WrittenFilters";
+import { useAuth } from "@/providers/AuthContext";
+
+import {
+  WrittenQuestion,
+} from "@/services/writtens/written.service";
+
+
+export default function WrittensClient({
+  initialQuestions,
+  category,
+}: {
+  initialQuestions: WrittenQuestion[];
+  category: string;
+}) {
+
+  const { user } = useAuth();
+
+  const name =
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Sailor";
+
+  const questions = initialQuestions;
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedClass, setSelectedClass] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedMonth, setSelectedMonth] = useState("All");
+  const [selectedTopic, setSelectedTopic] = useState("All");
+  const bookmarkStorageKey = `bookmarkedWrittenQuestions_${category}`;
+
+  const years = useMemo(() => {
+    return [...new Set(questions.map((q) => q.year))]
+      .sort((a, b) => b - a);
+  }, [questions]);
+
+  const topics = useMemo(() => {
+    return [...new Set(
+      questions
+        .map((q) => q.topic)
+        .filter(Boolean)
+    )].sort();
+  }, [questions]);
+
+  const bookmarkCount = useMemo(() => {
+    return questions.filter((q) =>
+      bookmarks.includes(q.id)
+    ).length;
+  }, [questions, bookmarks]);
+
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((question) => {
+      if (
+        showBookmarksOnly &&
+        !bookmarks.includes(question.id)
+      )
+        return false;
+
+      const classMatch =
+        selectedClass === "All" ||
+        question.class === selectedClass;
+
+      const yearMatch =
+        selectedYear === "All" ||
+        String(question.year) === selectedYear;
+
+      const monthMatch =
+        selectedMonth === "All" ||
+        question.month === selectedMonth;
+
+      const topicMatch =
+        selectedTopic === "All" ||
+        question.topic === selectedTopic;
+
+      const searchMatch =
+        search.trim() === "" ||
+        question.question
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.answer
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        question.topic
+          .toLowerCase()
+          .includes(search.toLowerCase());
+
+      return (
+        classMatch &&
+        yearMatch &&
+        monthMatch &&
+        topicMatch &&
+        searchMatch
+      );
+    });
+  }, [
+    questions,
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+    bookmarks,
+    showBookmarksOnly,
+  ]);
+
+  const currentQuestion = filteredQuestions[currentIndex];
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedClass("All");
+    setSelectedYear("All");
+    setSelectedMonth("All");
+    setSelectedTopic("All");
+    setShowBookmarksOnly(false);
+  };
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [
+    search,
+    selectedClass,
+    selectedYear,
+    selectedMonth,
+    selectedTopic,
+    showBookmarksOnly,
+  ]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(bookmarkStorageKey);
+
+      setBookmarks(
+        saved ? JSON.parse(saved) : []
+      );
+
+    } catch {
+      setBookmarks([]);
+    }
+  }, [bookmarkStorageKey]);
+
+  useEffect(() => {
+    if (currentIndex >= filteredQuestions.length) {
+      setCurrentIndex(
+        Math.max(filteredQuestions.length - 1, 0)
+      );
+    }
+  }, [filteredQuestions.length, currentIndex]);
+
+  const titles: Record<
+    string,
+    {
+      badge: string;
+      title: string;
+    }
+  > = {
+    general: {
+      badge: "MEKG",
+      title: "GENERAL WRITTEN",
+    },
+    mep: {
+      badge: "MEP",
+      title: "MEP WRITTEN",
+    },
+    motor: {
+      badge: "MEKM",
+      title: "MOTOR WRITTEN",
+    },
+    met: {
+      badge: "MET",
+      title: "ELECTRICAL WRITTEN",
+    },
+    naval: {
+      badge: "SHIP-CO",
+      title: "NAVAL WRITTEN",
+    },
+    ssep: {
+      badge: "SSEP",
+      title: "SAFETY WRITTEN",
+    },
+  };
+  const page = titles[category] ?? {
+    badge: category.toUpperCase(),
+    title: "Written Questions",
+  };
+
+  const toggleBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id];
+
+      localStorage.setItem(
+        bookmarkStorageKey,
+        JSON.stringify(updated)
+      );
+
+      return updated;
+    });
+  };
+
+  useEffect(() => {
+    const closeFilters = () => {
+      setShowFilters(false);
+    };
+
+    window.addEventListener(
+      "close-written-filters",
+      closeFilters
+    );
+
+    return () => {
+      window.removeEventListener(
+        "close-written-filters",
+        closeFilters
+      );
+    };
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-[#f5f5f5]">
+      <div className="mx-auto max-w-7xl px-5 py-8">
+
+        {/* HEADER CARD */}
+        <div className="mb-6 rounded-3xl border border-gray-200 bg-white px-5 py-5 shadow-sm">
+
+          {/* Top Row */}
+          <div className="flex items-center justify-between">
+
+            <Link
+              href="/"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
+            >
+              <ArrowLeft size={18} />
+            </Link>
+
+            <div className="flex h-10 w-10 items-center justify-center">
+              <Sailboat
+                size={26}
+                strokeWidth={2}
+                className="rotate-[-8deg]"
+              />
+            </div>
+
+          </div>
+
+          {/* Greeting */}
+          <div className="mt-5">
+            <h2 className="text-lg font-bold leading-tight">
+              Hi, {name} 👋
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Welcome Back
+            </p>
+          </div>
+
+          {/* Quote */}
+          <div className="mt-4 border-l-4 border-black pl-3">
+            <p className="text-xs italic leading-5 text-gray-600">
+              Coffee. Questions. Repeat.
+            </p>
+          </div>
+
+          {/* Category */}
+          <div className="mt-4 flex items-center gap-2">
+
+            <div className="rounded-lg bg-black px-3 py-1 text-[10px] font-semibold tracking-wide text-white">
+              {page.badge}
+            </div>
+
+            <h1 className="text-sm font-bold tracking-tight text-gray-900">
+              {page.title}
+            </h1>
+
+          </div>
+
+          {/* Stats */}
+          <div className="mt-4 flex items-center gap-3 text-xs font-medium text-gray-500">
+
+            <span>
+              {questions.length} Questions
+            </span>
+
+            <span>•</span>
+
+            <span>
+              {topics.length} Topics
+            </span>
+
+          </div>
+
+        </div>
+
+        {/* SEARCH */}
+
+        <div className="mt-8">
+          <input
+            type="text"
+            placeholder="🔍 Search Questions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
+          />
+        </div>
+
+        {/* FILTER BUTTON */}
+
+        {/* FILTER BUTTONS */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-black"
+          >
+            <div className="flex items-center gap-3">
+              <SlidersHorizontal size={16} />
+              <span className="font-semibold">
+                Filters
+              </span>
+            </div>
+
+            {showFilters ? (
+              <ChevronUp size={16} />
+            ) : (
+              <ChevronDown size={16} />
+            )}
+          </button>
+
+          <button
+            onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
+            className={`flex items-center justify-center rounded-xl border px-4 py-3 shadow-sm transition ${showBookmarksOnly
+              ? "border-black bg-black text-white"
+              : "border-gray-200 bg-white hover:border-black"
+              }`}
+          >
+            🔖 Bookmarks ({bookmarkCount})
+          </button>
+
+        </div>
+
+        {/* FILTER PANEL */}
+
+        {showFilters && (
+          <div className="mt-4">
+            <WrittenFilters
+              selectedClass={selectedClass}
+              setSelectedClass={setSelectedClass}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              selectedTopic={selectedTopic}
+              setSelectedTopic={setSelectedTopic}
+              years={years}
+              topics={topics}
+              onClearFilters={clearFilters}
+            />
+          </div>
+        )}
+
+        <div className="mt-8 mb-6 flex items-center justify-between gap-4">
+
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
+            Questions
+          </h2>
+
+          <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+            <span className="text-gray-500">Current:</span>{" "}
+            <span className="font-bold text-black">
+              {filteredQuestions.length > 0
+                ? `${currentIndex + 1} / ${filteredQuestions.length}`
+                : "0 / 0"}
+            </span>
+
+            <span className="mx-2 text-gray-300">|</span>
+          </div>
+
+        </div>
+
+        {filteredQuestions.length === 0 ? (
+
+          <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+
+            <div className="text-5xl">
+              🔍
+            </div>
+
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">
+              No questions found
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Try changing your search, filters or bookmarks.
+            </p>
+
+            <button
+              onClick={clearFilters}
+              className="
+        mt-6
+        rounded-xl
+        bg-black
+        px-5
+        py-3
+        text-sm
+        font-medium
+        text-white
+        transition
+        hover:opacity-90
+      "
+            >
+              Clear Filters
+            </button>
+
+          </div>
+
+        ) : (
+
+          <div className="mt-8">
+
+            <div id="question-card">
+              <WrittenCard
+                question={currentQuestion}
+                isBookmarked={bookmarks.includes(currentQuestion.id)}
+                onBookmark={() =>
+                  toggleBookmark(currentQuestion.id)
+                }
+                onPrevious={() =>
+                  setCurrentIndex((prev) => prev - 1)
+                }
+                onNext={() =>
+                  setCurrentIndex((prev) => prev + 1)
+                }
+                canGoPrevious={currentIndex > 0}
+                canGoNext={
+                  currentIndex <
+                  filteredQuestions.length - 1
+                }
+              />
+            </div>
+
+          </div>
+
+        )}
+
+      </div>
+    </main>
+  );
 }
 </file>
 
@@ -14243,185 +15095,6 @@ export async function POST() {
         );
 
     }
-}
-</file>
-
-<file path="components/auth/AuthModal.tsx">
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { AnimatePresence, motion } from "framer-motion";
-import { Sailboat } from "lucide-react";
-
-import { auth } from "@/lib/firebase/firebase";
-
-interface Props {
-  show: boolean;
-  setShow: (show: boolean) => void;
-}
-
-export default function AuthModal({
-  show,
-  setShow,
-}: Props) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-
-  const redirectUser = () => {
-    setShow(false);
-    router.replace("/");
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      setLoading(true);
-
-      const provider = new GoogleAuthProvider();
-
-      const result = await signInWithPopup(auth, provider);
-
-      if (result.user) {
-        redirectUser();
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Google Sign In Failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <AnimatePresence>
-      {show && (
-        <>
-          {/* Background */}
-          <motion.div
-            className="fixed inset-0 z-40 bg-black/45"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.12 }}
-            onClick={() => setShow(false)}
-          />
-
-          {/* Center Modal */}
-          <motion.div
-            initial={{
-              opacity: 0,
-              y: 60,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            exit={{
-              opacity: 0,
-              y: 30,
-            }}
-            transition={{
-              duration: 0.18,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-            onClick={(e) => e.stopPropagation()}
-            className="
-              fixed
-              left-1/2
-              top-1/2
-              z-50
-              w-[calc(100%-40px)]
-              max-w-sm
-              -translate-x-1/2
-              -translate-y-1/2
-              rounded-[24px]
-              bg-white
-              px-6
-              py-6
-              shadow-2xl
-              transform-gpu
-              will-change-transform
-            "
-          >
-            {/* Header */}
-            <div className="flex flex-col items-center">
-
-              <p className="mb-5 text-center text-sm text-gray-500">
-                Sign in to continue with...
-              </p>
-
-              <div className="flex items-center justify-center gap-2">
-                <Sailboat
-                  size={24}
-                  strokeWidth={2.2}
-                  className="rotate-[-8deg]"
-                />
-
-                <div className="flex items-start">
-                  <h2 className="text-2xl font-bold leading-none tracking-[-0.04em] text-black">
-                    NAVIK
-                  </h2>
-
-                  <span
-                    className="
-                      ml-1
-                      text-[10px]
-                      font-bold
-                      italic
-                      lowercase
-                      leading-none
-                      text-gray-700
-                    "
-                  >
-                    bro
-                  </span>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Google Button */}
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="
-                mt-6
-                flex
-                w-full
-                items-center
-                justify-center
-                gap-3
-                rounded-full
-                border
-                border-gray-300
-                bg-white
-                px-5
-                py-3.5
-                text-sm
-                font-medium
-                transition-colors
-                hover:bg-gray-50
-                active:bg-gray-100
-                disabled:cursor-not-allowed
-                disabled:opacity-60
-              "
-            >
-              <img
-                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                alt="Google"
-                className="h-5 w-5"
-              />
-
-              {loading
-                ? "Signing in..."
-                : "Continue with Google"}
-            </button>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
 }
 </file>
 
@@ -17047,363 +17720,339 @@ export default function WrittenUploadPage() {
 }
 </file>
 
-<file path="app/(protected)/orals/[category]/topics/page.tsx">
-import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+<file path="components/auth/AuthModal.tsx">
+"use client";
 
-import OralTopicsClient from "@/components/orals/OralTopicsClient";
-
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  getCachedOralTopics,
-} from "@/lib/cache/oral-topics-cache";
+    GoogleAuthProvider,
+    browserLocalPersistence,
+    setPersistence,
+    signInWithPopup,
+    signInWithRedirect,
+} from "firebase/auth";
+import { AnimatePresence, motion } from "framer-motion";
+import { Sailboat } from "lucide-react";
 
+import { auth } from "@/lib/firebase/firebase";
 
-/* =========================================================
-   PARAMS
-========================================================= */
-
-interface PageProps {
-  params: Promise<{
-    category: string;
-  }>;
+interface Props {
+    show: boolean;
+    setShow: (show: boolean) => void;
 }
 
+function getGoogleAuthErrorMessage(error: any): string {
+    const code = error?.code;
 
-/* =========================================================
-   NORMALIZE CATEGORY
-========================================================= */
+    switch (code) {
+        case "auth/popup-blocked":
+            return "Your browser blocked the Google sign-in window. Please try again.";
 
-function normalizeCategory(
-  category: string
-): string {
-  const value =
-    category
-      .trim()
-      .toLowerCase();
+        case "auth/popup-closed-by-user":
+            return "Google sign-in was cancelled.";
 
-  const map: Record<string, string> = {
-    safety: "fn3",
-    fn3: "fn3",
+        case "auth/cancelled-popup-request":
+            return "Another Google sign-in request is already in progress.";
 
-    motor: "fn4b",
-    fn4b: "fn4b",
+        case "auth/unauthorized-domain":
+            return "This website is not authorized for Google sign-in.";
 
-    electrical: "fn5",
-    fn5: "fn5",
+        case "auth/operation-not-allowed":
+            return "Google sign-in is not enabled for this Firebase project.";
 
-    mep: "fn6",
-    fn6: "fn6",
-  };
+        case "auth/network-request-failed":
+            return "Network error. Please check your internet connection and try again.";
 
-  return map[value] ?? value;
-}
+        case "auth/account-exists-with-different-credential":
+            return "An account already exists with another sign-in method.";
 
+        case "auth/too-many-requests":
+            return "Too many sign-in attempts. Please wait a moment and try again.";
 
-/* =========================================================
-   SERIALIZE FIRESTORE VALUES
-========================================================= */
-
-function serializeFirestoreValue(
-  value: unknown
-): string | number | null {
-
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return null;
-  }
-
-  if (
-    typeof value === "string" ||
-    typeof value === "number"
-  ) {
-    return value;
-  }
-
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "toDate" in value &&
-    typeof (
-      value as {
-        toDate?: unknown;
-      }
-    ).toDate === "function"
-  ) {
-    return (
-      value as {
-        toDate: () => Date;
-      }
-    )
-      .toDate()
-      .toISOString();
-  }
-
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "seconds" in value
-  ) {
-    const timestamp =
-      value as {
-        seconds?: number;
-        nanoseconds?: number;
-      };
-
-    if (
-      typeof timestamp.seconds ===
-      "number"
-    ) {
-      return new Date(
-        timestamp.seconds * 1000 +
-        Math.floor(
-          (
-            timestamp.nanoseconds ??
-            0
-          ) / 1_000_000
-        )
-      ).toISOString();
+        default:
+            return "Unable to sign in with Google. Please try again.";
     }
-  }
-
-  return null;
 }
 
+function shouldUseRedirect(error: any): boolean {
+    const code = error?.code;
 
-/* =========================================================
-   SERIALIZED TOPIC TYPE
-========================================================= */
-
-interface SerializedTopic {
-  id: string;
-  name: string;
-  overview: string;
-  category: string;
-  class: string;
-  questionCount: number;
-  createdAt: string | number | null;
-  updatedAt: string | number | null;
+    return (
+        code === "auth/popup-blocked" ||
+        code === "auth/operation-not-supported-in-this-environment" ||
+        code === "auth/operation-not-supported"
+    );
 }
 
+export default function AuthModal({
+    show,
+    setShow,
+}: Props) {
+    const router = useRouter();
 
-/* =========================================================
-   SERIALIZE TOPIC
-========================================================= */
+    const [loading, setLoading] = useState(false);
 
-function serializeTopic(
-  topic: Record<string, unknown>,
-  category: string
-): SerializedTopic {
+    const redirectUser = () => {
+        setShow(false);
+        router.replace("/");
+    };
 
-  return {
-    id:
-      typeof topic.id === "string"
-        ? topic.id
-        : "",
+    const handleGoogleLogin = async () => {
+        if (loading) return;
 
-    name:
-      typeof topic.name === "string"
-        ? topic.name
-        : "",
+        try {
+            setLoading(true);
 
-    overview:
-      typeof topic.overview ===
-        "string"
-        ? topic.overview
-        : "",
+            /*
+             * Always use local persistence for normal browser sessions.
+             */
+            await setPersistence(
+                auth,
+                browserLocalPersistence
+            );
 
-    category:
-      typeof topic.category ===
-        "string"
-        ? topic.category
-        : category,
+            const provider =
+                new GoogleAuthProvider();
 
-    class:
-      typeof topic.class ===
-        "string"
-        ? topic.class
-        : "",
+            /*
+             * Forces Google to show the account chooser.
+             *
+             * This prevents confusing situations where the browser
+             * silently uses a previously selected Google account.
+             */
+            provider.setCustomParameters({
+                prompt: "select_account",
+            });
 
-    questionCount:
-      typeof topic.questionCount ===
-        "number"
-        ? Math.max(
-            0,
-            topic.questionCount
-          )
-        : 0,
+            try {
+                /*
+                 * PRIMARY METHOD
+                 *
+                 * Works well on normal desktop/mobile browsers.
+                 */
+                const result =
+                    await signInWithPopup(
+                        auth,
+                        provider
+                    );
 
-    createdAt:
-      serializeFirestoreValue(
-        topic.createdAt
-      ),
+                if (result.user) {
+                    redirectUser();
+                }
 
-    updatedAt:
-      serializeFirestoreValue(
-        topic.updatedAt
-      ),
-  };
-}
+            } catch (popupError: any) {
 
+                console.error(
+                    "Google popup authentication failed:",
+                    {
+                        code: popupError?.code,
+                        message: popupError?.message,
+                        name: popupError?.name,
+                    }
+                );
 
-/* =========================================================
-   PAGE
-========================================================= */
+                /*
+                 * Some browsers/devices do not allow Firebase's
+                 * popup flow properly.
+                 *
+                 * In those cases switch to redirect authentication.
+                 */
+                if (shouldUseRedirect(popupError)) {
+                    await signInWithRedirect(
+                        auth,
+                        provider
+                    );
 
-export default async function OralTopicsPage({
-  params,
-}: PageProps) {
+                    /*
+                     * The browser will leave this page.
+                     * AuthContext will process the result after
+                     * Google redirects back to NAVIK.
+                     */
+                    return;
+                }
 
-  const { category } =
-    await params;
+                /*
+                 * User intentionally closed the popup.
+                 * Don't show a scary error.
+                 */
+                if (
+                    popupError?.code ===
+                    "auth/popup-closed-by-user"
+                ) {
+                    return;
+                }
 
+                throw popupError;
+            }
 
-  /* =======================================================
-     NORMALIZE URL CATEGORY
-  ======================================================= */
+        } catch (error: any) {
 
-  const normalizedCategory =
-    normalizeCategory(category);
+            console.error(
+                "Google Sign In Failed:",
+                {
+                    code: error?.code,
+                    message: error?.message,
+                    name: error?.name,
+                    fullError: error,
+                }
+            );
 
+            alert(
+                getGoogleAuthErrorMessage(error)
+            );
 
-  /* =======================================================
-     VALID CATEGORIES
-  ======================================================= */
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const validCategories = [
-    "fn3",
-    "fn4b",
-    "fn5",
-    "fn6",
-  ];
+    return (
+        <AnimatePresence>
+            {show && (
+                <>
+                    {/* Background */}
+                    <motion.div
+                        className="fixed inset-0 z-40 bg-black/45"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.12 }}
+                        onClick={() =>
+                            setShow(false)
+                        }
+                    />
 
-  if (
-    !validCategories.includes(
-      normalizedCategory
-    )
-  ) {
-    notFound();
-  }
+                    {/* Center Modal */}
+                    <motion.div
+                        initial={{
+                            opacity: 0,
+                            y: 60,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            y: 0,
+                        }}
+                        exit={{
+                            opacity: 0,
+                            y: 30,
+                        }}
+                        transition={{
+                            duration: 0.18,
+                            ease: [
+                                0.22,
+                                1,
+                                0.36,
+                                1,
+                            ],
+                        }}
+                        onClick={(e) =>
+                            e.stopPropagation()
+                        }
+                        className="
+                            fixed
+                            left-1/2
+                            top-1/2
+                            z-50
+                            w-[calc(100%-40px)]
+                            max-w-sm
+                            -translate-x-1/2
+                            -translate-y-1/2
+                            rounded-[24px]
+                            bg-white
+                            px-6
+                            py-6
+                            shadow-2xl
+                            transform-gpu
+                            will-change-transform
+                        "
+                    >
+                        {/* Header */}
+                        <div className="flex flex-col items-center">
 
+                            <p className="mb-5 text-center text-sm text-gray-500">
+                                Sign in to continue with...
+                            </p>
 
-  /* =======================================================
-     LOAD TOPICS
-  ======================================================= */
+                            <div className="flex items-center justify-center gap-2">
 
-  const rawTopics =
-    await getCachedOralTopics(
-      normalizedCategory
+                                <Sailboat
+                                    size={24}
+                                    strokeWidth={2.2}
+                                    className="rotate-[-8deg]"
+                                />
+
+                                <div className="flex items-start">
+
+                                    <h2 className="text-2xl font-bold leading-none tracking-[-0.04em] text-black">
+                                        NAVIK
+                                    </h2>
+
+                                    <span
+                                        className="
+                                            ml-1
+                                            text-[10px]
+                                            font-bold
+                                            italic
+                                            lowercase
+                                            leading-none
+                                            text-gray-700
+                                        "
+                                    >
+                                        bro
+                                    </span>
+
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Google Button */}
+                        <button
+                            onClick={
+                                handleGoogleLogin
+                            }
+                            disabled={loading}
+                            className="
+                                mt-6
+                                flex
+                                w-full
+                                items-center
+                                justify-center
+                                gap-3
+                                rounded-full
+                                border
+                                border-gray-300
+                                bg-white
+                                px-5
+                                py-3.5
+                                text-sm
+                                font-medium
+                                transition-colors
+                                hover:bg-gray-50
+                                active:bg-gray-100
+                                disabled:cursor-not-allowed
+                                disabled:opacity-60
+                            "
+                        >
+
+                            <img
+                                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                                alt="Google"
+                                className="h-5 w-5"
+                            />
+
+                            {loading
+                                ? "Signing in..."
+                                : "Continue with Google"}
+
+                        </button>
+
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>
     );
-
-
-  /* =======================================================
-     FILTER BY CATEGORY
-  ======================================================= */
-
-  const categoryTopics =
-    rawTopics.filter(
-      (topic) =>
-        (
-          topic.category ??
-          ""
-        )
-          .trim()
-          .toLowerCase() ===
-        normalizedCategory
-    );
-
-
-  /* =======================================================
-     SERIALIZE
-  ======================================================= */
-
-  const topics =
-    categoryTopics.map(
-      (topic) =>
-        serializeTopic(
-          topic as unknown as Record<
-            string,
-            unknown
-          >,
-          normalizedCategory
-        )
-    );
-
-
-  /* =======================================================
-     PAGE
-  ======================================================= */
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-
-      {/* =================================================
-          BACK BUTTON
-      ================================================= */}
-
-      <div
-        className="
-          mx-auto
-          max-w-7xl
-          px-4
-          pt-6
-          sm:px-5
-          sm:pt-8
-          md:px-6
-        "
-      >
-
-        <Link
-          href={`/orals/${normalizedCategory}`}
-          className="
-            flex
-            h-10
-            w-10
-            items-center
-            justify-center
-            rounded-2xl
-            border
-            border-gray-200
-            bg-white
-            transition
-            hover:bg-gray-50
-          "
-          aria-label="Back to oral category"
-        >
-          <ArrowLeft size={18} />
-        </Link>
-
-      </div>
-
-
-      {/* =================================================
-          TOPIC CONTENT
-      ================================================= */}
-
-      <div
-        className="
-          mx-auto
-          max-w-7xl
-          px-4
-          pb-6
-          pt-4
-          sm:px-5
-          sm:pb-8
-          md:px-6
-        "
-      >
-
-        <OralTopicsClient
-          topics={topics}
-        
-        />
-
-      </div>
-
-    </main>
-  );
 }
 </file>
 
@@ -19248,583 +19897,6 @@ export default function ManageWrittenQuestionsPage() {
 }
 </file>
 
-<file path="app/(protected)/writtens/[category]/WrittensClient.tsx">
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  Sailboat,
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
-} from "lucide-react";
-
-import WrittenCard from "@/components/questions/WrittenCard";
-import WrittenFilters from "@/components/questions/WrittenFilters";
-import { useAuth } from "@/providers/AuthContext";
-
-import {
-  WrittenQuestion,
-} from "@/services/writtens/written.service";
-
-
-export default function WrittensClient({
-  initialQuestions,
-  category,
-}: {
-  initialQuestions: WrittenQuestion[];
-  category: string;
-}) {
-
-  const { user } = useAuth();
-
-  const name =
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "Sailor";
-
-  const questions = initialQuestions;
-  const [bookmarks, setBookmarks] = useState<string[]>([]);
-  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
-  const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedClass, setSelectedClass] = useState("All");
-  const [selectedYear, setSelectedYear] = useState("All");
-  const [selectedMonth, setSelectedMonth] = useState("All");
-  const [selectedTopic, setSelectedTopic] = useState("All");
-  const bookmarkStorageKey = `bookmarkedWrittenQuestions_${category}`;
-
-  const years = useMemo(() => {
-    return [...new Set(questions.map((q) => q.year))]
-      .sort((a, b) => b - a);
-  }, [questions]);
-
-  const topics = useMemo(() => {
-    return [...new Set(
-      questions
-        .map((q) => q.topic)
-        .filter(Boolean)
-    )].sort();
-  }, [questions]);
-
-  const bookmarkCount = useMemo(() => {
-    return questions.filter((q) =>
-      bookmarks.includes(q.id)
-    ).length;
-  }, [questions, bookmarks]);
-
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((question) => {
-      if (
-        showBookmarksOnly &&
-        !bookmarks.includes(question.id)
-      )
-        return false;
-
-      const classMatch =
-        selectedClass === "All" ||
-        question.class === selectedClass;
-
-      const yearMatch =
-        selectedYear === "All" ||
-        String(question.year) === selectedYear;
-
-      const monthMatch =
-        selectedMonth === "All" ||
-        question.month === selectedMonth;
-
-      const topicMatch =
-        selectedTopic === "All" ||
-        question.topic === selectedTopic;
-
-      const searchMatch =
-        search.trim() === "" ||
-        question.question
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.answer
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        question.topic
-          .toLowerCase()
-          .includes(search.toLowerCase());
-
-      return (
-        classMatch &&
-        yearMatch &&
-        monthMatch &&
-        topicMatch &&
-        searchMatch
-      );
-    });
-  }, [
-    questions,
-    search,
-    selectedClass,
-    selectedYear,
-    selectedMonth,
-    selectedTopic,
-    bookmarks,
-    showBookmarksOnly,
-  ]);
-
-  const currentQuestion = filteredQuestions[currentIndex];
-
-  const clearFilters = () => {
-    setSearch("");
-    setSelectedClass("All");
-    setSelectedYear("All");
-    setSelectedMonth("All");
-    setSelectedTopic("All");
-    setShowBookmarksOnly(false);
-  };
-
-  useEffect(() => {
-    setCurrentIndex(0);
-  }, [
-    search,
-    selectedClass,
-    selectedYear,
-    selectedMonth,
-    selectedTopic,
-    showBookmarksOnly,
-  ]);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(bookmarkStorageKey);
-
-      setBookmarks(
-        saved ? JSON.parse(saved) : []
-      );
-
-    } catch {
-      setBookmarks([]);
-    }
-  }, [bookmarkStorageKey]);
-
-  useEffect(() => {
-    if (currentIndex >= filteredQuestions.length) {
-      setCurrentIndex(
-        Math.max(filteredQuestions.length - 1, 0)
-      );
-    }
-  }, [filteredQuestions.length, currentIndex]);
-
-  const titles: Record<
-    string,
-    {
-      badge: string;
-      title: string;
-    }
-  > = {
-    general: {
-      badge: "MEKG",
-      title: "GENERAL WRITTEN",
-    },
-    mep: {
-      badge: "MEP",
-      title: "MEP WRITTEN",
-    },
-    motor: {
-      badge: "MEKM",
-      title: "MOTOR WRITTEN",
-    },
-    met: {
-      badge: "MET",
-      title: "ELECTRICAL WRITTEN",
-    },
-    naval: {
-      badge: "SHIP-CO",
-      title: "NAVAL WRITTEN",
-    },
-    ssep: {
-      badge: "SSEP",
-      title: "SAFETY WRITTEN",
-    },
-  };
-  const page = titles[category] ?? {
-    badge: category.toUpperCase(),
-    title: "Written Questions",
-  };
-
-  const toggleBookmark = (id: string) => {
-    setBookmarks((prev) => {
-      const updated = prev.includes(id)
-        ? prev.filter((item) => item !== id)
-        : [...prev, id];
-
-      localStorage.setItem(
-        bookmarkStorageKey,
-        JSON.stringify(updated)
-      );
-
-      return updated;
-    });
-  };
-
-  useEffect(() => {
-    const closeFilters = () => {
-      setShowFilters(false);
-    };
-
-    window.addEventListener(
-      "close-written-filters",
-      closeFilters
-    );
-
-    return () => {
-      window.removeEventListener(
-        "close-written-filters",
-        closeFilters
-      );
-    };
-  }, []);
-
-  return (
-    <main className="min-h-screen bg-[#f5f5f5]">
-      <div className="mx-auto max-w-7xl px-5 py-8">
-
-        {/* HEADER CARD */}
-        <div className="mb-6 rounded-3xl border border-gray-200 bg-white px-5 py-5 shadow-sm">
-
-          {/* Top Row */}
-          <div className="flex items-center justify-between">
-
-            <Link
-              href="/"
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 hover:bg-gray-50"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-
-            <div className="flex h-10 w-10 items-center justify-center">
-              <Sailboat
-                size={26}
-                strokeWidth={2}
-                className="rotate-[-8deg]"
-              />
-            </div>
-
-          </div>
-
-          {/* Greeting */}
-          <div className="mt-5">
-            <h2 className="text-lg font-bold leading-tight">
-              Hi, {name} 👋
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Welcome Back
-            </p>
-          </div>
-
-          {/* Quote */}
-          <div className="mt-4 border-l-4 border-black pl-3">
-            <p className="text-xs italic leading-5 text-gray-600">
-              Coffee. Questions. Repeat.
-            </p>
-          </div>
-
-          {/* Category */}
-          <div className="mt-4 flex items-center gap-2">
-
-            <div className="rounded-lg bg-black px-3 py-1 text-[10px] font-semibold tracking-wide text-white">
-              {page.badge}
-            </div>
-
-            <h1 className="text-sm font-bold tracking-tight text-gray-900">
-              {page.title}
-            </h1>
-
-          </div>
-
-          {/* Stats */}
-          <div className="mt-4 flex items-center gap-3 text-xs font-medium text-gray-500">
-
-            <span>
-              {questions.length} Questions
-            </span>
-
-            <span>•</span>
-
-            <span>
-              {topics.length} Topics
-            </span>
-
-          </div>
-
-        </div>
-
-        {/* SEARCH */}
-
-        <div className="mt-8">
-          <input
-            type="text"
-            placeholder="🔍 Search Questions..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-black"
-          />
-        </div>
-
-        {/* FILTER BUTTON */}
-
-        {/* FILTER BUTTONS */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-black"
-          >
-            <div className="flex items-center gap-3">
-              <SlidersHorizontal size={16} />
-              <span className="font-semibold">
-                Filters
-              </span>
-            </div>
-
-            {showFilters ? (
-              <ChevronUp size={16} />
-            ) : (
-              <ChevronDown size={16} />
-            )}
-          </button>
-
-          <button
-            onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-            className={`flex items-center justify-center rounded-xl border px-4 py-3 shadow-sm transition ${showBookmarksOnly
-              ? "border-black bg-black text-white"
-              : "border-gray-200 bg-white hover:border-black"
-              }`}
-          >
-            🔖 Bookmarks ({bookmarkCount})
-          </button>
-
-        </div>
-
-        {/* FILTER PANEL */}
-
-        {showFilters && (
-          <div className="mt-4">
-            <WrittenFilters
-              selectedClass={selectedClass}
-              setSelectedClass={setSelectedClass}
-              selectedYear={selectedYear}
-              setSelectedYear={setSelectedYear}
-              selectedMonth={selectedMonth}
-              setSelectedMonth={setSelectedMonth}
-              selectedTopic={selectedTopic}
-              setSelectedTopic={setSelectedTopic}
-              years={years}
-              topics={topics}
-              onClearFilters={clearFilters}
-            />
-          </div>
-        )}
-
-        <div className="mt-8 mb-6 flex items-center justify-between gap-4">
-
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">
-            Questions
-          </h2>
-
-          <div className="text-right text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
-            <span className="text-gray-500">Current:</span>{" "}
-            <span className="font-bold text-black">
-              {filteredQuestions.length > 0
-                ? `${currentIndex + 1} / ${filteredQuestions.length}`
-                : "0 / 0"}
-            </span>
-
-            <span className="mx-2 text-gray-300">|</span>
-          </div>
-
-        </div>
-
-        {filteredQuestions.length === 0 ? (
-
-          <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-
-            <div className="text-5xl">
-              🔍
-            </div>
-
-            <h3 className="mt-4 text-lg font-semibold text-gray-900">
-              No questions found
-            </h3>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Try changing your search, filters or bookmarks.
-            </p>
-
-            <button
-              onClick={clearFilters}
-              className="
-        mt-6
-        rounded-xl
-        bg-black
-        px-5
-        py-3
-        text-sm
-        font-medium
-        text-white
-        transition
-        hover:opacity-90
-      "
-            >
-              Clear Filters
-            </button>
-
-          </div>
-
-        ) : (
-
-          <div className="mt-8">
-
-            <div id="question-card">
-              <WrittenCard
-                question={currentQuestion}
-                isBookmarked={bookmarks.includes(currentQuestion.id)}
-                onBookmark={() =>
-                  toggleBookmark(currentQuestion.id)
-                }
-                onPrevious={() =>
-                  setCurrentIndex((prev) => prev - 1)
-                }
-                onNext={() =>
-                  setCurrentIndex((prev) => prev + 1)
-                }
-                canGoPrevious={currentIndex > 0}
-                canGoNext={
-                  currentIndex <
-                  filteredQuestions.length - 1
-                }
-              />
-            </div>
-
-          </div>
-
-        )}
-
-      </div>
-    </main>
-  );
-}
-</file>
-
-<file path="hooks/useOralMmdPreference.ts">
-"use client";
-
-import { useEffect, useState } from "react";
-
-import {
-  fetchOralMmdPreference,
-  updateOralMmdPreference,
-} from "@/services/users/userPreference.client";
-
-
-export function useOralMmdPreference() {
-
-  const [mmd, setMmdState] =
-    useState<string | null>(null);
-
-
-  const [loading, setLoading] =
-    useState(true);
-
-
-
-  useEffect(() => {
-
-    let mounted = true;
-
-
-    async function loadPreference() {
-
-      try {
-
-        const data =
-          await fetchOralMmdPreference();
-
-      if (mounted) {
-            setMmdState(
-              data.oralMmd || "CHENNAI"
-            );
-          }
-
-
-     } catch (error) {
-    console.error(
-        "Failed loading MMD preference:",
-        error
-    );
-
-    if (mounted) {
-        setMmdState("Chennai");
-    }
-} finally {
-
-        if (mounted) {
-
-          setLoading(false);
-
-        }
-
-      }
-
-    }
-
-
-    loadPreference();
-
-
-    return () => {
-
-      mounted = false;
-
-    };
-
-
-  }, []);
-
-  const setMmd = async (
-    value: string
-  ) => {
-    // Update the UI immediately
-    setMmdState(value);
-
-    try {
-      // Save the preference in the background
-      await updateOralMmdPreference(value);
-    } catch (error) {
-      console.error(
-        "Failed saving MMD preference:",
-        error
-      );
-    }
-  };
-
-
-
-
-
-  return {
-
-    mmd,
-
-    loading,
-
-    setMmd,
-
-  };
-
-}
-</file>
-
 <file path="lib/cache/home-cache.ts">
 import { unstable_cache } from "next/cache";
 import { Timestamp } from "firebase-admin/firestore";
@@ -19918,247 +19990,6 @@ export const getHomeStats = unstable_cache(
         ],
     }
 );
-</file>
-
-<file path="providers/AuthContext.tsx">
-"use client";
-
-import {
-    onAuthStateChanged,
-    User,
-    signOut,
-} from "firebase/auth";
-
-import {
-    requestNotificationPermission,
-} from "@/lib/firebase/firebaseMessaging";
-
-import {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
-
-import {
-    auth,
-} from "@/lib/firebase/firebase";
-
-
-import {
-    initializeUser,
-    saveFCMToken,
-} from "@/services/users/userService";
-
-
-interface AuthContextType {
-
-    user: User | null;
-
-    loading: boolean;
-
-    role: "admin" | "student";
-
-}
-
-
-
-const AuthContext =
-    createContext<AuthContextType>({
-        user: null,
-
-        loading: true,
-
-        role: "student",
-    });
-
-
-
-
-export function AuthProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-
-
-    const [user, setUser] =
-        useState<User | null>(null);
-
-
-    const [loading, setLoading] =
-        useState(true);
-
-
-    const [role, setRole] =
-        useState<"admin" | "student">(
-            "student"
-        );
-
-
-
-
-    useEffect(() => {
-
-
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                async (firebaseUser) => {
-
-
-                    if (!firebaseUser) {
-                        setUser(null);
-                        setRole("student");
-                        setLoading(false);
-                        return;
-                    }
-
-                    // Make authenticated user available to UI immediately
-                    setUser(firebaseUser);
-                    setLoading(false);
-
-
-
-                    try {
-
-
-                        const token =
-                            await firebaseUser
-                                .getIdTokenResult(true);
-
-
-
-                        const isAdmin =
-                            token.claims.admin === true;
-
-                        console.log("ADMIN CHECK:", {
-                            email: firebaseUser.email,
-                            claims: token.claims,
-                            isAdmin,
-                        });
-
-
-
-                        setRole(
-                            isAdmin
-                                ? "admin"
-                                : "student"
-                        );
-
-                        const profile =
-                            await initializeUser({
-                                uid: firebaseUser.uid,
-                                displayName: firebaseUser.displayName,
-                                email: firebaseUser.email,
-                                photoURL: firebaseUser.photoURL,
-                            });
-
-                        if (profile.isBlocked) {
-
-                            await signOut(auth);
-
-                            setUser(null);
-
-                            setRole("student");
-
-                            setLoading(false);
-
-                            return;
-
-                        }
-
-                        setUser(firebaseUser);
-
-
-                        const fcmToken =
-                            await requestNotificationPermission();
-
-
-                        if (fcmToken) {
-
-                            console.log(
-                                "FCM TOKEN:",
-                                fcmToken
-                            );
-
-
-                            await saveFCMToken(
-                                firebaseUser.uid,
-                                fcmToken
-                            );
-
-                        }
-
-
-
-
-                    } catch (error) {
-
-
-                        console.error(
-                            "Authentication loading failed:",
-                            error
-                        );
-
-
-                        setRole("student");
-
-
-                    } finally {
-
-
-                        setLoading(false);
-
-                    }
-
-                }
-            );
-
-
-
-        return unsubscribe;
-
-
-    }, []);
-
-
-
-
-
-    return (
-
-        <AuthContext.Provider
-
-            value={{
-
-                user,
-
-                loading,
-
-                role,
-
-            }}
-
-        >
-
-            {children}
-
-        </AuthContext.Provider>
-
-    );
-
-}
-
-
-
-
-
-export function useAuth() {
-
-    return useContext(AuthContext);
-
-}
 </file>
 
 <file path="package.json">
@@ -20387,6 +20218,476 @@ export async function POST() {
             }
         );
     }
+}
+</file>
+
+<file path="hooks/useOralMmdPreference.ts">
+"use client";
+
+import { useEffect, useState } from "react";
+
+import {
+  fetchOralMmdPreference,
+  updateOralMmdPreference,
+} from "@/services/users/userPreference.client";
+
+
+export function useOralMmdPreference() {
+
+  const [mmd, setMmdState] =
+    useState<string | null>(null);
+
+
+  const [loading, setLoading] =
+    useState(true);
+
+
+
+  useEffect(() => {
+
+    let mounted = true;
+
+
+    async function loadPreference() {
+
+      try {
+
+        const data =
+          await fetchOralMmdPreference();
+
+      if (mounted) {
+            setMmdState(
+              data.oralMmd || "Chennai"
+            );
+          }
+
+
+     } catch (error) {
+    console.error(
+        "Failed loading MMD preference:",
+        error
+    );
+
+    if (mounted) {
+        setMmdState("Chennai");
+    }
+} finally {
+
+        if (mounted) {
+
+          setLoading(false);
+
+        }
+
+      }
+
+    }
+
+
+    loadPreference();
+
+
+    return () => {
+
+      mounted = false;
+
+    };
+
+
+  }, []);
+
+  const setMmd = async (
+    value: string
+  ) => {
+    // Update the UI immediately
+    setMmdState(value);
+
+    try {
+      // Save the preference in the background
+      await updateOralMmdPreference(value);
+    } catch (error) {
+      console.error(
+        "Failed saving MMD preference:",
+        error
+      );
+    }
+  };
+
+
+
+
+
+  return {
+
+    mmd,
+
+    loading,
+
+    setMmd,
+
+  };
+
+}
+</file>
+
+<file path="providers/AuthContext.tsx">
+"use client";
+
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+
+import {
+    getRedirectResult,
+    onAuthStateChanged,
+    signOut,
+    type User,
+} from "firebase/auth";
+
+import { auth } from "@/lib/firebase/firebase";
+
+import {
+    initializeUser,
+    saveFCMToken,
+} from "@/services/users/userService";
+
+import {
+    requestNotificationPermission,
+} from "@/lib/firebase/firebaseMessaging";
+
+interface AuthContextType {
+    user: User | null;
+    loading: boolean;
+    role: "admin" | "student";
+}
+
+const AuthContext =
+    createContext<AuthContextType>({
+        user: null,
+        loading: true,
+        role: "student",
+    });
+
+export function AuthProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+
+    const [user, setUser] =
+        useState<User | null>(null);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [role, setRole] =
+        useState<"admin" | "student">(
+            "student"
+        );
+
+    useEffect(() => {
+
+        let mounted = true;
+
+        /*
+         * ---------------------------------------------------------
+         * HANDLE GOOGLE REDIRECT RESULT
+         * ---------------------------------------------------------
+         *
+         * If a mobile/browser popup was unavailable, AuthModal
+         * uses signInWithRedirect().
+         *
+         * Google sends the user back to NAVIK.
+         *
+         * Firebase stores the redirect result and this call
+         * consumes it safely.
+         *
+         * IMPORTANT:
+         * We don't initialize the user here.
+         *
+         * onAuthStateChanged below is the single source of truth.
+         */
+        getRedirectResult(auth)
+            .then((result) => {
+
+                if (!mounted) return;
+
+                if (result?.user) {
+                    console.log(
+                        "Google redirect sign-in successful:",
+                        result.user.uid
+                    );
+                }
+
+            })
+            .catch((error: any) => {
+
+                console.error(
+                    "Google redirect sign-in failed:",
+                    {
+                        code: error?.code,
+                        message: error?.message,
+                        name: error?.name,
+                        error,
+                    }
+                );
+
+                if (!mounted) return;
+
+                /*
+                 * Don't destroy an already authenticated session
+                 * because a redirect-result check failed.
+                 */
+            });
+
+        /*
+         * ---------------------------------------------------------
+         * FIREBASE AUTH STATE
+         * ---------------------------------------------------------
+         */
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                async (firebaseUser) => {
+
+                    if (!mounted) return;
+
+                    /*
+                     * USER SIGNED OUT
+                     */
+                    if (!firebaseUser) {
+
+                        setUser(null);
+                        setRole("student");
+                        setLoading(false);
+
+                        return;
+                    }
+
+                    /*
+                     * IMPORTANT:
+                     *
+                     * Firebase has already authenticated the user.
+                     *
+                     * Make the user available to the application
+                     * immediately.
+                     */
+                    setUser(firebaseUser);
+                    setLoading(false);
+
+                    try {
+
+                        /*
+                         * -------------------------------------------------
+                         * ADMIN CLAIM
+                         * -------------------------------------------------
+                         *
+                         * Force-refresh only when checking claims.
+                         * This keeps your existing admin logic intact.
+                         */
+                        const token =
+                            await firebaseUser
+                                .getIdTokenResult(true);
+
+                        if (!mounted) return;
+
+                        const isAdmin =
+                            token.claims.admin === true;
+
+                        console.log(
+                            "ADMIN CHECK:",
+                            {
+                                email:
+                                    firebaseUser.email,
+                                claims:
+                                    token.claims,
+                                isAdmin,
+                            }
+                        );
+
+                        setRole(
+                            isAdmin
+                                ? "admin"
+                                : "student"
+                        );
+
+                        /*
+                         * -------------------------------------------------
+                         * INITIALIZE FIRESTORE USER
+                         * -------------------------------------------------
+                         */
+                        const profile =
+                            await initializeUser({
+                                uid:
+                                    firebaseUser.uid,
+
+                                displayName:
+                                    firebaseUser.displayName,
+
+                                email:
+                                    firebaseUser.email,
+
+                                photoURL:
+                                    firebaseUser.photoURL,
+                            });
+
+                        if (!mounted) return;
+
+                        /*
+                         * -------------------------------------------------
+                         * BLOCKED USER
+                         * -------------------------------------------------
+                         */
+                        if (profile.isBlocked) {
+
+                            await signOut(auth);
+
+                            if (!mounted) return;
+
+                            setUser(null);
+                            setRole("student");
+                            setLoading(false);
+
+                            return;
+                        }
+
+                        /*
+                         * Keep the authenticated user.
+                         */
+                        setUser(firebaseUser);
+
+                    } catch (error) {
+
+                        /*
+                         * IMPORTANT:
+                         *
+                         * A Firestore/FCM/admin initialization problem
+                         * must NOT turn a successful Google authentication
+                         * into a fake "login failed" state.
+                         */
+                        console.error(
+                            "Post-authentication initialization failed:",
+                            error
+                        );
+
+                        if (!mounted) return;
+
+                        /*
+                         * Firebase authentication itself succeeded,
+                         * therefore keep the user authenticated.
+                         */
+                        setUser(firebaseUser);
+                        setRole("student");
+
+                    } finally {
+
+                        if (mounted) {
+                            setLoading(false);
+                        }
+
+                    }
+
+                    /*
+                     * -----------------------------------------------------
+                     * FCM IS INTENTIONALLY OUTSIDE THE CRITICAL LOGIN PATH
+                     * -----------------------------------------------------
+                     *
+                     * We do this after authentication has completed.
+                     *
+                     * If notifications fail on a particular browser,
+                     * Google login still works.
+                     */
+                    void setupNotifications(
+                        firebaseUser.uid
+                    );
+
+                }
+            );
+
+        return () => {
+
+            mounted = false;
+
+            unsubscribe();
+
+        };
+
+    }, []);
+
+    return (
+        <AuthContext.Provider
+            value={{
+                user,
+                loading,
+                role,
+            }}
+        >
+            {children}
+        </AuthContext.Provider>
+    );
+}
+
+
+/*
+ * =============================================================
+ * NOTIFICATION SETUP
+ * =============================================================
+ *
+ * This is deliberately isolated from authentication.
+ *
+ * A browser that doesn't support notifications/FCM correctly
+ * should never break Google authentication.
+ */
+async function setupNotifications(
+    uid: string
+) {
+
+    try {
+
+        if (typeof window === "undefined") {
+            return;
+        }
+
+        const fcmToken =
+            await requestNotificationPermission();
+
+        if (!fcmToken) {
+            return;
+        }
+
+        console.log(
+            "FCM TOKEN:",
+            fcmToken
+        );
+
+        await saveFCMToken(
+            uid,
+            fcmToken
+        );
+
+    } catch (error) {
+
+        /*
+         * Notification failure is non-critical.
+         *
+         * DO NOT sign the user out.
+         * DO NOT change authentication state.
+         */
+        console.warn(
+            "FCM setup skipped:",
+            error
+        );
+
+    }
+
+}
+
+
+export function useAuth() {
+    return useContext(AuthContext);
 }
 </file>
 

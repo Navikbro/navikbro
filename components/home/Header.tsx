@@ -1,29 +1,24 @@
 "use client";
 
-
 import {
     Sailboat,
     User,
-    LogOut
+    LogOut,
 } from "lucide-react";
 
-
 import {
-    signOut
+    signOut,
 } from "firebase/auth";
 
-
 import {
-    auth
+    auth,
 } from "@/lib/firebase/firebase";
 
-
 import {
-    useAuth
+    useAuth,
 } from "@/providers/AuthContext";
 
 import { useState } from "react";
-
 
 
 interface HeaderProps {
@@ -34,7 +29,6 @@ interface HeaderProps {
 }
 
 
-
 export default function Header({
 
     setShowAuth
@@ -42,50 +36,42 @@ export default function Header({
 }: HeaderProps) {
 
 
+    const {
+        user,
+        loading,
+    } = useAuth();
 
-    const { user } = useAuth();
-
-    const [loggingOut, setLoggingOut] = useState(false);
+    const [loggingOut, setLoggingOut] =
+        useState(false);
 
 
     const handleLogout = async () => {
 
-
         try {
 
+            setLoggingOut(true);
 
             if (user) {
 
-
                 localStorage.removeItem(
-
                     `navik_profile_${user.uid}`
-
                 );
-
 
             }
 
-
-
             await signOut(auth);
 
-
-
         } catch (error) {
-
 
             console.error(
                 error
             );
 
+            setLoggingOut(false);
 
         }
 
-
     };
-
-
 
 
     const shortEmail =
@@ -100,17 +86,13 @@ export default function Header({
             : "";
 
 
-
-
     return (
-
 
         <div
 
             className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm"
 
         >
-
 
 
             <div
@@ -130,7 +112,9 @@ export default function Header({
     min-w-0
   "
                 >
+
                     {/* Sailboat */}
+
                     <div
                         className="
       w-12
@@ -142,14 +126,18 @@ export default function Header({
       flex-shrink-0
     "
                     >
+
                         <Sailboat
                             size={30}
                             strokeWidth={2}
                             className="text-black"
                         />
+
                     </div>
 
+
                     {/* Brand */}
+
                     <div
                         className="
       flex
@@ -157,8 +145,11 @@ export default function Header({
       leading-tight
     "
                     >
+
                         {/* NAVIK + bro */}
+
                         <div className="relative inline-block w-fit">
+
                             <h1
                                 className="
           text-2xl
@@ -168,8 +159,11 @@ export default function Header({
           text-black
         "
                             >
+
                                 NAVIK
+
                             </h1>
+
 
                             <span
                                 className="
@@ -185,11 +179,16 @@ export default function Header({
     leading-none
   "
                             >
+
                                 bro
+
                             </span>
+
                         </div>
 
+
                         {/* Tagline */}
+
                         <p
                             className="
         mt-1
@@ -198,32 +197,93 @@ export default function Header({
         leading-none
       "
                         >
-                            Sail Towards COC
-                        </p>
-                    </div>
-                </div>
 
+                            Sail Towards COC
+
+                        </p>
+
+                    </div>
+
+                </div>
 
 
                 {/* RIGHT SIDE */}
 
 
+                {loading ? (
 
-                {user ? (
+                    /*
+                     * -------------------------------------------------
+                     * AUTHENTICATION LOADING
+                     * -------------------------------------------------
+                     *
+                     * Firebase is checking whether a previous login
+                     * session exists.
+                     *
+                     * We deliberately don't show "Login" yet because
+                     * that causes the Login → Email UI flicker.
+                     */
+
+                    <div
+                        className="
+                            flex
+                            items-center
+                            gap-3
+                            flex-shrink-0
+                        "
+                    >
+
+                        <div
+                            className="
+                                bg-gray-100
+                                px-2
+                                py-2
+                                rounded-xl
+                                w-[80px]
+                                h-[34px]
+                                animate-pulse
+                            "
+                        >
+                        </div>
+
+
+                        <div
+                            className="
+                                w-10
+                                h-9
+                                rounded-2xl
+                                bg-gray-200
+                                animate-pulse
+                            "
+                        >
+                        </div>
+
+                    </div>
+
+                ) : user ? (
+
                     <div className="flex items-center gap-3 flex-shrink-0">
 
                         <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
+
                             <p className="text-[9px] text-gray-500 leading-none">
+
                                 Signed in
+
                             </p>
 
                             <p className="text-[11px] font-medium truncate">
+
                                 {shortEmail}
+
                             </p>
+
                         </div>
+
 
                         <button
                             onClick={handleLogout}
+                            disabled={loggingOut}
                             className="
                 w-10
                 h-9
@@ -235,11 +295,33 @@ export default function Header({
                 justify-center
             "
                         >
-                            <LogOut size={16} />
+
+                            {loggingOut ? (
+
+                                <span
+                                    className="
+                                        w-4
+                                        h-4
+                                        border-2
+                                        border-white
+                                        border-t-transparent
+                                        rounded-full
+                                        animate-spin
+                                    "
+                                />
+
+                            ) : (
+
+                                <LogOut size={16} />
+
+                            )}
+
                         </button>
 
                     </div>
+
                 ) : (
+
                     <button
                         onClick={() => setShowAuth(true)}
                         className="
@@ -255,21 +337,21 @@ export default function Header({
             font-medium
         "
                     >
-                        <User size={16} />
-                        Login
-                    </button>
-                )}
 
+                        <User size={16} />
+
+                        Login
+
+                    </button>
+
+                )}
 
 
             </div>
 
 
-
-        </div >
-
+        </div>
 
     );
-
 
 }
