@@ -19,6 +19,24 @@ import {
 } from "@/services/writtens/written.service";
 
 
+const normalizeClass = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+
+  const str = String(value).trim();
+
+  if (!str) return "";
+
+  if (/^class\s+\d+$/i.test(str)) {
+    return `Class ${str.replace(/^class\s+/i, "")}`;
+  }
+
+  if (/^\d+$/.test(str)) {
+    return `Class ${str}`;
+  }
+
+  return str;
+};
+
 export default function WrittensClient({
   initialQuestions,
   category,
@@ -40,7 +58,7 @@ export default function WrittensClient({
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedClass, setSelectedClass] = useState("All");
+  const [selectedClass, setSelectedClass] = useState("Class 2");
   const [selectedYear, setSelectedYear] = useState("All");
   const [selectedMonth, setSelectedMonth] = useState("All");
   const [selectedTopic, setSelectedTopic] = useState("All");
@@ -49,6 +67,25 @@ export default function WrittensClient({
   const years = useMemo(() => {
     return [...new Set(questions.map((q) => q.year))]
       .sort((a, b) => b - a);
+  }, [questions]);
+
+  const classes = useMemo(() => {
+    return [
+      ...new Set(
+        questions
+          .map((q) => normalizeClass(q.class))
+          .filter(Boolean)
+      ),
+    ].sort((a, b) => {
+      const aNumber = Number(a.replace(/\D/g, ""));
+      const bNumber = Number(b.replace(/\D/g, ""));
+
+      if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
+        return aNumber - bNumber;
+      }
+
+      return a.localeCompare(b);
+    });
   }, [questions]);
 
   const topics = useMemo(() => {
@@ -75,7 +112,7 @@ export default function WrittensClient({
 
       const classMatch =
         selectedClass === "All" ||
-        question.class === selectedClass;
+        normalizeClass(question.class) === selectedClass;
 
       const yearMatch =
         selectedYear === "All" ||
@@ -124,7 +161,7 @@ export default function WrittensClient({
 
   const clearFilters = () => {
     setSearch("");
-    setSelectedClass("All");
+    setSelectedClass("Class 2");
     setSelectedYear("All");
     setSelectedMonth("All");
     setSelectedTopic("All");
@@ -369,6 +406,7 @@ export default function WrittensClient({
               selectedTopic={selectedTopic}
               setSelectedTopic={setSelectedTopic}
               years={years}
+              classes={classes}
               topics={topics}
               onClearFilters={clearFilters}
             />

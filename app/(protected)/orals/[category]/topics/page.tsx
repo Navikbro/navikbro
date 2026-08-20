@@ -1,6 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
 import OralTopicsClient from "@/components/orals/OralTopicsClient";
 
@@ -180,9 +178,9 @@ function serializeTopic(
       typeof topic.questionCount ===
         "number"
         ? Math.max(
-            0,
-            topic.questionCount
-          )
+          0,
+          topic.questionCount
+        )
         : 0,
 
     createdAt:
@@ -289,44 +287,6 @@ export default async function OralTopicsPage({
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
 
-      {/* =================================================
-          BACK BUTTON
-      ================================================= */}
-
-      <div
-        className="
-          mx-auto
-          max-w-7xl
-          px-4
-          pt-6
-          sm:px-5
-          sm:pt-8
-          md:px-6
-        "
-      >
-
-        <Link
-          href={`/orals/${normalizedCategory}`}
-          className="
-            flex
-            h-10
-            w-10
-            items-center
-            justify-center
-            rounded-2xl
-            border
-            border-gray-200
-            bg-white
-            transition
-            hover:bg-gray-50
-          "
-          aria-label="Back to oral category"
-        >
-          <ArrowLeft size={18} />
-        </Link>
-
-      </div>
-
 
       {/* =================================================
           TOPIC CONTENT
@@ -347,7 +307,7 @@ export default async function OralTopicsPage({
 
         <OralTopicsClient
           topics={topics}
-        
+          backHref={`/orals/${normalizedCategory}`}
         />
 
       </div>

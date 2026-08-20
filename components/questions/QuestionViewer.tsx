@@ -295,105 +295,77 @@ export default function QuestionViewer({
 
 
                 {/* HEADER */}
-
                 <header
                     className="
-    sticky
-    top-0
-    z-20
-    bg-[#f6f6f6]
-    px-4
-    pt-4
-    pb-3
+        sticky
+        top-0
+        z-20
+        bg-[#f6f6f6]
+        pt-4
+        pb-3
     "
                 >
                     <div
                         className="
-        mx-auto
-        max-w-5xl
-        rounded-3xl
-        border
-        border-gray-200
-        bg-white
-        px-5
-        py-4
-        shadow-sm
+            mx-auto
+            w-full
+            max-w-5xl
+            rounded-3xl
+            border
+            border-gray-200
+            bg-white
+            px-5
+            py-4
+            shadow-sm
         "
                     >
                         <div
                             className="
-            flex
-            items-center
-            justify-between
+                flex
+                items-center
+                justify-between
             "
                         >
-
-
                             <button
                                 onClick={onClose}
                                 className="
-    flex
-    h-11
-    w-11
-    items-center
-    justify-center
-    rounded-2xl
-    border
-    border-gray-200
-    bg-white
-    transition
-    hover:bg-gray-50
-    active:scale-95
-    "
+                    flex
+                    h-11
+                    w-11
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    border
+                    border-gray-200
+                    bg-white
+                    transition
+                    hover:bg-gray-50
+                    active:scale-95
+                "
                             >
-
                                 <ArrowLeft size={20} />
-
                             </button>
 
-                            <div
-                                className="
-                            text-center
-                            "
-                            >
-
-                                <p
-                                    className="
-                                text-xs
-                                text-gray-500
-                                "
-                                >
+                            <div className="text-center">
+                                <p className="text-xs text-gray-500">
                                     Question
                                 </p>
 
-
-                                <p
-                                    className="
-                                font-bold
-                                "
-                                >
-
-                                    {currentIndex + 1}
-
-                                    {" / "}
-
-                                    {questions.length}
-
+                                <p className="font-bold">
+                                    {currentIndex + 1} / {questions.length}
                                 </p>
-
-
                             </div>
+
                             <button
                                 onClick={onBookmark}
                                 className="
-    rounded-full
-    p-3
-    transition
-    hover:bg-gray-100
-    active:scale-95
-    "
+                    rounded-full
+                    p-3
+                    transition
+                    hover:bg-gray-100
+                    active:scale-95
+                "
                             >
-
                                 <Bookmark
                                     size={22}
                                     className={
@@ -402,16 +374,10 @@ export default function QuestionViewer({
                                             : "text-gray-500"
                                     }
                                 />
-
                             </button>
-
                         </div>
                     </div>
-
-
                 </header>
-
-
 
                 {/* BODY */}
 
@@ -423,34 +389,28 @@ export default function QuestionViewer({
                 >
 
                     <motion.div
-
                         key={question.id}
-
                         initial={{
                             opacity: 0,
                             y: 20
                         }}
-
                         animate={{
                             opacity: 1,
                             y: 0
                         }}
-
                         transition={{
                             duration: 0.2
                         }}
-
                         className="
-                        mx-auto
-                        max-w-4xl
-                        space-y-6
-                        px-4
-                        py-6
-                        pb-32
-                        "
+    mx-auto
+    w-full
+    max-w-5xl
+    space-y-6
+    px-0
+    py-6
+    pb-32
+"
                     >
-
-
 
                         {/* QUESTION CARD */}
 

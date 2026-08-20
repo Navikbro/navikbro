@@ -5,6 +5,13 @@ import {
     useState,
 } from "react";
 
+import {
+    ArrowLeft,
+    Sailboat,
+} from "lucide-react";
+
+import Link from "next/link";
+
 import TopicCard, {
     type TopicCardTopic,
 } from "@/components/orals/TopicCard";
@@ -30,6 +37,7 @@ export interface SerializedOralTopic
 
 interface OralTopicsClientProps {
     topics: SerializedOralTopic[];
+    backHref: string;
 }
 
 
@@ -39,6 +47,7 @@ interface OralTopicsClientProps {
 
 export default function OralTopicsClient({
     topics,
+    backHref,
 }: OralTopicsClientProps) {
 
     const [
@@ -134,71 +143,126 @@ export default function OralTopicsClient({
         <div className="mt-2">
 
             {/* =================================================
-                TOPIC COUNTER
-
-                Example:
-                1 / 1
-                1 / 5
-                2 / 5
+                SMALL TOPIC HEADER
             ================================================= */}
 
             <div
                 className="
-                    mb-3
+                    mb-5
                     flex
-                    justify-end
+                    items-center
+                    justify-between
+                    rounded-3xl
+                    border
+                    border-gray-200
+                    bg-white
+                    px-3
+                    py-3
+                    shadow-sm
+                    sm:px-4
                 "
             >
+
+                {/* =================================================
+                    BACK BUTTON
+                ================================================= */}
+
+                <Link
+                    href={backHref}
+                    className="
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-2xl
+        border
+        border-gray-200
+        bg-white
+        transition
+        hover:bg-gray-50
+    "
+                    aria-label="Back to oral category"
+                >
+                    <ArrowLeft size={18} />
+                </Link>
+
+
+                {/* =================================================
+                    TOPIC NAME + COUNTER
+                ================================================= */}
+
                 <div
                     className="
-                        shrink-0
-                        rounded-full
-                        bg-white
+                        flex
+                        min-w-0
+                        flex-1
+                        items-center
+                        justify-center
+                        gap-2
                         px-3
-                        py-1.5
-                        text-xs
-                        font-semibold
-                        text-gray-600
-                        shadow-sm
-                        ring-1
-                        ring-gray-200
                     "
                 >
-                    {selectedIndex + 1} /{" "}
-                    {topics.length}
+
+                    <h1
+                        className="
+                            truncate
+                            text-sm
+                            font-bold
+                            tracking-tight
+                            text-gray-900
+                            sm:text-base
+                        "
+                    >
+                        {selectedTopic.name}
+                    </h1>
+
+                    <span
+                        className="
+                            shrink-0
+                            text-xs
+                            font-semibold
+                            text-gray-400
+                        "
+                    >
+                        {selectedIndex + 1} /{" "}
+                        {topics.length}
+                    </span>
+
                 </div>
+
+
+                {/* =================================================
+                    NAVIK LOGO ONLY
+                ================================================= */}
+
+                <div
+                    className="
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                    "
+                    aria-label="NAVIK"
+                >
+                    <Sailboat
+                        size={25}
+                        strokeWidth={2}
+                        className="
+                            rotate-[-8deg]
+                            text-black
+                        "
+                    />
+                </div>
+
             </div>
 
 
             {/* =================================================
-                TOPIC NAME
-
-                This is intentionally OUTSIDE TopicCard.
-            ================================================= */}
-
-            <h1
-                className="
-                    mb-4
-                    text-2xl
-                    font-bold
-                    tracking-tight
-                    text-gray-900
-                    sm:text-3xl
-                "
-            >
-                {selectedTopic.name}
-            </h1>
-
-
-            {/* =================================================
                 TOPIC CARD
-
-                Topic name is still passed because
-                TopicCardTopic requires it.
-
-                If TopicCard currently renders its own
-                title, remove that title from TopicCard.tsx
-                so only the heading above is visible.
             ================================================= */}
 
             <TopicCard

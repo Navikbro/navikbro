@@ -79,14 +79,12 @@ export default function QuestionsList({
 
   const [selectedSurveyor, setSelectedSurveyor] = useState("All");
   const [selectedTopic, setSelectedTopic] = useState("All");
-  const [selectedClass, setSelectedClass] = useState("All");
+  const [selectedClass, setSelectedClass] = useState("Class 2");
 
   useEffect(() => {
-
     setSelectedTopic("All");
     setSelectedSurveyor("All");
-    setSelectedClass("All");
-
+    setSelectedClass("Class 2");
   }, [activeMmd]);
 
   const topics = useMemo(() => {
@@ -231,7 +229,7 @@ export default function QuestionsList({
     setSearch("");
     setSelectedSurveyor("All");
     setSelectedTopic("All");
-    setSelectedClass("All");
+    setSelectedClass("Class 2");
     setShowBookmarksOnly(false);
   };
 

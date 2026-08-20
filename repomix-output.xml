@@ -418,6 +418,176 @@ export default function manifest(): MetadataRoute.Manifest {
 }
 </file>
 
+<file path="components/admin/EditSubscriptionModal.tsx">
+"use client";
+
+import { useState } from "react";
+
+import { CachedUser } from "@/types/admin";
+
+import type {
+    SubscriptionPlan,
+    SubscriptionStatus,
+} from "@/types/user";
+
+interface EditSubscriptionModalProps {
+    user: CachedUser | null;
+    open: boolean;
+    onClose: () => void;
+    onSave: (
+        plan: SubscriptionPlan,
+        status: SubscriptionStatus,
+        endDate: string | null
+    ) => Promise<void>;
+}
+
+export default function EditSubscriptionModal({
+    user,
+    open,
+    onClose,
+    onSave,
+}: EditSubscriptionModalProps) {
+
+    const [plan, setPlan] =
+        useState<SubscriptionPlan>(
+            (user?.plan as SubscriptionPlan) ?? "free"
+        );
+
+    const [status, setStatus] =
+        useState<SubscriptionStatus>(
+            (user?.status as SubscriptionStatus) ?? "inactive"
+        );
+
+    const [endDate, setEndDate] =
+        useState("");
+
+    if (!open || !user) {
+        return null;
+    }
+
+    return (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+
+                <h2 className="mb-6 text-xl font-bold">
+                    Edit Subscription
+                </h2>
+
+                <div className="space-y-4">
+
+                    <div>
+
+                        <label className="mb-2 block text-sm font-medium">
+                            Plan
+                        </label>
+
+                        <select
+                            value={plan}
+                            onChange={(e) =>
+                                setPlan(e.target.value as SubscriptionPlan)
+                            }
+
+                            className="w-full rounded-lg border p-2"
+                        >
+                            <option value="free">
+                                Free
+                            </option>
+
+                            <option value="trial">
+                                Trial
+                            </option>
+
+                            <option value="monthly">
+                                Monthly
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div>
+
+                        <label className="mb-2 block text-sm font-medium">
+                            Status
+                        </label>
+
+                        <select
+                            value={status}
+                            onChange={(e) =>
+                                setStatus(e.target.value as SubscriptionStatus)
+                            }
+                            className="w-full rounded-lg border p-2"
+                        >
+                            <option value="inactive">
+                                Inactive
+                            </option>
+
+                            <option value="active">
+                                Active
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div>
+
+                        <label className="mb-2 block text-sm font-medium">
+                            End Date
+                        </label>
+
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) =>
+                                setEndDate(e.target.value)
+                            }
+                            className="w-full rounded-lg border p-2"
+                        />
+
+                    </div>
+
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+
+                    <button
+                        onClick={onClose}
+                        className="rounded-lg border px-4 py-2"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        onClick={async () => {
+
+                            await onSave(
+                                plan,
+                                status,
+                                endDate || null
+                            );
+
+                            onClose();
+
+                        }}
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                    >
+                        Save
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    );
+
+}
+</file>
+
 <file path="public/firebase-messaging-sw.js">
 importScripts(
     "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"
@@ -4145,6 +4315,69 @@ export default function Loading() {
 }
 </file>
 
+<file path="app/(protected)/layout.tsx">
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import SubscriptionRoute from "@/components/subscription/SubscriptionRoute";
+
+export default function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <ProtectedRoute>
+
+      <SubscriptionRoute>
+        {children}
+      </SubscriptionRoute>
+
+    </ProtectedRoute>
+  );
+}
+</file>
+
+<file path="app/actions/communityActions.ts">
+"use server";
+
+import { revalidateTag } from "next/cache";
+
+import { adminDb } from "@/lib/firebase/firebase-admin";
+
+export async function approveCommunityAnswer(
+  id: string,
+  category: string,
+  questionId: string
+) {
+  await adminDb
+    .collection("communityAnswers")
+    .doc(id)
+    .update({
+      status: "approved",
+    });
+
+  revalidateTag(
+    `community-${category.toLowerCase()}-${questionId}`,
+    "max"
+  );
+}
+
+export async function rejectCommunityAnswer(
+  id: string,
+  category: string,
+  questionId: string
+) {
+  await adminDb
+    .collection("communityAnswers")
+    .doc(id)
+    .delete();
+
+  revalidateTag(
+    `community-${category.toLowerCase()}-${questionId}`,
+    "max"
+  );
+}
+</file>
+
 <file path="app/api/admin/make-admin/route.ts">
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/firebase-admin";
@@ -5042,6 +5275,47 @@ export async function POST(req: Request){
 }
 </file>
 
+<file path="app/layout.tsx">
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+import { SubscriptionProvider } from "@/providers/SubscriptionContext";
+import { AuthProvider } from "@/providers/AuthContext";
+import InitialLoader from "@/components/shared/InitialLoader";
+export const metadata: Metadata = {
+  title: "NAVIK",
+  description: "Sail Towards COC",
+
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0A2540",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider>
+          <SubscriptionProvider>
+            <InitialLoader>
+              {children}
+            </InitialLoader>
+          </SubscriptionProvider>
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+</file>
+
 <file path="app/page.tsx">
 import HomeClient from "@/components/home/HomeClient";
 import { getHomeStats } from "@/lib/cache/home-cache";
@@ -5208,210 +5482,475 @@ export default function AdminRoute({
 }
 </file>
 
-<file path="components/admin/EditSubscriptionModal.tsx">
+<file path="components/admin/UserTable.tsx">
 "use client";
 
 import { useState } from "react";
 
 import { CachedUser } from "@/types/admin";
 
-import type {
-    SubscriptionPlan,
-    SubscriptionStatus,
-} from "@/types/user";
+import EditSubscriptionModal from "@/components/admin/EditSubscriptionModal";
 
-interface EditSubscriptionModalProps {
-    user: CachedUser | null;
-    open: boolean;
-    onClose: () => void;
-    onSave: (
-        plan: SubscriptionPlan,
-        status: SubscriptionStatus,
-        endDate: string | null
-    ) => Promise<void>;
+import { Timestamp } from "firebase/firestore";
+
+import {
+    updateUserSubscription,
+} from "@/services/users/userService";
+
+import {
+    updateCachedSubscription,
+} from "@/services/admin/adminUserService";
+
+import {
+    blockUser,
+    unblockUser,
+} from "@/services/users/userService";
+
+import {
+    toggleCachedUserBlock,
+} from "@/services/admin/adminUserService";
+
+interface UserTableProps {
+    users: CachedUser[];
+
+    setUsers: React.Dispatch<
+        React.SetStateAction<CachedUser[]>
+    >;
+
+    loading: boolean;
 }
 
-export default function EditSubscriptionModal({
-    user,
-    open,
-    onClose,
-    onSave,
-}: EditSubscriptionModalProps) {
+function formatEndDate(
+    endDate: CachedUser["endDate"]
+) {
 
-    const [plan, setPlan] =
-        useState<SubscriptionPlan>(
-            (user?.plan as SubscriptionPlan) ?? "free"
+    if (!endDate) {
+        return "--";
+    }
+
+    return endDate
+        .toDate()
+        .toLocaleDateString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            }
         );
 
-    const [status, setStatus] =
-        useState<SubscriptionStatus>(
-            (user?.status as SubscriptionStatus) ?? "inactive"
+}
+
+function getDaysRemaining(
+    endDate: CachedUser["endDate"]
+) {
+
+    if (!endDate) {
+        return "--";
+    }
+
+    const today = new Date();
+
+    const expiry =
+        endDate.toDate();
+
+    const diff =
+        expiry.getTime() -
+        today.getTime();
+
+    const days =
+        Math.ceil(
+            diff /
+            (1000 * 60 * 60 * 24)
         );
 
-    const [endDate, setEndDate] =
-        useState("");
+    if (days < 0) {
+        return "Expired";
+    }
 
-    if (!open || !user) {
-        return null;
+    return `${days} Days`;
+
+}
+
+export default function UserTable({
+    users,
+    setUsers,
+    loading,
+}: UserTableProps) {
+
+    const [selectedUser, setSelectedUser] =
+        useState<CachedUser | null>(null);
+
+    const [modalOpen, setModalOpen] =
+        useState(false);
+
+    async function handleToggleBlock(
+        uid: string,
+        isBlocked: boolean
+    ) {
+
+        try {
+
+            if (isBlocked) {
+
+                await unblockUser(uid);
+
+                await toggleCachedUserBlock(
+                    uid,
+                    false
+                );
+
+            } else {
+
+                await blockUser(uid);
+
+                await toggleCachedUserBlock(
+                    uid,
+                    true
+                );
+
+            }
+
+            setUsers((previousUsers) =>
+                previousUsers.map((user) =>
+                    user.uid === uid
+                        ? {
+                            ...user,
+                            isBlocked: !isBlocked,
+                        }
+                        : user
+                )
+            );
+
+        } catch (error) {
+
+            console.error(error);
+
+        }
+
+    }
+
+    if (loading) {
+
+        return (
+
+            <div className="rounded-xl border bg-white p-8 text-center">
+
+                Loading users...
+
+            </div>
+
+        );
+
+    }
+
+    if (users.length === 0) {
+
+        return (
+
+            <div className="rounded-xl border bg-white p-8 text-center">
+
+                No users found.
+
+            </div>
+
+        );
+
     }
 
     return (
 
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <>
 
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow">
 
-                <h2 className="mb-6 text-xl font-bold">
-                    Edit Subscription
-                </h2>
+                <div className="overflow-x-auto">
 
-                <div className="space-y-4">
+                    <table className="min-w-full">
 
-                    <div>
+                        <thead className="bg-gray-100">
 
-                        <label className="mb-2 block text-sm font-medium">
-                            Plan
-                        </label>
+                            <tr className="text-left">
 
-                        <select
-                            value={plan}
-                            onChange={(e) =>
-                                setPlan(e.target.value as SubscriptionPlan)
-                            }
+                                <th className="px-6 py-4 font-semibold">
+                                    User
+                                </th>
 
-                            className="w-full rounded-lg border p-2"
-                        >
-                            <option value="free">
-                                Free
-                            </option>
+                                <th className="px-6 py-4 font-semibold">
+                                    Email
+                                </th>
 
-                            <option value="trial">
-                                Trial
-                            </option>
+                                <th className="px-6 py-4 font-semibold">
+                                    Plan
+                                </th>
 
-                            <option value="monthly">
-                                Monthly
-                            </option>
+                                <th className="px-6 py-4 font-semibold">
+                                    Subscription
+                                </th>
 
-                        </select>
+                                <th className="px-6 py-4 font-semibold">
+                                    Account
+                                </th>
 
-                    </div>
+                                <th className="px-6 py-4 font-semibold">
+                                    End Date
+                                </th>
 
-                    <div>
+                                <th className="px-6 py-4 font-semibold">
+                                    Days Left
+                                </th>
 
-                        <label className="mb-2 block text-sm font-medium">
-                            Status
-                        </label>
+                                <th className="px-6 py-4 font-semibold">
+                                    Actions
+                                </th>
 
-                        <select
-                            value={status}
-                            onChange={(e) =>
-                                setStatus(e.target.value as SubscriptionStatus)
-                            }
-                            className="w-full rounded-lg border p-2"
-                        >
-                            <option value="inactive">
-                                Inactive
-                            </option>
+                            </tr>
 
-                            <option value="active">
-                                Active
-                            </option>
+                        </thead>
 
-                        </select>
+                        <tbody>
 
-                    </div>
+                            {users.map((user) => (
 
-                    <div>
+                                <tr
+                                    key={user.uid}
+                                    className="border-t hover:bg-gray-50"
+                                >
 
-                        <label className="mb-2 block text-sm font-medium">
-                            End Date
-                        </label>
+                                    <td className="px-6 py-4">
 
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) =>
-                                setEndDate(e.target.value)
-                            }
-                            className="w-full rounded-lg border p-2"
-                        />
+                                        <div className="flex items-center gap-3">
 
-                    </div>
+                                            {user.photoURL ? (
 
-                </div>
+                                                <img
+                                                    src={user.photoURL}
+                                                    alt={user.name}
+                                                    className="h-11 w-11 rounded-full object-cover"
+                                                />
 
-                <div className="mt-6 flex justify-end gap-3">
+                                            ) : (
 
-                    <button
-                        onClick={onClose}
-                        className="rounded-lg border px-4 py-2"
-                    >
-                        Cancel
-                    </button>
+                                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 font-bold text-white">
 
-                    <button
-                        onClick={async () => {
+                                                    {user.name
+                                                        .split(" ")
+                                                        .map(word => word[0])
+                                                        .join("")
+                                                        .slice(0, 2)
+                                                        .toUpperCase()}
 
-                            await onSave(
-                                plan,
-                                status,
-                                endDate || null
-                            );
+                                                </div>
 
-                            onClose();
+                                            )}
 
-                        }}
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-                    >
-                        Save
-                    </button>
+                                            <span className="font-semibold">
+
+                                                {user.name}
+
+                                            </span>
+
+                                        </div>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        {user.email}
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">
+
+                                            {user.plan}
+
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
+
+                                            {user.status}
+
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <span
+                                            className={`rounded-full px-3 py-1 text-sm ${user.isBlocked
+                                                ? "bg-red-100 text-red-700"
+                                                : "bg-green-100 text-green-700"
+                                                }`}
+                                        >
+
+                                            {user.isBlocked
+                                                ? "Blocked"
+                                                : "Active"}
+
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4 text-gray-500">
+
+                                        {formatEndDate(user.endDate)}
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <span
+                                            className={`font-medium ${getDaysRemaining(user.endDate) === "Expired"
+                                                ? "text-red-600"
+                                                : "text-green-600"
+                                                }`}
+                                        >
+                                            {getDaysRemaining(user.endDate)}
+                                        </span>
+
+                                    </td>
+
+                                    <td className="px-6 py-4">
+
+                                        <div className="flex gap-2">
+
+                                            <button
+                                                onClick={() => {
+
+                                                    setSelectedUser(user);
+
+                                                    setModalOpen(true);
+
+                                                }}
+                                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                                            >
+                                                Edit
+                                            </button>
+
+                                            <button
+                                                onClick={() =>
+                                                    handleToggleBlock(
+                                                        user.uid,
+                                                        user.isBlocked
+                                                    )
+                                                }
+                                                className={`rounded-lg px-4 py-2 text-sm text-white ${user.isBlocked
+                                                    ? "bg-green-600 hover:bg-green-700"
+                                                    : "bg-red-600 hover:bg-red-700"
+                                                    }`}
+                                            >
+                                                {user.isBlocked
+                                                    ? "Unblock"
+                                                    : "Block"}
+                                            </button>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            ))}
+
+                        </tbody>
+
+                    </table>
 
                 </div>
 
             </div>
 
-        </div>
+            <EditSubscriptionModal
+
+                user={selectedUser}
+
+                open={modalOpen}
+
+                onClose={() => {
+
+                    setModalOpen(false);
+
+                    setSelectedUser(null);
+
+                }}
+                onSave={async (
+                    plan,
+                    status,
+                    endDate
+                ) => {
+
+                    if (!selectedUser) {
+                        return;
+                    }
+
+                    try {
+
+                        const timestamp =
+                            endDate
+                                ? Timestamp.fromDate(
+                                    new Date(endDate)
+                                )
+                                : null;
+
+
+                        await updateUserSubscription(
+                            selectedUser.uid,
+                            {
+                                plan,
+                                status,
+                                endDate: timestamp,
+                            }
+                        );
+                        
+                        await updateCachedSubscription(
+
+                            selectedUser.uid,
+
+                            plan,
+
+                            status,
+
+                            timestamp,
+
+                        );
+
+                        setUsers((previousUsers) =>
+                            previousUsers.map((user) =>
+                                user.uid === selectedUser.uid
+                                    ? {
+                                        ...user,
+                                        plan,
+                                        status,
+                                        endDate: timestamp,
+                                    }
+                                    : user
+                            )
+                        );
+
+                        setModalOpen(false);
+
+                        setSelectedUser(null);
+
+                    } catch (error) {
+
+                        console.error(error);
+
+                    }
+
+                }}
+
+            />
+
+        </>
 
     );
 
-}
-</file>
-
-<file path="components/auth/ProtectedRoute.tsx">
-"use client";
-
-import { ReactNode, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/providers/AuthContext";
-
-interface ProtectedRouteProps {
-  children: ReactNode;
-}
-
-export default function ProtectedRoute({
-  children,
-}: ProtectedRouteProps) {
-  const router = useRouter();
-  const { user, loading } = useAuth();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/");
-    }
-  }, [user, loading, router]);
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f5f5]">
-        <p className="text-gray-500">Loading...</p>
-      </div>
-    );
-  }
-
-  if (!user) return null;
-
-  return <>{children}</>;
 }
 </file>
 
@@ -7685,84 +8224,6 @@ export default function LoadingScreen({
 
     </div>
   );
-}
-</file>
-
-<file path="components/subscription/SubscriptionRoute.tsx">
-"use client";
-
-import React from "react";
-
-import {
-    useSubscription,
-} from "@/providers/SubscriptionContext";
-
-import SubscriptionModal from "./SubscriptionModal";
-
-
-export default function SubscriptionRoute({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-
-
-    const {
-        loading,
-        active,
-    } = useSubscription();
-
-
-
-    if (loading) {
-
-        return null;
-
-    }
-
-
-
-    const subscriptionsEnabled =
-        process.env.NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED === "true";
-
-
-
-    // Subscription system OFF
-    // NAVIK remains completely free
-    if (!subscriptionsEnabled) {
-
-        return (
-            <>
-                {children}
-            </>
-        );
-
-    }
-
-
-
-    // Active subscription or trial
-    if (active) {
-
-        return (
-            <>
-                {children}
-            </>
-        );
-
-    }
-
-
-
-    // Future subscription blocking
-    return (
-
-        <SubscriptionModal
-            mode="expired"
-        />
-
-    );
-
 }
 </file>
 
@@ -11724,579 +12185,112 @@ export interface AppUser {
 }
 </file>
 
-<file path="app/(protected)/layout.tsx">
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import SubscriptionRoute from "@/components/subscription/SubscriptionRoute";
-
-export default function ProtectedLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <ProtectedRoute>
-
-      <SubscriptionRoute>
-        {children}
-      </SubscriptionRoute>
-
-    </ProtectedRoute>
-  );
-}
-</file>
-
-<file path="app/actions/communityActions.ts">
-"use server";
-
-import { revalidateTag } from "next/cache";
-
-import { adminDb } from "@/lib/firebase/firebase-admin";
-
-export async function approveCommunityAnswer(
-  id: string,
-  category: string,
-  questionId: string
-) {
-  await adminDb
-    .collection("communityAnswers")
-    .doc(id)
-    .update({
-      status: "approved",
-    });
-
-  revalidateTag(
-    `community-${category.toLowerCase()}-${questionId}`,
-    "max"
-  );
-}
-
-export async function rejectCommunityAnswer(
-  id: string,
-  category: string,
-  questionId: string
-) {
-  await adminDb
-    .collection("communityAnswers")
-    .doc(id)
-    .delete();
-
-  revalidateTag(
-    `community-${category.toLowerCase()}-${questionId}`,
-    "max"
-  );
-}
-</file>
-
-<file path="app/layout.tsx">
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
-import { SubscriptionProvider } from "@/providers/SubscriptionContext";
-import { AuthProvider } from "@/providers/AuthContext";
-import InitialLoader from "@/components/shared/InitialLoader";
-export const metadata: Metadata = {
-  title: "NAVIK",
-  description: "Sail Towards COC",
-
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-icon.png",
-  },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#0A2540",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body>
-        <AuthProvider>
-          <SubscriptionProvider>
-            <InitialLoader>
-              {children}
-            </InitialLoader>
-          </SubscriptionProvider>
-        </AuthProvider>
-      </body>
-    </html>
-  );
-}
-</file>
-
-<file path="components/admin/UserTable.tsx">
+<file path="components/auth/ProtectedRoute.tsx">
 "use client";
 
-import { useState } from "react";
+import { ReactNode, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/providers/AuthContext";
 
-import { CachedUser } from "@/types/admin";
-
-import EditSubscriptionModal from "@/components/admin/EditSubscriptionModal";
-
-import { Timestamp } from "firebase/firestore";
-
-import {
-    updateUserSubscription,
-} from "@/services/users/userService";
-
-import {
-    updateCachedSubscription,
-} from "@/services/admin/adminUserService";
-
-import {
-    blockUser,
-    unblockUser,
-} from "@/services/users/userService";
-
-import {
-    toggleCachedUserBlock,
-} from "@/services/admin/adminUserService";
-
-interface UserTableProps {
-    users: CachedUser[];
-
-    setUsers: React.Dispatch<
-        React.SetStateAction<CachedUser[]>
-    >;
-
-    loading: boolean;
+interface ProtectedRouteProps {
+    children: ReactNode;
 }
 
-function formatEndDate(
-    endDate: CachedUser["endDate"]
-) {
+export default function ProtectedRoute({
+    children,
+}: ProtectedRouteProps) {
 
-    if (!endDate) {
-        return "--";
-    }
+    const router = useRouter();
 
-    return endDate
-        .toDate()
-        .toLocaleDateString(
-            "en-IN",
-            {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-            }
-        );
+    const {
+        user,
+        loading,
+    } = useAuth();
 
-}
 
-function getDaysRemaining(
-    endDate: CachedUser["endDate"]
-) {
+    useEffect(() => {
 
-    if (!endDate) {
-        return "--";
-    }
-
-    const today = new Date();
-
-    const expiry =
-        endDate.toDate();
-
-    const diff =
-        expiry.getTime() -
-        today.getTime();
-
-    const days =
-        Math.ceil(
-            diff /
-            (1000 * 60 * 60 * 24)
-        );
-
-    if (days < 0) {
-        return "Expired";
-    }
-
-    return `${days} Days`;
-
-}
-
-export default function UserTable({
-    users,
-    setUsers,
-    loading,
-}: UserTableProps) {
-
-    const [selectedUser, setSelectedUser] =
-        useState<CachedUser | null>(null);
-
-    const [modalOpen, setModalOpen] =
-        useState(false);
-
-    async function handleToggleBlock(
-        uid: string,
-        isBlocked: boolean
-    ) {
-
-        try {
-
-            if (isBlocked) {
-
-                await unblockUser(uid);
-
-                await toggleCachedUserBlock(
-                    uid,
-                    false
-                );
-
-            } else {
-
-                await blockUser(uid);
-
-                await toggleCachedUserBlock(
-                    uid,
-                    true
-                );
-
-            }
-
-            setUsers((previousUsers) =>
-                previousUsers.map((user) =>
-                    user.uid === uid
-                        ? {
-                            ...user,
-                            isBlocked: !isBlocked,
-                        }
-                        : user
-                )
-            );
-
-        } catch (error) {
-
-            console.error(error);
-
+        if (!loading && !user) {
+            router.replace("/");
         }
 
-    }
+    }, [
+        user,
+        loading,
+        router,
+    ]);
 
+
+    /*
+     * Firebase authentication OR user initialization
+     * is still in progress.
+     *
+     * Do NOT render the protected page yet.
+     */
     if (loading) {
 
         return (
-
-            <div className="rounded-xl border bg-white p-8 text-center">
-
-                Loading users...
-
-            </div>
-
-        );
-
-    }
-
-    if (users.length === 0) {
-
-        return (
-
-            <div className="rounded-xl border bg-white p-8 text-center">
-
-                No users found.
-
-            </div>
-
-        );
-
-    }
-
-    return (
-
-        <>
-
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow">
-
-                <div className="overflow-x-auto">
-
-                    <table className="min-w-full">
-
-                        <thead className="bg-gray-100">
-
-                            <tr className="text-left">
-
-                                <th className="px-6 py-4 font-semibold">
-                                    User
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Email
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Plan
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Subscription
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Account
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    End Date
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Days Left
-                                </th>
-
-                                <th className="px-6 py-4 font-semibold">
-                                    Actions
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-                        <tbody>
-
-                            {users.map((user) => (
-
-                                <tr
-                                    key={user.uid}
-                                    className="border-t hover:bg-gray-50"
-                                >
-
-                                    <td className="px-6 py-4">
-
-                                        <div className="flex items-center gap-3">
-
-                                            {user.photoURL ? (
-
-                                                <img
-                                                    src={user.photoURL}
-                                                    alt={user.name}
-                                                    className="h-11 w-11 rounded-full object-cover"
-                                                />
-
-                                            ) : (
-
-                                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 font-bold text-white">
-
-                                                    {user.name
-                                                        .split(" ")
-                                                        .map(word => word[0])
-                                                        .join("")
-                                                        .slice(0, 2)
-                                                        .toUpperCase()}
-
-                                                </div>
-
-                                            )}
-
-                                            <span className="font-semibold">
-
-                                                {user.name}
-
-                                            </span>
-
-                                        </div>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        {user.email}
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">
-
-                                            {user.plan}
-
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
-
-                                            {user.status}
-
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span
-                                            className={`rounded-full px-3 py-1 text-sm ${user.isBlocked
-                                                ? "bg-red-100 text-red-700"
-                                                : "bg-green-100 text-green-700"
-                                                }`}
-                                        >
-
-                                            {user.isBlocked
-                                                ? "Blocked"
-                                                : "Active"}
-
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4 text-gray-500">
-
-                                        {formatEndDate(user.endDate)}
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span
-                                            className={`font-medium ${getDaysRemaining(user.endDate) === "Expired"
-                                                ? "text-red-600"
-                                                : "text-green-600"
-                                                }`}
-                                        >
-                                            {getDaysRemaining(user.endDate)}
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <div className="flex gap-2">
-
-                                            <button
-                                                onClick={() => {
-
-                                                    setSelectedUser(user);
-
-                                                    setModalOpen(true);
-
-                                                }}
-                                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-                                            >
-                                                Edit
-                                            </button>
-
-                                            <button
-                                                onClick={() =>
-                                                    handleToggleBlock(
-                                                        user.uid,
-                                                        user.isBlocked
-                                                    )
-                                                }
-                                                className={`rounded-lg px-4 py-2 text-sm text-white ${user.isBlocked
-                                                    ? "bg-green-600 hover:bg-green-700"
-                                                    : "bg-red-600 hover:bg-red-700"
-                                                    }`}
-                                            >
-                                                {user.isBlocked
-                                                    ? "Unblock"
-                                                    : "Block"}
-                                            </button>
-
-                                        </div>
-
-                                    </td>
-
-                                </tr>
-
-                            ))}
-
-                        </tbody>
-
-                    </table>
+            <div
+                className="
+                    flex
+                    min-h-screen
+                    items-center
+                    justify-center
+                    bg-[#f5f5f5]
+                "
+            >
+
+                <div
+                    className="
+                        flex
+                        flex-col
+                        items-center
+                        gap-3
+                    "
+                >
+
+                    <div
+                        className="
+                            w-8
+                            h-8
+                            rounded-full
+                            border-[3px]
+                            border-gray-300
+                            border-t-black
+                            animate-spin
+                        "
+                    />
+
+                    <p
+                        className="
+                            text-sm
+                            text-gray-500
+                        "
+                    >
+                        Signing you in...
+                    </p>
 
                 </div>
 
             </div>
-
-            <EditSubscriptionModal
-
-                user={selectedUser}
-
-                open={modalOpen}
-
-                onClose={() => {
-
-                    setModalOpen(false);
-
-                    setSelectedUser(null);
-
-                }}
-                onSave={async (
-                    plan,
-                    status,
-                    endDate
-                ) => {
-
-                    if (!selectedUser) {
-                        return;
-                    }
-
-                    try {
-
-                        const timestamp =
-                            endDate
-                                ? Timestamp.fromDate(
-                                    new Date(endDate)
-                                )
-                                : null;
+        );
+    }
 
 
-                        await updateUserSubscription(
-                            selectedUser.uid,
-                            {
-                                plan,
-                                status,
-                                endDate: timestamp,
-                            }
-                        );
-                        
-                        await updateCachedSubscription(
+    /*
+     * Authentication finished but there is no user.
+     * useEffect will redirect to "/".
+     */
+    if (!user) {
+        return null;
+    }
 
-                            selectedUser.uid,
 
-                            plan,
-
-                            status,
-
-                            timestamp,
-
-                        );
-
-                        setUsers((previousUsers) =>
-                            previousUsers.map((user) =>
-                                user.uid === selectedUser.uid
-                                    ? {
-                                        ...user,
-                                        plan,
-                                        status,
-                                        endDate: timestamp,
-                                    }
-                                    : user
-                            )
-                        );
-
-                        setModalOpen(false);
-
-                        setSelectedUser(null);
-
-                    } catch (error) {
-
-                        console.error(error);
-
-                    }
-
-                }}
-
-            />
-
-        </>
-
-    );
-
+    /*
+     * Authentication + initializeUser() are complete.
+     * NOW render the protected application.
+     */
+    return <>{children}</>;
 }
 </file>
 
@@ -13639,6 +13633,194 @@ export default function MarkdownRenderer({
       </ReactMarkdown>
     </div>
   );
+}
+</file>
+
+<file path="components/subscription/SubscriptionGuard.tsx">
+"use client";
+
+import { ReactNode } from "react";
+
+import { useSubscription } from "@/providers/SubscriptionContext";
+
+import SubscriptionModal from "@/components/subscription/SubscriptionModal";
+
+import { subscriptionsEnabled } from "@/lib/subscriptions/subscription";
+
+import { useAuth } from "@/providers/AuthContext";
+
+interface Props {
+    children: ReactNode;
+}
+
+export default function SubscriptionGuard({
+    children,
+}: Props) {
+
+    const {
+        loading,
+        hasAccess,
+        showTrialModal,
+        showSubscriptionModal,
+    } = useSubscription();
+
+    const { role } = useAuth();
+
+    // Development Mode
+    if (!subscriptionsEnabled) {
+        return <>{children}</>;
+    }
+
+    // Admins never use the subscription system
+    if (role === "admin") {
+        return <>{children}</>;
+    }
+
+    if (loading) {
+        return null;
+    }
+
+    return (
+        <>
+            {children}
+
+            {showTrialModal && (
+                <SubscriptionModal
+                    mode="trial"
+                />
+            )}
+
+            {!hasAccess &&
+                showSubscriptionModal && (
+                    <SubscriptionModal
+                        mode="expired"
+                    />
+                )}
+        </>
+    );
+}
+</file>
+
+<file path="components/subscription/SubscriptionRoute.tsx">
+"use client";
+
+import React from "react";
+
+import {
+    useSubscription,
+} from "@/providers/SubscriptionContext";
+
+import SubscriptionModal from "./SubscriptionModal";
+
+export default function SubscriptionRoute({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+
+    const {
+        loading,
+        active,
+        showSubscriptionModal,
+    } = useSubscription();
+
+
+    /*
+     * ---------------------------------------------------------
+     * SUBSCRIPTION SYSTEM OFF
+     * ---------------------------------------------------------
+     *
+     * The application is completely free.
+     *
+     * No blocking.
+     * No subscription popup.
+     * No trial.
+     */
+    const subscriptionsEnabled =
+        process.env.NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED === "true";
+
+
+    if (!subscriptionsEnabled) {
+        return (
+            <>
+                {children}
+            </>
+        );
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * SUBSCRIPTION STATE LOADING
+     * ---------------------------------------------------------
+     *
+     * Do not show an expired popup while the subscription
+     * state is being determined.
+     */
+    if (loading) {
+        return null;
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * ACTIVE / TRIAL
+     * ---------------------------------------------------------
+     *
+     * User has access.
+     */
+    if (active) {
+        return (
+            <>
+                {children}
+            </>
+        );
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * EXPIRED / CANCELLED
+     * ---------------------------------------------------------
+     *
+     * IMPORTANT:
+     *
+     * We no longer assume:
+     *
+     *     active === false
+     *
+     * means:
+     *
+     *     subscription expired
+     *
+     * Instead we rely on SubscriptionContext's explicit
+     * showSubscriptionModal state.
+     */
+    if (showSubscriptionModal) {
+        return (
+            <SubscriptionModal
+                mode="expired"
+            />
+        );
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * UNKNOWN / INITIALIZATION STATE
+     * ---------------------------------------------------------
+     *
+     * Never punish the user with the payment popup when the
+     * subscription state is unknown.
+     *
+     * SubscriptionGuard / SubscriptionContext will handle
+     * the actual state once available.
+     */
+    return (
+        <>
+            {children}
+        </>
+    );
 }
 </file>
 
@@ -15098,284 +15280,6 @@ export async function POST() {
 }
 </file>
 
-<file path="components/home/Header.tsx">
-"use client";
-
-
-import {
-    Sailboat,
-    User,
-    LogOut
-} from "lucide-react";
-
-
-import {
-    signOut
-} from "firebase/auth";
-
-
-import {
-    auth
-} from "@/lib/firebase/firebase";
-
-
-import {
-    useAuth
-} from "@/providers/AuthContext";
-
-import { useState } from "react";
-
-
-
-interface HeaderProps {
-
-    setShowAuth:
-    (show: boolean) => void;
-
-}
-
-
-
-export default function Header({
-
-    setShowAuth
-
-}: HeaderProps) {
-
-
-
-    const { user } = useAuth();
-
-    const [loggingOut, setLoggingOut] = useState(false);
-
-
-    const handleLogout = async () => {
-
-
-        try {
-
-
-            if (user) {
-
-
-                localStorage.removeItem(
-
-                    `navik_profile_${user.uid}`
-
-                );
-
-
-            }
-
-
-
-            await signOut(auth);
-
-
-
-        } catch (error) {
-
-
-            console.error(
-                error
-            );
-
-
-        }
-
-
-    };
-
-
-
-
-    const shortEmail =
-        user?.email
-
-            ? user.email.length > 14
-
-                ? user.email.slice(0, 14) + "..."
-
-                : user.email
-
-            : "";
-
-
-
-
-    return (
-
-
-        <div
-
-            className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm"
-
-        >
-
-
-
-            <div
-
-                className="flex items-center justify-between"
-
-            >
-
-
-                {/* LEFT SIDE */}
-
-                <div
-                    className="
-    flex
-    items-center
-    gap-3
-    min-w-0
-  "
-                >
-                    {/* Sailboat */}
-                    <div
-                        className="
-      w-12
-      h-12
-      flex
-      items-center
-      justify-center
-      rotate-[-8deg]
-      flex-shrink-0
-    "
-                    >
-                        <Sailboat
-                            size={30}
-                            strokeWidth={2}
-                            className="text-black"
-                        />
-                    </div>
-
-                    {/* Brand */}
-                    <div
-                        className="
-      flex
-      flex-col
-      leading-tight
-    "
-                    >
-                        {/* NAVIK + bro */}
-                        <div className="relative inline-block w-fit">
-                            <h1
-                                className="
-          text-2xl
-          font-bold
-          tracking-tight
-          leading-none
-          text-black
-        "
-                            >
-                                NAVIK
-                            </h1>
-
-                            <span
-                                className="
-    absolute
-    left-full
-    ml-1
-    top-0
-    text-[10px]
-    font-bold
-    italic
-    lowercase
-    text-gray-700
-    leading-none
-  "
-                            >
-                                bro
-                            </span>
-                        </div>
-
-                        {/* Tagline */}
-                        <p
-                            className="
-        mt-1
-        text-[10px]
-        text-gray-500
-        leading-none
-      "
-                        >
-                            Sail Towards COC
-                        </p>
-                    </div>
-                </div>
-
-
-
-                {/* RIGHT SIDE */}
-
-
-
-                {user ? (
-                    <div className="flex items-center gap-3 flex-shrink-0">
-
-                        <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
-                            <p className="text-[9px] text-gray-500 leading-none">
-                                Signed in
-                            </p>
-
-                            <p className="text-[11px] font-medium truncate">
-                                {shortEmail}
-                            </p>
-                        </div>
-
-                        <button
-                            onClick={handleLogout}
-                            className="
-                w-10
-                h-9
-                rounded-2xl
-                bg-black
-                text-white
-                flex
-                items-center
-                justify-center
-            "
-                        >
-                            <LogOut size={16} />
-                        </button>
-
-                    </div>
-                ) : (
-                    <button
-                        onClick={() => setShowAuth(true)}
-                        className="
-            bg-black
-            text-white
-            px-4
-            py-2
-            rounded-xl
-            flex
-            items-center
-            gap-1
-            text-sm
-            font-medium
-        "
-                    >
-                        <User size={16} />
-                        Login
-                    </button>
-                )}
-
-
-
-            </div>
-
-
-
-        </div >
-
-
-    );
-
-
-}
-</file>
-
 <file path="components/questions/QuestionCard.tsx">
 "use client";
 
@@ -15932,71 +15836,6 @@ function QuestionCard({
 export default memo(QuestionCard);
 </file>
 
-<file path="components/subscription/SubscriptionGuard.tsx">
-"use client";
-
-import { ReactNode } from "react";
-
-import { useSubscription } from "@/providers/SubscriptionContext";
-
-import SubscriptionModal from "@/components/subscription/SubscriptionModal";
-
-import { subscriptionsEnabled } from "@/lib/subscriptions/subscription";
-
-import { useAuth } from "@/providers/AuthContext";
-
-interface Props {
-    children: ReactNode;
-}
-
-export default function SubscriptionGuard({
-    children,
-}: Props) {
-
-    const {
-        loading,
-        hasAccess,
-        showTrialModal,
-        showSubscriptionModal,
-    } = useSubscription();
-
-    const { role } = useAuth();
-
-    // Development Mode
-    if (!subscriptionsEnabled) {
-        return <>{children}</>;
-    }
-
-    // Admins never use the subscription system
-    if (role === "admin") {
-        return <>{children}</>;
-    }
-
-    if (loading) {
-        return null;
-    }
-
-    return (
-        <>
-            {children}
-
-            {showTrialModal && (
-                <SubscriptionModal
-                    mode="trial"
-                />
-            )}
-
-            {!hasAccess &&
-                showSubscriptionModal && (
-                    <SubscriptionModal
-                        mode="expired"
-                    />
-                )}
-        </>
-    );
-}
-</file>
-
 <file path="components/subscription/SubscriptionModal.tsx">
 "use client";
 
@@ -16202,222 +16041,6 @@ export const SUBSCRIPTION = {
         durationDays: 30,
     },
 } as const;
-</file>
-
-<file path="providers/SubscriptionContext.tsx">
-"use client";
-
-import {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
-
-import { useAuth } from "./AuthContext";
-
-import {
-    isTrialExpired,
-    isSubscriptionExpired,
-} from "@/lib/subscriptions/subscription";
-
-import {
-    getUserSubscription,
-    startTrial,
-} from "@/services/subscription/subscription.service";
-
-import type {
-    UserSubscription,
-} from "@/types/user";
-
-interface SubscriptionContextType {
-    loading: boolean;
-    active: boolean;
-    hasAccess: boolean;
-    showTrialModal: boolean;
-    showSubscriptionModal: boolean;
-
-    closeTrialModal: () => void;
-
-    status:
-    | "inactive"
-    | "trial"
-    | "active"
-    | "expired"
-    | "cancelled";
-
-    subscription: UserSubscription | null;
-}
-
-const SubscriptionContext =
-    createContext<SubscriptionContextType>({
-        loading: true,
-        active: false,
-        hasAccess: false,
-        showTrialModal: false,
-        showSubscriptionModal: false,
-
-        closeTrialModal: () => { },
-
-        status: "inactive",
-        subscription: null,
-    });
-
-export function SubscriptionProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    const { user, role } = useAuth();
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [subscription, setSubscription] =
-        useState<UserSubscription | null>(
-            null
-        );
-
-    const [
-        showTrialModal,
-        setShowTrialModal,
-    ] = useState(false);
-
-    useEffect(() => {
-        async function loadSubscription() {
-
-            setLoading(true);
-            setShowTrialModal(false);
-
-            if (role === "admin") {
-                setSubscription(null);
-                setLoading(false);
-                return;
-            }
-
-            if (!user) {
-                setSubscription(null);
-                setLoading(false);
-                return;
-            }
-
-            let data =
-                await getUserSubscription(
-                    user.uid
-                );
-
-            // First login → automatically start trial
-            if (
-                data &&
-                data.status === "inactive"
-            ) {
-                await startTrial(user.uid);
-
-                data =
-                    await getUserSubscription(
-                        user.uid
-                    );
-            }
-
-            const dismissed =
-                localStorage.getItem(
-                    `trial_seen_${user.uid}`
-                );
-
-            if (
-                data?.status === "trial" &&
-                !isTrialExpired(data) &&
-                !dismissed
-            ) {
-                setShowTrialModal(true);
-            }
-
-            setSubscription(data);
-            setLoading(false);
-        }
-
-        loadSubscription();
-    }, [user, role]);
-
-    const trialExpired =
-        subscription
-            ? isTrialExpired(subscription)
-            : false;
-
-    const subscriptionExpired =
-        subscription
-            ? isSubscriptionExpired(
-                subscription
-            )
-            : false;
-
-    const hasAccess =
-        role === "admin" ||
-        (
-            !!subscription &&
-            (
-                subscription.status === "active" ||
-                subscription.status === "trial"
-            ) &&
-            !trialExpired &&
-            !subscriptionExpired
-        );
-
-    const showSubscriptionModal =
-        role !== "admin" &&
-        !!subscription &&
-        (
-            subscription.status === "expired" ||
-            subscription.status === "cancelled" ||
-            trialExpired ||
-            subscriptionExpired
-        );
-
-    return (
-        <SubscriptionContext.Provider
-            value={{
-                loading,
-
-                active: hasAccess,
-
-                hasAccess,
-
-                showTrialModal,
-
-                showSubscriptionModal,
-
-                closeTrialModal: () => {
-
-                    if (user) {
-
-                        localStorage.setItem(
-                            `trial_seen_${user.uid}`,
-                            "true"
-                        );
-
-                    }
-
-                    setShowTrialModal(false);
-
-                },
-
-                status:
-                    subscription?.status ??
-                    "inactive",
-
-                subscription,
-            }}
-        >
-            {children}
-        </SubscriptionContext.Provider>
-    );
-}
-
-export function useSubscription() {
-    return useContext(
-        SubscriptionContext
-    );
-}
 </file>
 
 <file path="services/writtens/written.service.ts">
@@ -18283,6 +17906,480 @@ export async function getCachedWrittenQuestions(
 }
 </file>
 
+<file path="providers/SubscriptionContext.tsx">
+"use client";
+
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+
+import { useAuth } from "./AuthContext";
+
+import {
+    isTrialExpired,
+    isSubscriptionExpired,
+    subscriptionsEnabled,
+} from "@/lib/subscriptions/subscription";
+
+import {
+    getUserSubscription,
+    startTrial,
+} from "@/services/subscription/subscription.service";
+
+import type {
+    UserSubscription,
+} from "@/types/user";
+
+interface SubscriptionContextType {
+    loading: boolean;
+
+    active: boolean;
+
+    hasAccess: boolean;
+
+    showTrialModal: boolean;
+
+    showSubscriptionModal: boolean;
+
+    closeTrialModal: () => void;
+
+    status:
+    | "inactive"
+    | "trial"
+    | "active"
+    | "expired"
+    | "cancelled";
+
+    subscription: UserSubscription | null;
+}
+
+const SubscriptionContext =
+    createContext<SubscriptionContextType>({
+        loading: true,
+
+        active: false,
+
+        hasAccess: false,
+
+        showTrialModal: false,
+
+        showSubscriptionModal: false,
+
+        closeTrialModal: () => { },
+
+        status: "inactive",
+
+        subscription: null,
+    });
+
+export function SubscriptionProvider({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const {
+        user,
+        loading: authLoading,
+        role,
+    } = useAuth();
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [subscription, setSubscription] =
+        useState<UserSubscription | null>(
+            null
+        );
+
+    const [
+        showTrialModal,
+        setShowTrialModal,
+    ] = useState(false);
+
+
+    useEffect(() => {
+        let mounted = true;
+
+        async function loadSubscription() {
+
+            /*
+             * ---------------------------------------------------------
+             * SUBSCRIPTION SYSTEM OFF
+             * ---------------------------------------------------------
+             *
+             * When the ENV switch is false:
+             *
+             * - No subscription
+             * - No trial
+             * - No Firestore subscription check
+             * - No popup
+             * - NAVIK is completely free
+             */
+            if (!subscriptionsEnabled) {
+
+                if (!mounted) return;
+
+                setSubscription(null);
+                setShowTrialModal(false);
+                setLoading(false);
+
+                return;
+            }
+
+
+            /*
+             * ---------------------------------------------------------
+             * WAIT FOR AUTHENTICATION
+             * ---------------------------------------------------------
+             *
+             * AuthContext now waits until initializeUser() finishes.
+             *
+             * This prevents the original race condition.
+             */
+            if (authLoading) {
+                return;
+            }
+
+
+            /*
+             * ---------------------------------------------------------
+             * ADMIN
+             * ---------------------------------------------------------
+             *
+             * Admins never use the subscription system.
+             */
+            if (role === "admin") {
+
+                if (!mounted) return;
+
+                setSubscription(null);
+                setShowTrialModal(false);
+                setLoading(false);
+
+                return;
+            }
+
+
+            /*
+             * ---------------------------------------------------------
+             * NO USER
+             * ---------------------------------------------------------
+             */
+            if (!user) {
+
+                if (!mounted) return;
+
+                setSubscription(null);
+                setShowTrialModal(false);
+                setLoading(false);
+
+                return;
+            }
+
+
+            /*
+             * ---------------------------------------------------------
+             * START SUBSCRIPTION LOADING
+             * ---------------------------------------------------------
+             */
+            if (mounted) {
+                setLoading(true);
+                setShowTrialModal(false);
+            }
+
+
+            try {
+
+                /*
+                 * -----------------------------------------------------
+                 * GET USER SUBSCRIPTION
+                 * -----------------------------------------------------
+                 *
+                 * AuthContext has already finished initializeUser().
+                 *
+                 * Therefore users/{uid} should already exist.
+                 */
+                let data =
+                    await getUserSubscription(
+                        user.uid
+                    );
+
+
+                /*
+                 * -----------------------------------------------------
+                 * SAFETY CHECK
+                 * -----------------------------------------------------
+                 *
+                 * A missing subscription is NOT an expired subscription.
+                 *
+                 * Do not show the paid subscription popup here.
+                 *
+                 * In the normal flow this should not happen because
+                 * AuthContext initializes the user first.
+                 */
+                if (!data) {
+
+                    if (!mounted) return;
+
+                    setSubscription(null);
+                    setShowTrialModal(false);
+                    setLoading(false);
+
+                    console.warn(
+                        "Subscription not found for initialized user:",
+                        user.uid
+                    );
+
+                    return;
+                }
+
+
+                /*
+                 * -----------------------------------------------------
+                 * NEW USER → START 24-HOUR TRIAL
+                 * -----------------------------------------------------
+                 *
+                 * Only an inactive subscription starts a trial.
+                 *
+                 * Existing trial / active / expired subscriptions
+                 * are NEVER restarted.
+                 */
+                if (
+                    data.status === "inactive"
+                ) {
+
+                    await startTrial(
+                        user.uid
+                    );
+
+                    /*
+                     * Read the newly-created trial subscription.
+                     */
+                    data =
+                        await getUserSubscription(
+                            user.uid
+                        );
+
+                    /*
+                     * If something went wrong, do not invent a
+                     * subscription state.
+                     */
+                    if (!data) {
+
+                        if (!mounted) return;
+
+                        setSubscription(null);
+                        setShowTrialModal(false);
+                        setLoading(false);
+
+                        console.warn(
+                            "Trial was started but subscription could not be reloaded:",
+                            user.uid
+                        );
+
+                        return;
+                    }
+                }
+
+
+                /*
+                 * -----------------------------------------------------
+                 * TRIAL POPUP
+                 * -----------------------------------------------------
+                 *
+                 * Show only:
+                 *
+                 * status === trial
+                 * AND trial has not expired
+                 * AND user has not dismissed it before.
+                 */
+                const dismissed =
+                    localStorage.getItem(
+                        `trial_seen_${user.uid}`
+                    );
+
+
+                if (
+                    data.status === "trial" &&
+                    !isTrialExpired(data) &&
+                    !dismissed
+                ) {
+                    if (mounted) {
+                        setShowTrialModal(true);
+                    }
+                }
+
+
+                /*
+                 * -----------------------------------------------------
+                 * SAVE FINAL SUBSCRIPTION STATE
+                 * -----------------------------------------------------
+                 */
+                if (!mounted) return;
+
+                setSubscription(data);
+                setLoading(false);
+
+            } catch (error) {
+
+                console.error(
+                    "Failed loading subscription:",
+                    error
+                );
+
+                if (!mounted) return;
+
+                /*
+                 * IMPORTANT:
+                 *
+                 * Do not convert a Firestore/network error into
+                 * an "expired subscription".
+                 *
+                 * That would incorrectly show the payment popup.
+                 */
+                setSubscription(null);
+                setShowTrialModal(false);
+                setLoading(false);
+            }
+        }
+
+
+        /*
+         * Run subscription initialization.
+         */
+        loadSubscription();
+
+
+        return () => {
+            mounted = false;
+        };
+
+    }, [
+        user,
+        role,
+        authLoading,
+    ]);
+
+
+    /*
+     * ---------------------------------------------------------
+     * DERIVED SUBSCRIPTION STATE
+     * ---------------------------------------------------------
+     */
+
+    const trialExpired =
+        subscription
+            ? isTrialExpired(
+                subscription
+            )
+            : false;
+
+
+    const subscriptionExpired =
+        subscription
+            ? isSubscriptionExpired(
+                subscription
+            )
+            : false;
+
+
+    /*
+     * ---------------------------------------------------------
+     * ACCESS
+     * ---------------------------------------------------------
+     *
+     * Trial and paid subscriptions both have access.
+     */
+    const hasAccess =
+        role === "admin" ||
+        (
+            !!subscription &&
+            (
+                subscription.status === "active" ||
+                subscription.status === "trial"
+            ) &&
+            !trialExpired &&
+            !subscriptionExpired
+        );
+
+
+    /*
+     * ---------------------------------------------------------
+     * PAYMENT POPUP
+     * ---------------------------------------------------------
+     *
+     * ONLY show it when an actual subscription/trial has expired
+     * or has been cancelled.
+     *
+     * NEVER show it for:
+     *
+     * - null
+     * - loading
+     * - inactive
+     * - temporary initialization states
+     */
+    const showSubscriptionModal =
+        subscriptionsEnabled &&
+        role !== "admin" &&
+        !!subscription &&
+        (
+            subscription.status === "expired" ||
+            subscription.status === "cancelled" ||
+            trialExpired ||
+            subscriptionExpired
+        );
+
+
+    return (
+        <SubscriptionContext.Provider
+            value={{
+                loading,
+
+                active: hasAccess,
+
+                hasAccess,
+
+                showTrialModal,
+
+                showSubscriptionModal,
+
+                closeTrialModal: () => {
+
+                    if (user) {
+
+                        localStorage.setItem(
+                            `trial_seen_${user.uid}`,
+                            "true"
+                        );
+
+                    }
+
+                    setShowTrialModal(false);
+                },
+
+                status:
+                    subscription?.status ??
+                    "inactive",
+
+                subscription,
+            }}
+        >
+            {children}
+        </SubscriptionContext.Provider>
+    );
+}
+
+
+export function useSubscription() {
+    return useContext(
+        SubscriptionContext
+    );
+}
+</file>
+
 <file path="app/(protected)/admin/content/orals/page.tsx">
 "use client";
 
@@ -19897,148 +19994,6 @@ export default function ManageWrittenQuestionsPage() {
 }
 </file>
 
-<file path="lib/cache/home-cache.ts">
-import { unstable_cache } from "next/cache";
-import { Timestamp } from "firebase-admin/firestore";
-import { adminDb } from "@/lib/firebase/firebase-admin";
-
-export const getHomeStats = unstable_cache(
-    async () => {
-
-        // Oral metadata
-        const oralSnapshot = await adminDb
-            .collection("oral_batches_metadata")
-            .doc("counters")
-            .get();
-
-        let oralStats = {};
-
-        if (oralSnapshot.exists) {
-
-            const data = oralSnapshot.data() ?? {};
-
-            oralStats = {
-                fn3: {
-                    questions: data.fn3?.questionCount ?? 0,
-                    topics: data.fn3?.topicCount ?? 0,
-                    updatedAt:
-                        (data.fn3?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                },
-
-                fn4b: {
-                    questions: data.fn4b?.questionCount ?? 0,
-                    topics: data.fn4b?.topicCount ?? 0,
-                    updatedAt:
-                        (data.fn4b?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                },
-
-                fn5: {
-                    questions: data.fn5?.questionCount ?? 0,
-                    topics: data.fn5?.topicCount ?? 0,
-                    updatedAt:
-                        (data.fn5?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                },
-
-                fn6: {
-                    questions: data.fn6?.questionCount ?? 0,
-                    topics: data.fn6?.topicCount ?? 0,
-                    updatedAt:
-                        (data.fn6?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                },
-            };
-        }
-
-        // Written metadata
-        const writtenSnapshot = await adminDb
-            .collection("written_batches_metadata")
-            .doc("counters")
-            .get();
-
-        let writtenStats = {};
-
-        if (writtenSnapshot.exists) {
-
-            const data = writtenSnapshot.data() ?? {};
-
-            writtenStats = Object.fromEntries(
-                Object.entries(data).map(
-                    ([key, value]: any) => [
-                        key,
-                        {
-                            questions: value.questionCount ?? 0,
-                            topics: value.topicCount ?? 0,
-                            batches: value.batchCount ?? 0,
-                            updatedAt:
-                                (value.updatedAt as Timestamp | undefined)?.toDate() ?? null,
-                        },
-                    ]
-                )
-            );
-        }
-
-        return {
-            oralStats,
-            writtenStats,
-        };
-    },
-    ["home-stats"],
-    {
-        revalidate: false,
-        tags: [
-            "oral_batches_metadata",
-            "written_batches_metadata",
-        ],
-    }
-);
-</file>
-
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "@tanstack/react-virtual": "^3.14.9",
-    "dotenv": "^17.4.2",
-    "exceljs": "^4.4.0",
-    "firebase": "^12.15.0",
-    "firebase-admin": "^13.4.0",
-    "framer-motion": "^12.42.2",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "razorpay": "^2.9.8",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.1",
-    "typescript": "^5"
-  }
-}
-</file>
-
 <file path="app/(protected)/orals/[category]/page.tsx">
 import OralCategoryClient from "@/components/orals/OralCategoryClient";
 import SubscriptionGuard from "@/components/subscription/SubscriptionGuard";
@@ -20181,6 +20136,596 @@ export default async function WrittenPage({
 
     </SubscriptionGuard>
   );
+}
+</file>
+
+<file path="components/home/Header.tsx">
+"use client";
+
+import {
+    Sailboat,
+    User,
+    LogOut,
+} from "lucide-react";
+
+import {
+    signOut,
+} from "firebase/auth";
+
+import {
+    auth,
+} from "@/lib/firebase/firebase";
+
+import {
+    useAuth,
+} from "@/providers/AuthContext";
+
+
+interface HeaderProps {
+
+    setShowAuth:
+    (show: boolean) => void;
+
+}
+
+
+export default function Header({
+
+    setShowAuth
+
+}: HeaderProps) {
+
+
+    const {
+        user,
+        loading,
+    } = useAuth();
+
+
+    const handleLogout = async () => {
+
+        try {
+
+            if (user) {
+
+                localStorage.removeItem(
+                    `navik_profile_${user.uid}`
+                );
+
+            }
+
+            await signOut(auth);
+
+        } catch (error) {
+
+            console.error(
+                error
+            );
+
+        }
+
+    };
+
+
+    const shortEmail =
+        user?.email
+
+            ? user.email.length > 14
+
+                ? user.email.slice(0, 14) + "..."
+
+                : user.email
+
+            : "";
+
+
+    return (
+
+        <div
+
+            className="
+                bg-white
+                border
+                border-gray-200
+                rounded-3xl
+                pl-3
+                pr-5
+                py-4
+                md:pl-4
+                md:pr-6
+                md:py-5
+                shadow-sm
+            "
+
+        >
+
+
+            <div
+
+                className="
+                    flex
+                    items-center
+                    justify-between
+                "
+
+            >
+
+
+                {/* =====================================================
+                    LEFT SIDE
+                ====================================================== */}
+
+                <div
+
+                    className="
+                        flex
+                        items-center
+                        gap-3
+                        min-w-0
+                    "
+
+                >
+
+
+                    {/* Sailboat */}
+
+                    <div
+
+                        className="
+                            w-12
+                            h-12
+                            flex
+                            items-center
+                            justify-center
+                            rotate-[-8deg]
+                            flex-shrink-0
+                        "
+
+                    >
+
+                        <Sailboat
+
+                            size={30}
+
+                            strokeWidth={2}
+
+                            className="text-black"
+
+                        />
+
+                    </div>
+
+
+                    {/* Brand */}
+
+                    <div
+
+                        className="
+                            flex
+                            flex-col
+                            leading-tight
+                        "
+
+                    >
+
+
+                        {/* NAVIK + bro */}
+
+                        <div
+
+                            className="
+                                relative
+                                inline-block
+                                w-fit
+                            "
+
+                        >
+
+                            <h1
+
+                                className="
+                                    text-2xl
+                                    font-bold
+                                    tracking-tight
+                                    leading-none
+                                    text-black
+                                "
+
+                            >
+
+                                NAVIK
+
+                            </h1>
+
+
+                            <span
+
+                                className="
+                                    absolute
+                                    left-full
+                                    ml-1
+                                    top-0
+                                    text-[10px]
+                                    font-bold
+                                    italic
+                                    lowercase
+                                    text-gray-700
+                                    leading-none
+                                "
+
+                            >
+
+                                bro
+
+                            </span>
+
+                        </div>
+
+
+                        {/* Tagline */}
+
+                        <p
+
+                            className="
+                                mt-1
+                                text-[10px]
+                                text-gray-500
+                                leading-none
+                            "
+
+                        >
+
+                            Sail Towards COC
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                {/* =====================================================
+                    RIGHT SIDE
+                ====================================================== */}
+
+
+                {loading ? (
+
+                    /*
+                     * =================================================
+                     * AUTHENTICATION LOADING
+                     * =================================================
+                     *
+                     * Firebase is checking whether a user already
+                     * has an authenticated session.
+                     *
+                     * We don't show "Login" during this period.
+                     * This prevents the Login → Email flicker on
+                     * slow connections.
+                     */
+
+                    <div
+
+                        className="
+                            flex
+                            items-center
+                            gap-3
+                            flex-shrink-0
+                        "
+
+                    >
+
+                        {/* Signed-in area skeleton */}
+
+                        <div
+
+                            className="
+                                bg-gray-100
+                                px-2
+                                py-2
+                                rounded-xl
+                                w-[80px]
+                                h-[34px]
+                                animate-pulse
+                            "
+
+                        />
+
+                        {/* Logout button skeleton */}
+
+                        <div
+
+                            className="
+                                w-10
+                                h-9
+                                rounded-2xl
+                                bg-gray-200
+                                animate-pulse
+                            "
+
+                        />
+
+                    </div>
+
+                ) : user ? (
+
+
+                    /* =================================================
+                       LOGGED IN
+                    ================================================== */
+
+                    <div
+
+                        className="
+                            flex
+                            items-center
+                            gap-3
+                            flex-shrink-0
+                        "
+
+                    >
+
+
+                        <div
+
+                            className="
+                                bg-gray-100
+                                px-2
+                                py-2
+                                rounded-xl
+                                w-[80px]
+                            "
+
+                        >
+
+                            <p
+
+                                className="
+                                    text-[9px]
+                                    text-gray-500
+                                    leading-none
+                                "
+
+                            >
+
+                                Signed in
+
+                            </p>
+
+
+                            <p
+
+                                className="
+                                    text-[11px]
+                                    font-medium
+                                    truncate
+                                "
+
+                            >
+
+                                {shortEmail}
+
+                            </p>
+
+                        </div>
+
+
+                        <button
+
+                            onClick={
+                                handleLogout
+                            }
+
+                            className="
+                                w-10
+                                h-9
+                                rounded-2xl
+                                bg-black
+                                text-white
+                                flex
+                                items-center
+                                justify-center
+                            "
+
+                        >
+
+                            <LogOut
+                                size={16}
+                            />
+
+                        </button>
+
+                    </div>
+
+
+                ) : (
+
+
+                    /* =================================================
+                       LOGGED OUT
+                    ================================================== */
+
+                    <button
+
+                        onClick={() =>
+                            setShowAuth(true)
+                        }
+
+                        className="
+                            bg-black
+                            text-white
+                            px-4
+                            py-2
+                            rounded-xl
+                            flex
+                            items-center
+                            gap-1
+                            text-sm
+                            font-medium
+                        "
+
+                    >
+
+                        <User
+                            size={16}
+                        />
+
+                        Login
+
+                    </button>
+
+                )}
+
+
+            </div>
+
+
+        </div>
+
+    );
+
+}
+</file>
+
+<file path="lib/cache/home-cache.ts">
+import { unstable_cache } from "next/cache";
+import { Timestamp } from "firebase-admin/firestore";
+import { adminDb } from "@/lib/firebase/firebase-admin";
+
+export const getHomeStats = unstable_cache(
+    async () => {
+
+        // Oral metadata
+        const oralSnapshot = await adminDb
+            .collection("oral_batches_metadata")
+            .doc("counters")
+            .get();
+
+        let oralStats = {};
+
+        if (oralSnapshot.exists) {
+
+            const data = oralSnapshot.data() ?? {};
+
+            oralStats = {
+                fn3: {
+                    questions: data.fn3?.questionCount ?? 0,
+                    topics: data.fn3?.topicCount ?? 0,
+                    updatedAt:
+                        (data.fn3?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                },
+
+                fn4b: {
+                    questions: data.fn4b?.questionCount ?? 0,
+                    topics: data.fn4b?.topicCount ?? 0,
+                    updatedAt:
+                        (data.fn4b?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                },
+
+                fn5: {
+                    questions: data.fn5?.questionCount ?? 0,
+                    topics: data.fn5?.topicCount ?? 0,
+                    updatedAt:
+                        (data.fn5?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                },
+
+                fn6: {
+                    questions: data.fn6?.questionCount ?? 0,
+                    topics: data.fn6?.topicCount ?? 0,
+                    updatedAt:
+                        (data.fn6?.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                },
+            };
+        }
+
+        // Written metadata
+        const writtenSnapshot = await adminDb
+            .collection("written_batches_metadata")
+            .doc("counters")
+            .get();
+
+        let writtenStats = {};
+
+        if (writtenSnapshot.exists) {
+
+            const data = writtenSnapshot.data() ?? {};
+
+            writtenStats = Object.fromEntries(
+                Object.entries(data).map(
+                    ([key, value]: any) => [
+                        key,
+                        {
+                            questions: value.questionCount ?? 0,
+                            topics: value.topicCount ?? 0,
+                            batches: value.batchCount ?? 0,
+                            updatedAt:
+                                (value.updatedAt as Timestamp | undefined)?.toDate() ?? null,
+                        },
+                    ]
+                )
+            );
+        }
+
+        return {
+            oralStats,
+            writtenStats,
+        };
+    },
+    ["home-stats"],
+    {
+        revalidate: false,
+        tags: [
+            "oral_batches_metadata",
+            "written_batches_metadata",
+        ],
+    }
+);
+</file>
+
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "@tanstack/react-virtual": "^3.14.9",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "firebase-admin": "^13.4.0",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "razorpay": "^2.9.8",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+  }
 }
 </file>
 
@@ -20358,11 +20903,13 @@ import {
     requestNotificationPermission,
 } from "@/lib/firebase/firebaseMessaging";
 
+
 interface AuthContextType {
     user: User | null;
     loading: boolean;
     role: "admin" | "student";
 }
+
 
 const AuthContext =
     createContext<AuthContextType>({
@@ -20370,6 +20917,7 @@ const AuthContext =
         loading: true,
         role: "student",
     });
+
 
 export function AuthProvider({
     children,
@@ -20388,9 +20936,11 @@ export function AuthProvider({
             "student"
         );
 
+
     useEffect(() => {
 
         let mounted = true;
+
 
         /*
          * ---------------------------------------------------------
@@ -20416,10 +20966,12 @@ export function AuthProvider({
                 if (!mounted) return;
 
                 if (result?.user) {
+
                     console.log(
                         "Google redirect sign-in successful:",
                         result.user.uid
                     );
+
                 }
 
             })
@@ -20441,7 +20993,9 @@ export function AuthProvider({
                  * Don't destroy an already authenticated session
                  * because a redirect-result check failed.
                  */
+
             });
+
 
         /*
          * ---------------------------------------------------------
@@ -20455,30 +21009,60 @@ export function AuthProvider({
 
                     if (!mounted) return;
 
+
                     /*
+                     * -------------------------------------------------
                      * USER SIGNED OUT
+                     * -------------------------------------------------
                      */
                     if (!firebaseUser) {
 
                         setUser(null);
+
                         setRole("student");
+
                         setLoading(false);
 
                         return;
                     }
 
+
                     /*
-                     * IMPORTANT:
+                     * -------------------------------------------------
+                     * IMPORTANT FIX
+                     * -------------------------------------------------
                      *
-                     * Firebase has already authenticated the user.
+                     * Firebase has just detected an authenticated
+                     * user.
                      *
-                     * Make the user available to the application
-                     * immediately.
+                     * But the application is NOT ready yet.
+                     *
+                     * We still have to:
+                     *
+                     * 1. Check admin claims
+                     * 2. Initialize users/{uid}
+                     * 3. Check whether the user is blocked
+                     *
+                     * Therefore loading MUST become true here.
+                     *
+                     * This is what prevents:
+                     *
+                     * Google Login
+                     *      ↓
+                     * Home
+                     *      ↓
+                     * Login button for 2-5 seconds
+                     *      ↓
+                     * Email + Logout
+                     *
+                     * Instead Header will remain in its loading
+                     * state until initialization is finished.
                      */
-                    setUser(firebaseUser);
-                    setLoading(false);
+                    setLoading(true);
+
 
                     try {
+
 
                         /*
                          * -------------------------------------------------
@@ -20492,35 +21076,55 @@ export function AuthProvider({
                             await firebaseUser
                                 .getIdTokenResult(true);
 
+
                         if (!mounted) return;
+
 
                         const isAdmin =
                             token.claims.admin === true;
+
 
                         console.log(
                             "ADMIN CHECK:",
                             {
                                 email:
                                     firebaseUser.email,
+
                                 claims:
                                     token.claims,
+
                                 isAdmin,
                             }
                         );
 
+
+                        /*
+                         * Set role before initialization finishes.
+                         *
+                         * This does NOT expose the user yet.
+                         */
                         setRole(
                             isAdmin
                                 ? "admin"
                                 : "student"
                         );
 
+
                         /*
                          * -------------------------------------------------
                          * INITIALIZE FIRESTORE USER
                          * -------------------------------------------------
+                         *
+                         * CRITICAL:
+                         *
+                         * This MUST finish before setUser().
+                         *
+                         * SubscriptionContext therefore cannot run
+                         * against a missing users/{uid} document.
                          */
                         const profile =
                             await initializeUser({
+
                                 uid:
                                     firebaseUser.uid,
 
@@ -20532,9 +21136,12 @@ export function AuthProvider({
 
                                 photoURL:
                                     firebaseUser.photoURL,
+
                             });
 
+
                         if (!mounted) return;
+
 
                         /*
                          * -------------------------------------------------
@@ -20545,50 +21152,87 @@ export function AuthProvider({
 
                             await signOut(auth);
 
+
                             if (!mounted) return;
 
+
                             setUser(null);
+
                             setRole("student");
+
                             setLoading(false);
 
                             return;
                         }
 
+
                         /*
-                         * Keep the authenticated user.
+                         * -------------------------------------------------
+                         * FIRESTORE INITIALIZATION COMPLETE
+                         * -------------------------------------------------
+                         *
+                         * NOW the application is allowed to see
+                         * the authenticated user.
                          */
                         setUser(firebaseUser);
 
+
                     } catch (error) {
 
+
                         /*
-                         * IMPORTANT:
+                         * -------------------------------------------------
+                         * POST-AUTHENTICATION INITIALIZATION FAILURE
+                         * -------------------------------------------------
                          *
-                         * A Firestore/FCM/admin initialization problem
-                         * must NOT turn a successful Google authentication
-                         * into a fake "login failed" state.
+                         * Firebase authentication itself succeeded.
+                         *
+                         * Keep the user authenticated, but only expose
+                         * the user AFTER the initialization attempt has
+                         * completed.
                          */
                         console.error(
                             "Post-authentication initialization failed:",
                             error
                         );
 
+
                         if (!mounted) return;
+
 
                         /*
                          * Firebase authentication itself succeeded,
                          * therefore keep the user authenticated.
+                         *
+                         * SubscriptionContext will still wait until
+                         * AuthContext loading is finished before checking
+                         * the subscription.
                          */
                         setUser(firebaseUser);
+
                         setRole("student");
+
 
                     } finally {
 
+
+                        /*
+                         * -------------------------------------------------
+                         * AUTHENTICATION INITIALIZATION COMPLETE
+                         * -------------------------------------------------
+                         *
+                         * Whether initialization succeeded or failed,
+                         * the AuthContext is now finished with this
+                         * authentication event.
+                         */
                         if (mounted) {
+
                             setLoading(false);
+
                         }
 
                     }
+
 
                     /*
                      * -----------------------------------------------------
@@ -20607,6 +21251,7 @@ export function AuthProvider({
                 }
             );
 
+
         return () => {
 
             mounted = false;
@@ -20617,7 +21262,9 @@ export function AuthProvider({
 
     }, []);
 
+
     return (
+
         <AuthContext.Provider
             value={{
                 user,
@@ -20625,9 +21272,13 @@ export function AuthProvider({
                 role,
             }}
         >
+
             {children}
+
         </AuthContext.Provider>
+
     );
+
 }
 
 
@@ -20647,28 +21298,41 @@ async function setupNotifications(
 
     try {
 
-        if (typeof window === "undefined") {
+
+        if (
+            typeof window === "undefined"
+        ) {
+
             return;
+
         }
+
 
         const fcmToken =
             await requestNotificationPermission();
 
+
         if (!fcmToken) {
+
             return;
+
         }
+
 
         console.log(
             "FCM TOKEN:",
             fcmToken
         );
 
+
         await saveFCMToken(
             uid,
             fcmToken
         );
 
+
     } catch (error) {
+
 
         /*
          * Notification failure is non-critical.
@@ -20687,7 +21351,11 @@ async function setupNotifications(
 
 
 export function useAuth() {
-    return useContext(AuthContext);
+
+    return useContext(
+        AuthContext
+    );
+
 }
 </file>
 
