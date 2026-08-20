@@ -18,8 +18,6 @@ import {
     useAuth,
 } from "@/providers/AuthContext";
 
-import { useState } from "react";
-
 
 interface HeaderProps {
 
@@ -41,15 +39,10 @@ export default function Header({
         loading,
     } = useAuth();
 
-    const [loggingOut, setLoggingOut] =
-        useState(false);
-
 
     const handleLogout = async () => {
 
         try {
-
-            setLoggingOut(true);
 
             if (user) {
 
@@ -66,8 +59,6 @@ export default function Header({
             console.error(
                 error
             );
-
-            setLoggingOut(false);
 
         }
 
@@ -90,47 +81,74 @@ export default function Header({
 
         <div
 
-            className="bg-white border border-gray-200 rounded-3xl pl-3 pr-5 py-4 md:pl-4 md:pr-6 md:py-5 shadow-sm"
+            className="
+                bg-white
+                border
+                border-gray-200
+                rounded-3xl
+                pl-3
+                pr-5
+                py-4
+                md:pl-4
+                md:pr-6
+                md:py-5
+                shadow-sm
+            "
 
         >
 
 
             <div
 
-                className="flex items-center justify-between"
+                className="
+                    flex
+                    items-center
+                    justify-between
+                "
 
             >
 
 
-                {/* LEFT SIDE */}
+                {/* =====================================================
+                    LEFT SIDE
+                ====================================================== */}
 
                 <div
+
                     className="
-    flex
-    items-center
-    gap-3
-    min-w-0
-  "
+                        flex
+                        items-center
+                        gap-3
+                        min-w-0
+                    "
+
                 >
+
 
                     {/* Sailboat */}
 
                     <div
+
                         className="
-      w-12
-      h-12
-      flex
-      items-center
-      justify-center
-      rotate-[-8deg]
-      flex-shrink-0
-    "
+                            w-12
+                            h-12
+                            flex
+                            items-center
+                            justify-center
+                            rotate-[-8deg]
+                            flex-shrink-0
+                        "
+
                     >
 
                         <Sailboat
+
                             size={30}
+
                             strokeWidth={2}
+
                             className="text-black"
+
                         />
 
                     </div>
@@ -139,25 +157,38 @@ export default function Header({
                     {/* Brand */}
 
                     <div
+
                         className="
-      flex
-      flex-col
-      leading-tight
-    "
+                            flex
+                            flex-col
+                            leading-tight
+                        "
+
                     >
+
 
                         {/* NAVIK + bro */}
 
-                        <div className="relative inline-block w-fit">
+                        <div
+
+                            className="
+                                relative
+                                inline-block
+                                w-fit
+                            "
+
+                        >
 
                             <h1
+
                                 className="
-          text-2xl
-          font-bold
-          tracking-tight
-          leading-none
-          text-black
-        "
+                                    text-2xl
+                                    font-bold
+                                    tracking-tight
+                                    leading-none
+                                    text-black
+                                "
+
                             >
 
                                 NAVIK
@@ -166,18 +197,20 @@ export default function Header({
 
 
                             <span
+
                                 className="
-    absolute
-    left-full
-    ml-1
-    top-0
-    text-[10px]
-    font-bold
-    italic
-    lowercase
-    text-gray-700
-    leading-none
-  "
+                                    absolute
+                                    left-full
+                                    ml-1
+                                    top-0
+                                    text-[10px]
+                                    font-bold
+                                    italic
+                                    lowercase
+                                    text-gray-700
+                                    leading-none
+                                "
+
                             >
 
                                 bro
@@ -190,12 +223,14 @@ export default function Header({
                         {/* Tagline */}
 
                         <p
+
                             className="
-        mt-1
-        text-[10px]
-        text-gray-500
-        leading-none
-      "
+                                mt-1
+                                text-[10px]
+                                text-gray-500
+                                leading-none
+                            "
+
                         >
 
                             Sail Towards COC
@@ -207,33 +242,41 @@ export default function Header({
                 </div>
 
 
-                {/* RIGHT SIDE */}
+                {/* =====================================================
+                    RIGHT SIDE
+                ====================================================== */}
 
 
                 {loading ? (
 
                     /*
-                     * -------------------------------------------------
+                     * =================================================
                      * AUTHENTICATION LOADING
-                     * -------------------------------------------------
+                     * =================================================
                      *
-                     * Firebase is checking whether a previous login
-                     * session exists.
+                     * Firebase is checking whether a user already
+                     * has an authenticated session.
                      *
-                     * We deliberately don't show "Login" yet because
-                     * that causes the Login → Email UI flicker.
+                     * We don't show "Login" during this period.
+                     * This prevents the Login → Email flicker on
+                     * slow connections.
                      */
 
                     <div
+
                         className="
                             flex
                             items-center
                             gap-3
                             flex-shrink-0
                         "
+
                     >
 
+                        {/* Signed-in area skeleton */}
+
                         <div
+
                             className="
                                 bg-gray-100
                                 px-2
@@ -243,11 +286,13 @@ export default function Header({
                                 h-[34px]
                                 animate-pulse
                             "
-                        >
-                        </div>
 
+                        />
+
+                        {/* Logout button skeleton */}
 
                         <div
+
                             className="
                                 w-10
                                 h-9
@@ -255,24 +300,66 @@ export default function Header({
                                 bg-gray-200
                                 animate-pulse
                             "
-                        >
-                        </div>
+
+                        />
 
                     </div>
 
                 ) : user ? (
 
-                    <div className="flex items-center gap-3 flex-shrink-0">
 
-                        <div className="bg-gray-100 px-2 py-2 rounded-xl w-[80px]">
+                    /* =================================================
+                       LOGGED IN
+                    ================================================== */
 
-                            <p className="text-[9px] text-gray-500 leading-none">
+                    <div
+
+                        className="
+                            flex
+                            items-center
+                            gap-3
+                            flex-shrink-0
+                        "
+
+                    >
+
+
+                        <div
+
+                            className="
+                                bg-gray-100
+                                px-2
+                                py-2
+                                rounded-xl
+                                w-[80px]
+                            "
+
+                        >
+
+                            <p
+
+                                className="
+                                    text-[9px]
+                                    text-gray-500
+                                    leading-none
+                                "
+
+                            >
 
                                 Signed in
 
                             </p>
 
-                            <p className="text-[11px] font-medium truncate">
+
+                            <p
+
+                                className="
+                                    text-[11px]
+                                    font-medium
+                                    truncate
+                                "
+
+                            >
 
                                 {shortEmail}
 
@@ -282,63 +369,64 @@ export default function Header({
 
 
                         <button
-                            onClick={handleLogout}
-                            disabled={loggingOut}
+
+                            onClick={
+                                handleLogout
+                            }
+
                             className="
-                w-10
-                h-9
-                rounded-2xl
-                bg-black
-                text-white
-                flex
-                items-center
-                justify-center
-            "
+                                w-10
+                                h-9
+                                rounded-2xl
+                                bg-black
+                                text-white
+                                flex
+                                items-center
+                                justify-center
+                            "
+
                         >
 
-                            {loggingOut ? (
-
-                                <span
-                                    className="
-                                        w-4
-                                        h-4
-                                        border-2
-                                        border-white
-                                        border-t-transparent
-                                        rounded-full
-                                        animate-spin
-                                    "
-                                />
-
-                            ) : (
-
-                                <LogOut size={16} />
-
-                            )}
+                            <LogOut
+                                size={16}
+                            />
 
                         </button>
 
                     </div>
 
+
                 ) : (
 
+
+                    /* =================================================
+                       LOGGED OUT
+                    ================================================== */
+
                     <button
-                        onClick={() => setShowAuth(true)}
+
+                        onClick={() =>
+                            setShowAuth(true)
+                        }
+
                         className="
-            bg-black
-            text-white
-            px-4
-            py-2
-            rounded-xl
-            flex
-            items-center
-            gap-1
-            text-sm
-            font-medium
-        "
+                            bg-black
+                            text-white
+                            px-4
+                            py-2
+                            rounded-xl
+                            flex
+                            items-center
+                            gap-1
+                            text-sm
+                            font-medium
+                        "
+
                     >
 
-                        <User size={16} />
+                        <User
+                            size={16}
+                        />
 
                         Login
 
