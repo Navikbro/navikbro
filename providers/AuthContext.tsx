@@ -25,11 +25,13 @@ import {
     requestNotificationPermission,
 } from "@/lib/firebase/firebaseMessaging";
 
+
 interface AuthContextType {
     user: User | null;
     loading: boolean;
     role: "admin" | "student";
 }
+
 
 const AuthContext =
     createContext<AuthContextType>({
@@ -38,11 +40,13 @@ const AuthContext =
         role: "student",
     });
 
+
 export function AuthProvider({
     children,
 }: {
     children: React.ReactNode;
 }) {
+
     const [user, setUser] =
         useState<User | null>(null);
 
@@ -54,8 +58,11 @@ export function AuthProvider({
             "student"
         );
 
+
     useEffect(() => {
+
         let mounted = true;
+
 
         /*
          * ---------------------------------------------------------
@@ -77,16 +84,21 @@ export function AuthProvider({
          */
         getRedirectResult(auth)
             .then((result) => {
+
                 if (!mounted) return;
 
                 if (result?.user) {
+
                     console.log(
                         "Google redirect sign-in successful:",
                         result.user.uid
                     );
+
                 }
+
             })
             .catch((error: any) => {
+
                 console.error(
                     "Google redirect sign-in failed:",
                     {
@@ -103,7 +115,9 @@ export function AuthProvider({
                  * Don't destroy an already authenticated session
                  * because a redirect-result check failed.
                  */
+
             });
+
 
         /*
          * ---------------------------------------------------------
@@ -114,7 +128,9 @@ export function AuthProvider({
             onAuthStateChanged(
                 auth,
                 async (firebaseUser) => {
+
                     if (!mounted) return;
+
 
                     /*
                      * -------------------------------------------------
@@ -122,30 +138,54 @@ export function AuthProvider({
                      * -------------------------------------------------
                      */
                     if (!firebaseUser) {
+
                         setUser(null);
+
                         setRole("student");
+
                         setLoading(false);
 
                         return;
                     }
 
+
                     /*
                      * -------------------------------------------------
-                     * IMPORTANT SUBSCRIPTION FIX
+                     * IMPORTANT FIX
                      * -------------------------------------------------
                      *
-                     * DO NOT expose the Firebase user to the rest
-                     * of the application yet.
+                     * Firebase has just detected an authenticated
+                     * user.
                      *
-                     * We first make sure users/{uid} exists and is
-                     * fully initialized.
+                     * But the application is NOT ready yet.
                      *
-                     * This prevents SubscriptionContext from asking
-                     * Firestore for the subscription before
-                     * initializeUser() has created it.
+                     * We still have to:
+                     *
+                     * 1. Check admin claims
+                     * 2. Initialize users/{uid}
+                     * 3. Check whether the user is blocked
+                     *
+                     * Therefore loading MUST become true here.
+                     *
+                     * This is what prevents:
+                     *
+                     * Google Login
+                     *      ↓
+                     * Home
+                     *      ↓
+                     * Login button for 2-5 seconds
+                     *      ↓
+                     * Email + Logout
+                     *
+                     * Instead Header will remain in its loading
+                     * state until initialization is finished.
                      */
+                    setLoading(true);
+
 
                     try {
+
+
                         /*
                          * -------------------------------------------------
                          * ADMIN CLAIM
@@ -158,21 +198,27 @@ export function AuthProvider({
                             await firebaseUser
                                 .getIdTokenResult(true);
 
+
                         if (!mounted) return;
+
 
                         const isAdmin =
                             token.claims.admin === true;
+
 
                         console.log(
                             "ADMIN CHECK:",
                             {
                                 email:
                                     firebaseUser.email,
+
                                 claims:
                                     token.claims,
+
                                 isAdmin,
                             }
                         );
+
 
                         /*
                          * Set role before initialization finishes.
@@ -184,6 +230,7 @@ export function AuthProvider({
                                 ? "admin"
                                 : "student"
                         );
+
 
                         /*
                          * -------------------------------------------------
@@ -199,6 +246,7 @@ export function AuthProvider({
                          */
                         const profile =
                             await initializeUser({
+
                                 uid:
                                     firebaseUser.uid,
 
@@ -210,9 +258,12 @@ export function AuthProvider({
 
                                 photoURL:
                                     firebaseUser.photoURL,
+
                             });
 
+
                         if (!mounted) return;
+
 
                         /*
                          * -------------------------------------------------
@@ -220,36 +271,37 @@ export function AuthProvider({
                          * -------------------------------------------------
                          */
                         if (profile.isBlocked) {
+
                             await signOut(auth);
+
 
                             if (!mounted) return;
 
+
                             setUser(null);
+
                             setRole("student");
+
                             setLoading(false);
 
                             return;
                         }
 
+
                         /*
                          * -------------------------------------------------
-                         * IMPORTANT
+                         * FIRESTORE INITIALIZATION COMPLETE
                          * -------------------------------------------------
-                         *
-                         * Firestore initialization has completed.
                          *
                          * NOW the application is allowed to see
                          * the authenticated user.
                          */
                         setUser(firebaseUser);
 
-                        /*
-                         * Authentication + user initialization are now
-                         * completely ready.
-                         */
-                        setLoading(false);
 
                     } catch (error) {
+
+
                         /*
                          * -------------------------------------------------
                          * POST-AUTHENTICATION INITIALIZATION FAILURE
@@ -266,7 +318,9 @@ export function AuthProvider({
                             error
                         );
 
+
                         if (!mounted) return;
+
 
                         /*
                          * Firebase authentication itself succeeded,
@@ -277,9 +331,30 @@ export function AuthProvider({
                          * the subscription.
                          */
                         setUser(firebaseUser);
+
                         setRole("student");
-                        setLoading(false);
+
+
+                    } finally {
+
+
+                        /*
+                         * -------------------------------------------------
+                         * AUTHENTICATION INITIALIZATION COMPLETE
+                         * -------------------------------------------------
+                         *
+                         * Whether initialization succeeded or failed,
+                         * the AuthContext is now finished with this
+                         * authentication event.
+                         */
+                        if (mounted) {
+
+                            setLoading(false);
+
+                        }
+
                     }
+
 
                     /*
                      * -----------------------------------------------------
@@ -294,16 +369,24 @@ export function AuthProvider({
                     void setupNotifications(
                         firebaseUser.uid
                     );
+
                 }
             );
 
+
         return () => {
+
             mounted = false;
+
             unsubscribe();
+
         };
+
     }, []);
 
+
     return (
+
         <AuthContext.Provider
             value={{
                 user,
@@ -311,9 +394,13 @@ export function AuthProvider({
                 role,
             }}
         >
+
             {children}
+
         </AuthContext.Provider>
+
     );
+
 }
 
 
@@ -330,29 +417,45 @@ export function AuthProvider({
 async function setupNotifications(
     uid: string
 ) {
+
     try {
-        if (typeof window === "undefined") {
+
+
+        if (
+            typeof window === "undefined"
+        ) {
+
             return;
+
         }
+
 
         const fcmToken =
             await requestNotificationPermission();
 
+
         if (!fcmToken) {
+
             return;
+
         }
+
 
         console.log(
             "FCM TOKEN:",
             fcmToken
         );
 
+
         await saveFCMToken(
             uid,
             fcmToken
         );
 
+
     } catch (error) {
+
+
         /*
          * Notification failure is non-critical.
          *
@@ -363,10 +466,16 @@ async function setupNotifications(
             "FCM setup skipped:",
             error
         );
+
     }
+
 }
 
 
 export function useAuth() {
-    return useContext(AuthContext);
+
+    return useContext(
+        AuthContext
+    );
+
 }
