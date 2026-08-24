@@ -1,12 +1,4 @@
-import {
-    collection,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase/firebase";
-import { adminMessaging } from "@/lib/firebase/firebase-admin";
+import { adminDb, adminMessaging } from "@/lib/firebase/firebase-admin";
 
 interface SendNotificationParams {
     title: string;
@@ -20,18 +12,14 @@ export async function sendNotification({
     batch,
 }: SendNotificationParams) {
 
-    let usersQuery;
+    const usersQuery =
+        batch === "all"
+            ? adminDb.collection("users")
+            : adminDb
+                .collection("users")
+                .where("batch", "==", batch);
 
-    if (batch === "all") {
-        usersQuery = collection(db, "users");
-    } else {
-        usersQuery = query(
-            collection(db, "users"),
-            where("batch", "==", batch)
-        );
-    }
-
-    const snapshot = await getDocs(usersQuery);
+    const snapshot = await usersQuery.get();
 
     const tokens: string[] = [];
 

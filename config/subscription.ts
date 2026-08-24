@@ -2,7 +2,7 @@ export const SUBSCRIPTION = {
     MONTHLY: {
         id: "monthly",
         name: "Monthly",
-        amount: 1,
+        amount: 149,
         currency: "INR",
         durationDays: 30,
     },
