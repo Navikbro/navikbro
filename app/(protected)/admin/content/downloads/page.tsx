@@ -205,7 +205,7 @@ export default function DownloadsPage() {
                     Download Questions
                 </h1>
 
-                <p className="mt-2 text-gray-500">
+                <p className="mt-2 text-gray-400">
                     Download the latest question banks.
                 </p>
 
