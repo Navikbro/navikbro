@@ -12,6 +12,8 @@ import {
     generateWrittenTopics,
 } from "@/services/writtens/written.service";
 
+import { adminFetch } from "@/lib/authentication/adminFetch";
+
 import {
     getAllOralBatchQuestions,
     deleteOralBatchQuestion,
@@ -356,23 +358,27 @@ export default function ManageWrittenQuestionsPage() {
     async function refreshOralCache() {
         if (type !== "oral") return;
 
-        const res = await fetch("/api/revalidate/oral", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                categories: [category],
-            }),
-        });
+        const res =
+            await adminFetch(
+                "/api/revalidate/written",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+                    body:
+                        JSON.stringify({
+                            category
+                        }),
+                }
+            );
 
         if (!res.ok) {
             throw new Error("Oral cache revalidation failed");
         }
     }
 
-
-    console.log("Topics:", topics);
 
     async function handleRefreshCache() {
         try {

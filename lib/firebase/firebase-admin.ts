@@ -19,9 +19,6 @@ import {
 } from "firebase-admin/messaging";
 
 
-console.log("🔥 FIREBASE ADMIN FILE LOADED");
-
-
 const adminApp =
     getApps().length === 0
         ? initializeApp({

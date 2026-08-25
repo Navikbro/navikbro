@@ -206,20 +206,6 @@ export function AuthProvider({
                             token.claims.admin === true;
 
 
-                        console.log(
-                            "ADMIN CHECK:",
-                            {
-                                email:
-                                    firebaseUser.email,
-
-                                claims:
-                                    token.claims,
-
-                                isAdmin,
-                            }
-                        );
-
-
                         /*
                          * Set role before initialization finishes.
                          *
@@ -439,12 +425,6 @@ async function setupNotifications(
             return;
 
         }
-
-
-        console.log(
-            "FCM TOKEN:",
-            fcmToken
-        );
 
 
         await saveFCMToken(

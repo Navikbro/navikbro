@@ -441,7 +441,6 @@ export async function getWrittenTopics(
     category: string
 ): Promise<string[]> {
 
-    console.log("Category:", category);
 
     const ref = doc(
         db,
@@ -451,14 +450,9 @@ export async function getWrittenTopics(
 
     const snapshot = await getDoc(ref);
 
-    console.log("Exists:", snapshot.exists());
-
     if (!snapshot.exists()) {
         return [];
     }
-
-    console.log("Document:", snapshot.data());
-    console.log("Keys:", Object.keys(snapshot.data()));
 
     return snapshot.data().topics ?? [];
 }

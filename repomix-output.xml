@@ -102,6 +102,9 @@ app/
         route.ts
     revalidate-oral-topics/
       route.ts
+    user/
+      initialize/
+        route.ts
     user-preference/
       oral-mmd/
         route.ts
@@ -239,123 +242,6 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
-
-<file path="app/globals.css">
-@import "tailwindcss";
-
-@plugin "@tailwindcss/typography";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* ------------------------------
-   GLOBAL MOBILE COMPACT SCALE
------------------------------- */
-
-html {
-  font-size: 16px;
-}
-
-@media (max-width: 640px) {
-  html {
-    font-size: 14px;
-  }
-}
-
-@media (max-width: 380px) {
-  html {
-    font-size: 13px;
-  }
-}
-
-/* ------------------------------
-   LOADING SCREEN ANIMATIONS
------------------------------- */
-
-/* Wave 1 */
-
-@keyframes wave1 {
-  0%, 100% {
-    transform: translateX(-20px);
-  }
-
-  50% {
-    transform: translateX(20px);
-  }
-}
-
-.animate-wave1 {
-  animation: wave1 5s ease-in-out infinite;
-}
-
-/* Wave 2 */
-
-@keyframes wave2 {
-  0%, 100% {
-    transform: translateX(20px);
-  }
-
-  50% {
-    transform: translateX(-20px);
-  }
-}
-
-.animate-wave2 {
-  animation: wave2 4s ease-in-out infinite;
-}
-
-/* Ship floating */
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-8px);
-  }
-}
-
-.animate-float {
-  animation: float 5s ease-in-out infinite;
-}
-
-/* Ship rocking */
-
-@keyframes ship {
-  0% {
-    transform: rotate(-5deg);
-  }
-
-  50% {
-    transform: rotate(3deg);
-  }
-
-  100% {
-    transform: rotate(-5deg);
-  }
-}
-
-.animate-ship {
-  animation: ship 9s ease-in-out infinite;
-  transform-origin: center;
-}
-</file>
 
 <file path="app/loading.tsx">
 export default function Loading() {
@@ -722,6 +608,79 @@ export interface Question {
 }
 </file>
 
+<file path="types/user.ts">
+import { Timestamp } from "firebase/firestore";
+
+export type UserRole = "student" | "admin";
+
+export type SubscriptionPlan =
+    | "free"
+    | "trial"
+    | "monthly"
+    | "quarterly"
+    | "yearly"
+    | "lifetime";
+
+export type SubscriptionStatus =
+    | "inactive"
+    | "trial"
+    | "active"
+    | "expired"
+    | "cancelled";
+
+export interface UserSubscription {
+    plan: SubscriptionPlan;
+
+    status: SubscriptionStatus;
+
+    startDate: Timestamp | null;
+
+    endDate: Timestamp | null;
+
+    paymentId: string | null;
+
+    autoRenew: boolean;
+
+    trialStartDate: Timestamp | null;
+
+    trialEndDate: Timestamp | null;
+
+    amount: number | null;
+
+    lockedPrice: number | null;
+
+    currency?: string;
+}
+
+export interface UserStats {
+    loginCount: number;
+
+    lastLogin: Timestamp | null;
+}
+
+export interface AppUser {
+    uid: string;
+
+    name: string;
+
+    email: string;
+
+    photoURL: string | null;
+
+    role: UserRole;
+
+    createdAt: Timestamp;
+
+    updatedAt: Timestamp;
+
+    isBlocked: boolean;
+
+    subscription: UserSubscription;
+
+    stats: UserStats;
+}
+</file>
+
 <file path=".gitignore">
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
@@ -884,240 +843,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
     "**/*.mts"
   ],
   "exclude": ["node_modules"]
-}
-</file>
-
-<file path="app/(protected)/admin/content/downloads/page.tsx">
-"use client";
-import { useEffect, useState } from "react";
-import {
-    getAllOralQuestionCounts,
-    getOralQuestionsForExport,
-} from "@/services/orals/oralBatch.service";
-
-import {
-    getAllWrittenQuestionCounts,
-    getWrittenQuestionsForExport,
-} from "@/services/writtens/written.service";
-
-import ExcelJS from "exceljs";
-
-import QuestionTable from "@/components/questions/QuestionTable";
-
-const ORAL_CATEGORIES = [
-    "FN3",
-    "FN4B",
-    "FN5",
-    "FN6",
-];
-
-const WRITTEN_CATEGORIES = [
-    "GENERAL",
-    "MOTOR",
-    "MEP",
-    "SSEP",
-    "NAVAL",
-    "MET",
-];
-
-export default function DownloadsPage() {
-
-    const [oralCounts, setOralCounts] = useState<Record<string, number>>({});
-    const [writtenCounts, setWrittenCounts] = useState<Record<string, number>>({});
-
-    useEffect(() => {
-
-        async function loadCounts() {
-
-            const oral =
-                await getAllOralQuestionCounts();
-
-            const written =
-                await getAllWrittenQuestionCounts();
-
-            setOralCounts(oral);
-            setWrittenCounts(written);
-
-        }
-
-        loadCounts();
-
-    }, []);
-
-
-    async function downloadExcel(
-        template: string,
-        fileName: string,
-        rows: any[],
-        rowMapper: (row: any) => any[]
-    ) {
-
-        const response = await fetch(template);
-
-        const buffer =
-            await response.arrayBuffer();
-
-        const workbook =
-            new ExcelJS.Workbook();
-
-        await workbook.xlsx.load(buffer);
-
-        const worksheet =
-            workbook.worksheets[0];
-
-        // Keep only header + template row
-        if (worksheet.rowCount > 2) {
-            worksheet.spliceRows(3, worksheet.rowCount - 2);
-        }
-
-        // Duplicate the template row for the remaining records
-        if (rows.length > 1) {
-            worksheet.duplicateRow(2, rows.length - 1, true);
-        }
-
-        // Fill the rows
-        rows.forEach((row, index) => {
-            const excelRow = worksheet.getRow(index + 2);
-            excelRow.values = rowMapper(row);
-            excelRow.eachCell((cell) => {
-
-                cell.alignment = {
-                    ...cell.alignment,
-                    wrapText: true,
-                    vertical: "top",
-                };
-
-            });
-
-            const values = rowMapper(row);
-
-            const longestText = Math.max(
-                ...values.map((value) =>
-                    String(value ?? "").split(/\r?\n/).length
-                )
-            );
-
-            // Minimum height = 20
-            // Add ~15 points for each line
-            excelRow.height = Math.max(
-                20,
-                longestText * 15
-            );
-
-        });
-
-        // If there are no rows, remove the template row
-        if (rows.length === 0) {
-            worksheet.spliceRows(2, 1);
-        }
-
-        const output =
-            await workbook.xlsx.writeBuffer();
-
-        const blob = new Blob(
-            [output],
-            {
-                type:
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            }
-        );
-
-        const url =
-            URL.createObjectURL(blob);
-
-        const link =
-            document.createElement("a");
-
-        link.href = url;
-
-        link.download = fileName;
-
-        link.click();
-
-        URL.revokeObjectURL(url);
-
-    }
-
-    async function downloadOralExcel(
-        category: string
-    ) {
-
-        const rows =
-            await getOralQuestionsForExport(category);
-
-        await downloadExcel(
-            "/templates/oral-template.xlsx",
-            `${category}.xlsx`,
-            rows,
-            (row) => [
-                row.Category,
-                row.Class,
-                row.Date,
-                row.MMD,
-                row.Surveyor,
-                row.Topic,
-                row.Question,
-                row.Answer,
-            ]
-        );
-
-    }
-
-    async function downloadWrittenExcel(
-        category: string
-    ) {
-
-        const rows =
-            await getWrittenQuestionsForExport(category);
-
-        await downloadExcel(
-            "/templates/written-template.xlsx",
-            `${category}.xlsx`,
-            rows,
-            (row) => [
-                row.class,
-                row.category,
-                row.topic,
-                row.year,
-                row.month,
-                row.question,
-                row.answer,
-            ]
-        );
-
-    }
-
-    return (
-        <main className="min-h-screen bg-[#f5f5f5]">
-            <div className="mx-auto max-w-6xl px-6 py-10">
-
-                <h1 className="text-3xl font-bold">
-                    Download Questions
-                </h1>
-
-                <p className="mt-2 text-gray-500">
-                    Download the latest question banks.
-                </p>
-
-                <QuestionTable
-                    title="Oral Questions"
-                    categories={ORAL_CATEGORIES}
-                    counts={oralCounts}
-                    buttonColor="bg-black"
-                    onDownload={downloadOralExcel}
-                />
-
-                <QuestionTable
-                    title="Written Questions"
-                    categories={WRITTEN_CATEGORIES}
-                    counts={writtenCounts}
-                    buttonColor="bg-yellow-600"
-                    onDownload={downloadWrittenExcel}
-                />
-
-            </div>
-        </main>
-    );
 }
 </file>
 
@@ -5179,6 +4904,244 @@ export async function POST(
 }
 </file>
 
+<file path="app/api/user/initialize/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
+
+import {
+    adminAuth,
+    adminDb,
+} from "@/lib/firebase/firebase-admin";
+
+
+// =========================================================
+// POST /api/user/initialize
+// =========================================================
+
+export async function POST(
+    request: NextRequest
+) {
+    try {
+
+        // -----------------------------------------------------
+        // AUTHENTICATE USER
+        // -----------------------------------------------------
+
+        const authorization =
+            request.headers.get("authorization");
+
+        if (
+            !authorization ||
+            !authorization.startsWith("Bearer ")
+        ) {
+            return NextResponse.json(
+                {
+                    error: "Unauthorized",
+                },
+                {
+                    status: 401,
+                }
+            );
+        }
+
+        const idToken =
+            authorization.substring(7);
+
+        const decodedToken =
+            await adminAuth.verifyIdToken(idToken);
+
+        const uid =
+            decodedToken.uid;
+
+
+        // -----------------------------------------------------
+        // READ SAFE USER INFORMATION
+        // -----------------------------------------------------
+
+        const body =
+            await request.json().catch(
+                () => ({})
+            );
+
+        const displayName =
+            typeof body.displayName === "string"
+                ? body.displayName.trim()
+                : "";
+
+        const email =
+            typeof body.email === "string"
+                ? body.email.trim()
+                : "";
+
+        const photoURL =
+            typeof body.photoURL === "string"
+                ? body.photoURL.trim()
+                : null;
+
+
+        // -----------------------------------------------------
+        // USER DOCUMENT
+        // -----------------------------------------------------
+
+        const userRef =
+            adminDb
+                .collection("users")
+                .doc(uid);
+
+        const snapshot =
+            await userRef.get();
+
+
+        // =====================================================
+        // EXISTING USER
+        // =====================================================
+
+        if (snapshot.exists) {
+
+            const existingData =
+                snapshot.data() ?? {};
+
+            const existingStats =
+                existingData.stats ?? {};
+
+            await userRef.update({
+
+                updatedAt:
+                    FieldValue.serverTimestamp(),
+
+                "stats.loginCount":
+                    Number(
+                        existingStats.loginCount ?? 0
+                    ) + 1,
+
+                "stats.lastLogin":
+                    FieldValue.serverTimestamp(),
+
+            });
+
+
+            const updatedSnapshot =
+                await userRef.get();
+
+            return NextResponse.json({
+                success: true,
+                created: false,
+                profile:
+                    updatedSnapshot.data(),
+            });
+        }
+
+
+        // =====================================================
+        // NEW USER
+        // =====================================================
+
+        const newUser = {
+
+            uid,
+
+            name:
+                displayName ||
+                "Anonymous",
+
+            email,
+
+            photoURL,
+
+            role:
+                "student",
+
+            createdAt:
+                FieldValue.serverTimestamp(),
+
+            updatedAt:
+                FieldValue.serverTimestamp(),
+
+            isBlocked:
+                false,
+
+            subscription: {
+
+                plan:
+                    "free",
+
+                status:
+                    "inactive",
+
+                trialStartDate:
+                    null,
+
+                trialEndDate:
+                    null,
+
+                startDate:
+                    null,
+
+                endDate:
+                    null,
+
+                paymentId:
+                    null,
+
+                autoRenew:
+                    false,
+
+                amount:
+                    149,
+
+                lockedPrice:
+                    149,
+
+                currency:
+                    "INR",
+
+            },
+
+            stats: {
+
+                loginCount:
+                    1,
+
+                lastLogin:
+                    FieldValue.serverTimestamp(),
+
+            },
+
+        };
+
+
+        await userRef.set(newUser);
+
+
+        return NextResponse.json({
+            success: true,
+            created: true,
+            profile: newUser,
+        });
+
+    } catch (error) {
+
+        console.error(
+            "USER INITIALIZATION ERROR:",
+            error
+        );
+
+        return NextResponse.json(
+            {
+                success: false,
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : "User initialization failed",
+            },
+            {
+                status: 500,
+            }
+        );
+    }
+}
+</file>
+
 <file path="app/api/user-preference/oral-mmd/route.ts">
 import { NextResponse } from "next/server";
 
@@ -5287,6 +5250,123 @@ export async function POST(req: Request){
 
     }
 
+}
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+
+@plugin "@tailwindcss/typography";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ------------------------------
+   GLOBAL MOBILE COMPACT SCALE
+------------------------------ */
+
+html {
+  font-size: 16px;
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  html {
+    font-size: 13px;
+  }
+}
+
+/* ------------------------------
+   LOADING SCREEN ANIMATIONS
+------------------------------ */
+
+/* Wave 1 */
+
+@keyframes wave1 {
+  0%, 100% {
+    transform: translateX(-20px);
+  }
+
+  50% {
+    transform: translateX(20px);
+  }
+}
+
+.animate-wave1 {
+  animation: wave1 5s ease-in-out infinite;
+}
+
+/* Wave 2 */
+
+@keyframes wave2 {
+  0%, 100% {
+    transform: translateX(20px);
+  }
+
+  50% {
+    transform: translateX(-20px);
+  }
+}
+
+.animate-wave2 {
+  animation: wave2 4s ease-in-out infinite;
+}
+
+/* Ship floating */
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* Ship rocking */
+
+@keyframes ship {
+  0% {
+    transform: rotate(-5deg);
+  }
+
+  50% {
+    transform: rotate(3deg);
+  }
+
+  100% {
+    transform: rotate(-5deg);
+  }
+}
+
+.animate-ship {
+  animation: ship 9s ease-in-out infinite;
+  transform-origin: center;
 }
 </file>
 
@@ -8311,9 +8391,6 @@ import {
 } from "firebase-admin/messaging";
 
 
-console.log("🔥 FIREBASE ADMIN FILE LOADED");
-
-
 const adminApp =
     getApps().length === 0
         ? initializeApp({
@@ -9656,77 +9733,6 @@ async function updateUserInPage(
             merge: true,
         }
     );
-}
-</file>
-
-<file path="services/notification/notificationService.ts">
-import {
-    collection,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase/firebase";
-import { adminMessaging } from "@/lib/firebase/firebase-admin";
-
-interface SendNotificationParams {
-    title: string;
-    body: string;
-    batch: string;
-}
-
-export async function sendNotification({
-    title,
-    body,
-    batch,
-}: SendNotificationParams) {
-
-    let usersQuery;
-
-    if (batch === "all") {
-        usersQuery = collection(db, "users");
-    } else {
-        usersQuery = query(
-            collection(db, "users"),
-            where("batch", "==", batch)
-        );
-    }
-
-    const snapshot = await getDocs(usersQuery);
-
-    const tokens: string[] = [];
-
-    snapshot.forEach((doc) => {
-        const data = doc.data();
-
-        if (Array.isArray(data.fcmTokens)) {
-            tokens.push(...data.fcmTokens);
-        }
-    });
-
-    if (tokens.length === 0) {
-        return {
-            success: false,
-            message: "No FCM tokens found",
-        };
-    }
-
-    const result =
-        await adminMessaging.sendEachForMulticast({
-            tokens,
-            notification: {
-                title,
-                body,
-            },
-        });
-
-    return {
-        success: true,
-        totalUsers: tokens.length,
-        sent: result.successCount,
-        failed: result.failureCount,
-    };
 }
 </file>
 
@@ -11947,76 +11953,237 @@ export async function initializeUser(
 }
 </file>
 
-<file path="types/user.ts">
-import { Timestamp } from "firebase/firestore";
+<file path="app/(protected)/admin/content/downloads/page.tsx">
+"use client";
+import { useEffect, useState } from "react";
+import {
+    getAllOralQuestionCounts,
+    getOralQuestionsForExport,
+} from "@/services/orals/oralBatch.service";
 
-export type UserRole = "student" | "admin";
+import {
+    getAllWrittenQuestionCounts,
+    getWrittenQuestionsForExport,
+} from "@/services/writtens/written.service";
 
-export type SubscriptionPlan =
-    | "free"
-    | "trial"
-    | "monthly"
-    | "quarterly"
-    | "yearly"
-    | "lifetime";
+import ExcelJS from "exceljs";
 
-export type SubscriptionStatus =
-    | "inactive"
-    | "trial"
-    | "active"
-    | "expired"
-    | "cancelled";
+import QuestionTable from "@/components/questions/QuestionTable";
 
-export interface UserSubscription {
-    plan: SubscriptionPlan;
+const ORAL_CATEGORIES = [
+    "FN3",
+    "FN4B",
+    "FN5",
+    "FN6",
+];
 
-    status: SubscriptionStatus;
+const WRITTEN_CATEGORIES = [
+    "GENERAL",
+    "MOTOR",
+    "MEP",
+    "SSEP",
+    "NAVAL",
+    "MET",
+];
 
-    startDate: Timestamp | null;
+export default function DownloadsPage() {
 
-    endDate: Timestamp | null;
+    const [oralCounts, setOralCounts] = useState<Record<string, number>>({});
+    const [writtenCounts, setWrittenCounts] = useState<Record<string, number>>({});
 
-    paymentId: string | null;
+    useEffect(() => {
 
-    autoRenew: boolean;
+        async function loadCounts() {
 
-    trialStartDate: Timestamp | null;
+            const oral =
+                await getAllOralQuestionCounts();
 
-    trialEndDate: Timestamp | null;
+            const written =
+                await getAllWrittenQuestionCounts();
 
-    amount: number | null;
+            setOralCounts(oral);
+            setWrittenCounts(written);
 
-    lockedPrice: number | null;
+        }
 
-    currency?: string;
-}
+        loadCounts();
 
-export interface UserStats {
-    loginCount: number;
+    }, []);
 
-    lastLogin: Timestamp | null;
-}
 
-export interface AppUser {
-    uid: string;
+    async function downloadExcel(
+        template: string,
+        fileName: string,
+        rows: any[],
+        rowMapper: (row: any) => any[]
+    ) {
 
-    name: string;
+        const response = await fetch(template);
 
-    email: string;
+        const buffer =
+            await response.arrayBuffer();
 
-    photoURL: string | null;
+        const workbook =
+            new ExcelJS.Workbook();
 
-    role: UserRole;
+        await workbook.xlsx.load(buffer);
 
-    createdAt: Timestamp;
+        const worksheet =
+            workbook.worksheets[0];
 
-    updatedAt: Timestamp;
+        // Keep only header + template row
+        if (worksheet.rowCount > 2) {
+            worksheet.spliceRows(3, worksheet.rowCount - 2);
+        }
 
-    isBlocked: boolean;
+        // Duplicate the template row for the remaining records
+        if (rows.length > 1) {
+            worksheet.duplicateRow(2, rows.length - 1, true);
+        }
 
-    subscription: UserSubscription;
+        // Fill the rows
+        rows.forEach((row, index) => {
+            const excelRow = worksheet.getRow(index + 2);
+            excelRow.values = rowMapper(row);
+            excelRow.eachCell((cell) => {
 
-    stats: UserStats;
+                cell.alignment = {
+                    ...cell.alignment,
+                    wrapText: true,
+                    vertical: "top",
+                };
+
+            });
+
+            const values = rowMapper(row);
+
+            const longestText = Math.max(
+                ...values.map((value) =>
+                    String(value ?? "").split(/\r?\n/).length
+                )
+            );
+
+            // Minimum height = 20
+            // Add ~15 points for each line
+            excelRow.height = Math.max(
+                20,
+                longestText * 15
+            );
+
+        });
+
+        // If there are no rows, remove the template row
+        if (rows.length === 0) {
+            worksheet.spliceRows(2, 1);
+        }
+
+        const output =
+            await workbook.xlsx.writeBuffer();
+
+        const blob = new Blob(
+            [output],
+            {
+                type:
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }
+        );
+
+        const url =
+            URL.createObjectURL(blob);
+
+        const link =
+            document.createElement("a");
+
+        link.href = url;
+
+        link.download = fileName;
+
+        link.click();
+
+        URL.revokeObjectURL(url);
+
+    }
+
+    async function downloadOralExcel(
+        category: string
+    ) {
+
+        const rows =
+            await getOralQuestionsForExport(category);
+
+        await downloadExcel(
+            "/templates/oral-template.xlsx",
+            `${category}.xlsx`,
+            rows,
+            (row) => [
+                row.Category,
+                row.Class,
+                row.Date,
+                row.MMD,
+                row.Surveyor,
+                row.Topic,
+                row.Question,
+                row.Answer,
+            ]
+        );
+
+    }
+
+    async function downloadWrittenExcel(
+        category: string
+    ) {
+
+        const rows =
+            await getWrittenQuestionsForExport(category);
+
+        await downloadExcel(
+            "/templates/written-template.xlsx",
+            `${category}.xlsx`,
+            rows,
+            (row) => [
+                row.class,
+                row.category,
+                row.topic,
+                row.year,
+                row.month,
+                row.question,
+                row.answer,
+            ]
+        );
+
+    }
+
+    return (
+        <main className="min-h-screen bg-[#f5f5f5]">
+            <div className="mx-auto max-w-6xl px-6 py-10">
+
+                <h1 className="text-3xl font-bold">
+                    Download Questions
+                </h1>
+
+                <p className="mt-2 text-gray-400">
+                    Download the latest question banks.
+                </p>
+
+                <QuestionTable
+                    title="Oral Questions"
+                    categories={ORAL_CATEGORIES}
+                    counts={oralCounts}
+                    buttonColor="bg-black"
+                    onDownload={downloadOralExcel}
+                />
+
+                <QuestionTable
+                    title="Written Questions"
+                    categories={WRITTEN_CATEGORIES}
+                    counts={writtenCounts}
+                    buttonColor="bg-yellow-600"
+                    onDownload={downloadWrittenExcel}
+                />
+
+            </div>
+        </main>
+    );
 }
 </file>
 
@@ -12582,7 +12749,7 @@ export const SUBSCRIPTION = {
     MONTHLY: {
         id: "monthly",
         name: "Monthly",
-        amount: 1,
+        amount: 149,
         currency: "INR",
         durationDays: 30,
     },
@@ -12923,6 +13090,65 @@ export async function startSubscriptionPayment() {
     const paymentObject = new window.Razorpay(options);
 
     paymentObject.open();
+}
+</file>
+
+<file path="services/notification/notificationService.ts">
+import { adminDb, adminMessaging } from "@/lib/firebase/firebase-admin";
+
+interface SendNotificationParams {
+    title: string;
+    body: string;
+    batch: string;
+}
+
+export async function sendNotification({
+    title,
+    body,
+    batch,
+}: SendNotificationParams) {
+
+    const usersQuery =
+        batch === "all"
+            ? adminDb.collection("users")
+            : adminDb
+                .collection("users")
+                .where("batch", "==", batch);
+
+    const snapshot = await usersQuery.get();
+
+    const tokens: string[] = [];
+
+    snapshot.forEach((doc) => {
+        const data = doc.data();
+
+        if (Array.isArray(data.fcmTokens)) {
+            tokens.push(...data.fcmTokens);
+        }
+    });
+
+    if (tokens.length === 0) {
+        return {
+            success: false,
+            message: "No FCM tokens found",
+        };
+    }
+
+    const result =
+        await adminMessaging.sendEachForMulticast({
+            tokens,
+            notification: {
+                title,
+                body,
+            },
+        });
+
+    return {
+        success: true,
+        totalUsers: tokens.length,
+        sent: result.successCount,
+        failed: result.failureCount,
+    };
 }
 </file>
 
@@ -15665,7 +15891,6 @@ export async function getWrittenTopics(
     category: string
 ): Promise<string[]> {
 
-    console.log("Category:", category);
 
     const ref = doc(
         db,
@@ -15675,14 +15900,9 @@ export async function getWrittenTopics(
 
     const snapshot = await getDoc(ref);
 
-    console.log("Exists:", snapshot.exists());
-
     if (!snapshot.exists()) {
         return [];
     }
-
-    console.log("Document:", snapshot.data());
-    console.log("Keys:", Object.keys(snapshot.data()));
 
     return snapshot.data().topics ?? [];
 }
@@ -18936,6 +19156,8 @@ import {
     generateWrittenTopics,
 } from "@/services/writtens/written.service";
 
+import { adminFetch } from "@/lib/authentication/adminFetch";
+
 import {
     getAllOralBatchQuestions,
     deleteOralBatchQuestion,
@@ -19280,23 +19502,27 @@ export default function ManageWrittenQuestionsPage() {
     async function refreshOralCache() {
         if (type !== "oral") return;
 
-        const res = await fetch("/api/revalidate/oral", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                categories: [category],
-            }),
-        });
+        const res =
+            await adminFetch(
+                "/api/revalidate/written",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+                    body:
+                        JSON.stringify({
+                            category
+                        }),
+                }
+            );
 
         if (!res.ok) {
             throw new Error("Oral cache revalidation failed");
         }
     }
 
-
-    console.log("Topics:", topics);
 
     async function handleRefreshCache() {
         try {
@@ -21088,20 +21314,6 @@ export function AuthProvider({
                             token.claims.admin === true;
 
 
-                        console.log(
-                            "ADMIN CHECK:",
-                            {
-                                email:
-                                    firebaseUser.email,
-
-                                claims:
-                                    token.claims,
-
-                                isAdmin,
-                            }
-                        );
-
-
                         /*
                          * Set role before initialization finishes.
                          *
@@ -21321,12 +21533,6 @@ async function setupNotifications(
             return;
 
         }
-
-
-        console.log(
-            "FCM TOKEN:",
-            fcmToken
-        );
 
 
         await saveFCMToken(
