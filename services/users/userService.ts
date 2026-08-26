@@ -262,6 +262,31 @@ export async function updateUserLogin(
 
 }
 
+/**
+ * Update user's online presence.
+ *
+ * This is NOT a login event.
+ * It is updated periodically while the user
+ * is actively using NAVIK.
+ */
+export async function updateUserPresence(
+    uid: string
+) {
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+    await updateDoc(
+        userRef,
+        {
+            "stats.lastSeen":
+                serverTimestamp(),
+        }
+    );
+}
+
 
 /**
  * Get complete user profile

@@ -16,6 +16,10 @@ export interface CachedUser {
     endDate: Timestamp | null;
 
     isBlocked: boolean;
+
+    stats?: {
+        lastSeen?: Timestamp | null;
+    };
 }
 
 export interface UserPage {

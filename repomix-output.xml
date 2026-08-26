@@ -79,6 +79,8 @@ app/
     admin/
       make-admin/
         route.ts
+      online-users/
+        route.ts
     notifications/
       send-broadcast/
         route.ts
@@ -242,6 +244,10 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="app/api/admin/online-users/route.ts">
+
+</file>
 
 <file path="app/loading.tsx">
 export default function Loading() {
@@ -566,6 +572,10 @@ export interface CachedUser {
     endDate: Timestamp | null;
 
     isBlocked: boolean;
+
+    stats?: {
+        lastSeen?: Timestamp | null;
+    };
 }
 
 export interface UserPage {
@@ -3625,8 +3635,62 @@ export default function AdminUsersPage() {
     const [loading, setLoading] =
         useState(true);
 
+    const [onlineUsers, setOnlineUsers] =
+        useState(0);
+
     const [search, setSearch] =
         useState("");
+
+    const loadOnlineUsers = async () => {
+        try {
+            const currentUser =
+                await import("firebase/auth").then(
+                    ({ getAuth }) =>
+                        getAuth().currentUser
+                );
+
+            if (!currentUser) {
+                return;
+            }
+
+            const token =
+                await currentUser.getIdToken();
+
+            const response =
+                await fetch(
+                    "/api/admin/online-users",
+                    {
+                        method: "GET",
+
+                        headers: {
+                            Authorization:
+                                `Bearer ${token}`,
+                        },
+                    }
+                );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Failed to load online users"
+                );
+            }
+
+            const data =
+                await response.json();
+
+            setOnlineUsers(
+                data.onlineUsers ?? 0
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load online users:",
+                error
+            );
+
+        }
+    };
 
     useEffect(() => {
 
@@ -3657,6 +3721,22 @@ export default function AdminUsersPage() {
 
     }, []);
 
+    useEffect(() => {
+
+        loadOnlineUsers();
+
+        const interval =
+            setInterval(
+                loadOnlineUsers,
+                60 * 1000
+            );
+
+        return () => {
+            clearInterval(interval);
+        };
+
+    }, []);
+
     const filteredUsers = useMemo(() => {
 
         const query =
@@ -3682,6 +3762,7 @@ export default function AdminUsersPage() {
 
     }, [users, search]);
 
+
     return (
 
         <div className="p-6">
@@ -3700,15 +3781,47 @@ export default function AdminUsersPage() {
 
                 </div>
 
-                <div className="rounded-xl border bg-white px-5 py-3 shadow-sm">
+                <div className="flex gap-3">
 
-                    <p className="text-sm text-gray-500">
-                        Total Users
-                    </p>
+                    <div className="flex gap-3">
 
-                    <p className="text-2xl font-bold">
-                        {users.length}
-                    </p>
+                        <div className="rounded-xl border bg-white px-5 py-3 shadow-sm">
+
+                            <p className="text-sm text-gray-500">
+                                Total Users
+                            </p>
+
+                            <p className="text-2xl font-bold">
+                                {users.length}
+                            </p>
+
+                        </div>
+
+                        <div className="rounded-xl border bg-white px-5 py-3 shadow-sm">
+
+                            <p className="text-sm text-gray-500">
+                                Currently Online
+                            </p>
+
+                            <p className="text-2xl font-bold">
+                                {onlineUsers}
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div className="rounded-xl border bg-white px-5 py-3 shadow-sm">
+
+                        <p className="text-sm text-gray-500">
+                            Currently Online
+                        </p>
+
+                        <p className="text-2xl font-bold">
+                            {onlineUsers}
+                        </p>
+
+                    </div>
 
                 </div>
 
@@ -11563,6 +11676,31 @@ export async function updateUserLogin(
         }
     );
 
+}
+
+/**
+ * Update user's online presence.
+ *
+ * This is NOT a login event.
+ * It is updated periodically while the user
+ * is actively using NAVIK.
+ */
+export async function updateUserPresence(
+    uid: string
+) {
+    const userRef = doc(
+        db,
+        "users",
+        uid
+    );
+
+    await updateDoc(
+        userRef,
+        {
+            "stats.lastSeen":
+                serverTimestamp(),
+        }
+    );
 }
 
 
@@ -25146,16 +25284,15 @@ export default function QuestionsList({
       {/* FILTERS */}
       {
         showFilters && (
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mt-4 w-full min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
               <select
                 value={selectedClass}
                 onChange={(e) => setSelectedClass(e.target.value)}
                 className="rounded-xl border border-gray-300 p-3"
               >
-
                 {classes.map((questionClass) => (
                   <option key={questionClass} value={questionClass}>
                     {questionClass}

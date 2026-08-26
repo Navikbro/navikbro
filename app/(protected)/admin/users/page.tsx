@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 
 import UserTable from "@/components/admin/UserTable";
 
@@ -20,8 +24,88 @@ export default function AdminUsersPage() {
     const [loading, setLoading] =
         useState(true);
 
+    const [onlineUsers, setOnlineUsers] =
+        useState(0);
+
     const [search, setSearch] =
         useState("");
+
+
+    /*
+     * =========================================================
+     * LOAD ONLINE USERS
+     * =========================================================
+     */
+
+    const loadOnlineUsers = async () => {
+
+        try {
+
+            const currentUser =
+                await import("firebase/auth").then(
+                    ({ getAuth }) =>
+                        getAuth().currentUser
+                );
+
+
+            if (!currentUser) {
+                return;
+            }
+
+
+            const token =
+                await currentUser.getIdToken();
+
+
+            const response =
+                await fetch(
+                    "/api/admin/online-users",
+                    {
+                        method: "GET",
+
+                        headers: {
+                            Authorization:
+                                `Bearer ${token}`,
+                        },
+                    }
+                );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    "Failed to load online users"
+                );
+
+            }
+
+
+            const data =
+                await response.json();
+
+
+            setOnlineUsers(
+                data.onlineUsers ?? 0
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load online users:",
+                error
+            );
+
+        }
+
+    };
+
+
+    /*
+     * =========================================================
+     * LOAD USERS
+     * =========================================================
+     */
 
     useEffect(() => {
 
@@ -32,13 +116,21 @@ export default function AdminUsersPage() {
                 const page =
                     await getAdminUserPage(1);
 
+
                 if (page) {
-                    setUsers(page.users ?? []);
+
+                    setUsers(
+                        page.users ?? []
+                    );
+
                 }
 
             } catch (error) {
 
-                console.error(error);
+                console.error(
+                    "Failed to load admin users:",
+                    error
+                );
 
             } finally {
 
@@ -48,18 +140,63 @@ export default function AdminUsersPage() {
 
         }
 
-        loadUsers();
+
+        void loadUsers();
 
     }, []);
+
+
+    /*
+     * =========================================================
+     * ONLINE USER POLLING
+     * =========================================================
+     */
+
+    useEffect(() => {
+
+        void loadOnlineUsers();
+
+
+        const interval =
+            window.setInterval(
+                () => {
+                    void loadOnlineUsers();
+                },
+                60 * 1000
+            );
+
+
+        return () => {
+
+            window.clearInterval(
+                interval
+            );
+
+        };
+
+    }, []);
+
+
+    /*
+     * =========================================================
+     * SEARCH
+     * =========================================================
+     */
 
     const filteredUsers = useMemo(() => {
 
         const query =
-            search.toLowerCase().trim();
+            search
+                .toLowerCase()
+                .trim();
+
 
         if (!query) {
+
             return users;
+
         }
+
 
         return users.filter((user) =>
 
@@ -76,6 +213,13 @@ export default function AdminUsersPage() {
         );
 
     }, [users, search]);
+
+
+    /*
+     * =========================================================
+     * UI
+     * =========================================================
+     */
 
     return (
 
@@ -95,19 +239,44 @@ export default function AdminUsersPage() {
 
                 </div>
 
-                <div className="rounded-xl border bg-white px-5 py-3 shadow-sm">
 
-                    <p className="text-sm text-gray-500">
-                        Total Users
-                    </p>
+                <div className="flex gap-3">
 
-                    <p className="text-2xl font-bold">
-                        {users.length}
-                    </p>
+                    {/* TOTAL USERS */}
+
+                    <div className="rounded-xl border bg-white px-5 py-3 shadow-sm">
+
+                        <p className="text-sm text-gray-500">
+                            Total Users
+                        </p>
+
+                        <p className="text-2xl font-bold">
+                            {users.length}
+                        </p>
+
+                    </div>
+
+
+                    {/* ONLINE USERS */}
+
+                    <div className="rounded-xl border bg-white px-5 py-3 shadow-sm">
+
+                        <p className="text-sm text-gray-500">
+                            Currently Online
+                        </p>
+
+                        <p className="text-2xl font-bold">
+                            {onlineUsers}
+                        </p>
+
+                    </div>
 
                 </div>
 
             </div>
+
+
+            {/* SEARCH */}
 
             <div className="mb-6">
 
@@ -122,6 +291,9 @@ export default function AdminUsersPage() {
                 />
 
             </div>
+
+
+            {/* USER TABLE */}
 
             <UserTable
                 users={filteredUsers}

@@ -19,6 +19,7 @@ import { auth } from "@/lib/firebase/firebase";
 import {
     initializeUser,
     saveFCMToken,
+    updateUserPresence,
 } from "@/services/users/userService";
 
 import {
@@ -369,6 +370,44 @@ export function AuthProvider({
         };
 
     }, []);
+
+    useEffect(() => {
+        if (!user) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const sendPresence = async () => {
+            if (cancelled) {
+                return;
+            }
+
+            try {
+                await updateUserPresence(user.uid);
+            } catch (error) {
+                console.error(
+                    "Failed to update user presence:",
+                    error
+                );
+            }
+        };
+
+        // Mark user online immediately
+        // Mark user online immediately
+        void sendPresence();
+
+        // Keep user online while the app is open
+        const interval = setInterval(() => {
+            // Mark user online immediately
+            void sendPresence();
+        }, 60 * 1000); // every 60 seconds
+
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
+    }, [user]);
 
 
     return (
