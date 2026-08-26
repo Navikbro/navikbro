@@ -145,58 +145,74 @@ export async function getAllWrittenQuestionCounts() {
 export async function getWrittenQuestionsForExport(
     category: string
 ) {
-
-    const normalizedCategory =
-        category.trim().toLowerCase();
+    const normalizedCategory = category
+        .trim()
+        .toLowerCase();
 
     const snapshot = await getDocs(
         query(
             collection(db, "written_batches"),
-            where("category", "==", normalizedCategory),
-            orderBy("batchNumber", "asc")
+            where("category", "==", normalizedCategory)
         )
     );
 
-    const questions: any[] = [];
+    // Sort batches locally instead of using Firestore orderBy().
+    // This avoids requiring a composite Firestore index.
+    const batchDocs = [...snapshot.docs].sort((a, b) => {
+        const aBatchNumber =
+            Number(a.data().batchNumber ?? 0);
 
-    for (const batchDoc of snapshot.docs) {
+        const bBatchNumber =
+            Number(b.data().batchNumber ?? 0);
 
+        return aBatchNumber - bBatchNumber;
+    });
+
+    const questions: WrittenQuestion[] = [];
+
+    for (const batchDoc of batchDocs) {
         const data = batchDoc.data();
 
         if (
-            data.category?.toLowerCase() !==
-            normalizedCategory
+            String(data.category ?? "")
+                .trim()
+                .toLowerCase() !== normalizedCategory
         ) {
             continue;
         }
 
-        const batchQuestions = [...(data.questions ?? [])].sort(
-            (a: any, b: any) =>
+        const batchQuestions = [
+            ...(data.questions ?? []),
+        ].sort(
+            (a: WrittenQuestion, b: WrittenQuestion) =>
                 (a.order ?? 0) - (b.order ?? 0)
         );
 
-        batchQuestions.forEach((question: any) => {
+        for (const question of batchQuestions) {
+            // Do not export deleted/inactive questions.
+            if (question.isActive === false) {
+                continue;
+            }
 
             questions.push({
-                id: question.id,
+                id: question.id ?? "",
                 question: question.question ?? "",
                 answer: question.answer ?? "",
                 topic: question.topic ?? "",
                 class: question.class ?? "",
-                category: question.category ?? "",
+                category:
+                    question.category ??
+                    normalizedCategory,
                 month: question.month ?? "",
-                year: question.year,
+                year: question.year ?? 0,
                 order: question.order ?? 0,
+                isActive: question.isActive ?? true,
             });
-
-        });
-
+        }
     }
-
 
     return questions;
 }
-
 export async function updateWrittenQuestion(
     category: string,
     id: string,

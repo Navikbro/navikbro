@@ -61,91 +61,137 @@ export default function DownloadsPage() {
         rows: any[],
         rowMapper: (row: any) => any[]
     ) {
+        try {
+            const response = await fetch(
+                template,
+                {
+                    cache: "no-store",
+                }
+            );
 
-        const response = await fetch(template);
+            if (!response.ok) {
+                throw new Error(
+                    `Failed to load Excel template: ${response.status} ${response.statusText}`
+                );
+            }
 
-        const buffer =
-            await response.arrayBuffer();
+            const buffer =
+                await response.arrayBuffer();
 
-        const workbook =
-            new ExcelJS.Workbook();
+            const workbook =
+                new ExcelJS.Workbook();
 
-        await workbook.xlsx.load(buffer);
+            await workbook.xlsx.load(buffer);
 
-        const worksheet =
-            workbook.worksheets[0];
+            const worksheet =
+                workbook.worksheets[0];
 
-        // Keep only header + template row
-        if (worksheet.rowCount > 2) {
-            worksheet.spliceRows(3, worksheet.rowCount - 2);
-        }
+            if (!worksheet) {
+                throw new Error(
+                    "Excel template does not contain a worksheet."
+                );
+            }
 
-        // Duplicate the template row for the remaining records
-        if (rows.length > 1) {
-            worksheet.duplicateRow(2, rows.length - 1, true);
-        }
+            // Keep header + template row
+            if (worksheet.rowCount > 2) {
+                worksheet.spliceRows(
+                    3,
+                    worksheet.rowCount - 2
+                );
+            }
 
-        // Fill the rows
-        rows.forEach((row, index) => {
-            const excelRow = worksheet.getRow(index + 2);
-            excelRow.values = rowMapper(row);
-            excelRow.eachCell((cell) => {
+            // Duplicate template row
+            if (rows.length > 1) {
+                worksheet.duplicateRow(
+                    2,
+                    rows.length - 1,
+                    true
+                );
+            }
 
-                cell.alignment = {
-                    ...cell.alignment,
-                    wrapText: true,
-                    vertical: "top",
-                };
+            // Fill rows
+            rows.forEach((row, index) => {
+                const excelRow =
+                    worksheet.getRow(index + 2);
 
+                const values =
+                    rowMapper(row);
+
+                excelRow.values = values;
+
+                excelRow.eachCell((cell) => {
+                    cell.alignment = {
+                        ...cell.alignment,
+                        wrapText: true,
+                        vertical: "top",
+                    };
+                });
+
+                const longestText =
+                    Math.max(
+                        1,
+                        ...values.map((value) =>
+                            String(
+                                value ?? ""
+                            ).split(/\r?\n/).length
+                        )
+                    );
+
+                excelRow.height =
+                    Math.max(
+                        20,
+                        longestText * 15
+                    );
             });
 
-            const values = rowMapper(row);
-
-            const longestText = Math.max(
-                ...values.map((value) =>
-                    String(value ?? "").split(/\r?\n/).length
-                )
-            );
-
-            // Minimum height = 20
-            // Add ~15 points for each line
-            excelRow.height = Math.max(
-                20,
-                longestText * 15
-            );
-
-        });
-
-        // If there are no rows, remove the template row
-        if (rows.length === 0) {
-            worksheet.spliceRows(2, 1);
-        }
-
-        const output =
-            await workbook.xlsx.writeBuffer();
-
-        const blob = new Blob(
-            [output],
-            {
-                type:
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            // No questions
+            if (rows.length === 0) {
+                worksheet.spliceRows(2, 1);
             }
-        );
 
-        const url =
-            URL.createObjectURL(blob);
+            const output =
+                await workbook.xlsx.writeBuffer();
 
-        const link =
-            document.createElement("a");
+            const blob = new Blob(
+                [output],
+                {
+                    type:
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                }
+            );
 
-        link.href = url;
+            const url =
+                URL.createObjectURL(blob);
 
-        link.download = fileName;
+            const link =
+                document.createElement("a");
 
-        link.click();
+            link.href = url;
+            link.download = fileName;
+            link.style.display = "none";
 
-        URL.revokeObjectURL(url);
+            document.body.appendChild(link);
 
+            link.click();
+
+            document.body.removeChild(link);
+
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 1000);
+
+        } catch (error) {
+            console.error(
+                "Excel download failed:",
+                error
+            );
+
+            alert(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to download Excel file."
+            );
+        }
     }
 
     async function downloadOralExcel(
@@ -176,27 +222,43 @@ export default function DownloadsPage() {
     async function downloadWrittenExcel(
         category: string
     ) {
+        try {
+            const rows =
+                await getWrittenQuestionsForExport(
+                    category
+                );
 
-        const rows =
-            await getWrittenQuestionsForExport(category);
+            console.log(
+                `[Written Export] ${category}: ${rows.length} questions`
+            );
 
-        await downloadExcel(
-            "/templates/written-template.xlsx",
-            `${category}.xlsx`,
-            rows,
-            (row) => [
-                row.class,
-                row.category,
-                row.topic,
-                row.year,
-                row.month,
-                row.question,
-                row.answer,
-            ]
-        );
+            await downloadExcel(
+                "/templates/written-template.xlsx",
+                `${category.toLowerCase()}-written-questions.xlsx`,
+                rows,
+                (row) => [
+                    row.class ?? "",
+                    row.category ?? category,
+                    row.topic ?? "",
+                    row.year ?? "",
+                    row.month ?? "",
+                    row.question ?? "",
+                    row.answer ?? "",
+                ]
+            );
+        } catch (error) {
+            console.error(
+                `[Written Export] Failed for ${category}:`,
+                error
+            );
 
+            alert(
+                error instanceof Error
+                    ? error.message
+                    : `Failed to download ${category} questions.`
+            );
+        }
     }
-
     return (
         <main className="min-h-screen bg-[#f5f5f5]">
             <div className="mx-auto max-w-6xl px-6 py-10">
