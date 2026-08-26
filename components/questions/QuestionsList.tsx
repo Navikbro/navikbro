@@ -350,16 +350,15 @@ export default function QuestionsList({
       {/* FILTERS */}
       {
         showFilters && (
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mt-4 w-full min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
               <select
                 value={selectedClass}
                 onChange={(e) => setSelectedClass(e.target.value)}
                 className="rounded-xl border border-gray-300 p-3"
               >
-
                 {classes.map((questionClass) => (
                   <option key={questionClass} value={questionClass}>
                     {questionClass}
