@@ -1,9 +1,15 @@
 import {
+    collection,
     doc,
-    getDoc,
-    setDoc,
-    serverTimestamp,
+    getCountFromServer,
+    getDocs,
+    limit,
+    orderBy,
+    query,
+    startAfter,
     Timestamp,
+    updateDoc,
+    type DocumentSnapshot,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase/firebase";
@@ -12,124 +18,290 @@ import {
     CachedUser,
 } from "@/types/admin";
 
-const PAGE_SIZE = 100;
 
-export async function addUserToAdminCache(
-    user: CachedUser
-) {
+const PAGE_SIZE = 50;
 
-    const pageRef = doc(
-        db,
-        "adminCache",
-        "users",
-        "pages",
-        "page_1"
-    );
+const USERS_COLLECTION = "users";
 
-    const snapshot = await getDoc(pageRef);
 
-    if (!snapshot.exists()) {
+/* =========================================================
+   USER → ADMIN USER FORMAT
+   ========================================================= */
 
-        await setDoc(
-            pageRef,
-            {
-                pageNumber: 1,
-                totalUsers: 1,
-                users: [user],
-                updatedAt: serverTimestamp(),
-            }
-        );
+function mapUser(
+    snapshot: DocumentSnapshot
+): CachedUser {
 
-        return;
-    }
+    const data =
+        snapshot.data() ?? {};
 
-    const data = snapshot.data();
 
-    const existingUsers: CachedUser[] =
-        data.users ?? [];
+    const subscription =
+        typeof data.subscription === "object" &&
+        data.subscription !== null
+            ? data.subscription
+            : {};
 
-    // Prevent duplicate users
-    const alreadyExists = existingUsers.some(
-        (cachedUser) => cachedUser.uid === user.uid
-    );
 
-    if (alreadyExists) {
-        return;
-    }
+    return {
 
-    // Page full (pagination will be implemented later)
-    if (existingUsers.length >= PAGE_SIZE) {
+        uid:
+            snapshot.id,
 
-        console.warn(
-            "Admin cache page_1 is full. Pagination not implemented yet."
-        );
+        name:
+            typeof data.name === "string"
+                ? data.name
+                : "Anonymous",
 
-        return;
-    }
+        email:
+            typeof data.email === "string"
+                ? data.email
+                : "",
 
-    const updatedUsers = [
-        ...existingUsers,
-        user,
-    ];
+        photoURL:
+            typeof data.photoURL === "string"
+                ? data.photoURL
+                : null,
 
-    await setDoc(
-        pageRef,
-        {
-            pageNumber: 1,
-            totalUsers: updatedUsers.length,
-            users: updatedUsers,
-            updatedAt: serverTimestamp(),
+        plan:
+            typeof subscription.plan === "string"
+                ? subscription.plan
+                : "free",
+
+        status:
+            typeof subscription.status === "string"
+                ? subscription.status
+                : "inactive",
+
+        endDate:
+            subscription.endDate instanceof Timestamp
+                ? subscription.endDate
+                : null,
+
+        isBlocked:
+            data.isBlocked === true,
+
+        stats: {
+
+            lastSeen:
+                data.stats?.lastSeen instanceof Timestamp
+                    ? data.stats.lastSeen
+                    : null,
+
         },
-        {
-            merge: true,
-        }
-    );
+
+    };
 }
+
+
+/* =========================================================
+   GET USERS PAGE
+   ========================================================= */
+
+/**
+ * Reads users directly from:
+ *
+ * users/{uid}
+ *
+ * This is the single source of truth for the
+ * Admin Users page.
+ *
+ * Returns:
+ *
+ * - pageNumber
+ * - totalUsers
+ * - users
+ * - hasMore
+ * - lastDoc
+ */
 
 export async function getAdminUserPage(
-    pageNumber: number
+    pageNumber: number = 1,
+    lastDoc?: DocumentSnapshot
 ) {
 
-    const pageRef = doc(
-        db,
-        "adminCache",
-        "users",
-        "pages",
-        `page_${pageNumber}`
-    );
+    const usersRef =
+        collection(
+            db,
+            USERS_COLLECTION
+        );
 
-    const snapshot = await getDoc(pageRef);
 
-    if (!snapshot.exists()) {
-        return null;
-    }
+    /* -----------------------------------------------------
+       ACTUAL TOTAL USER COUNT
+       ----------------------------------------------------- */
 
-    return snapshot.data() as {
-        pageNumber: number;
-        totalUsers: number;
-        users: CachedUser[];
+    const countSnapshot =
+        await getCountFromServer(
+            usersRef
+        );
+
+
+    const totalUsers =
+        countSnapshot.data().count;
+
+
+    /* -----------------------------------------------------
+       PAGINATED QUERY
+       ----------------------------------------------------- */
+
+    const usersQuery =
+        pageNumber > 1 && lastDoc
+
+            ? query(
+
+                usersRef,
+
+                orderBy(
+                    "createdAt",
+                    "desc"
+                ),
+
+                startAfter(
+                    lastDoc
+                ),
+
+                limit(
+                    PAGE_SIZE
+                )
+
+            )
+
+            : query(
+
+                usersRef,
+
+                orderBy(
+                    "createdAt",
+                    "desc"
+                ),
+
+                limit(
+                    PAGE_SIZE
+                )
+
+            );
+
+
+    /* -----------------------------------------------------
+       READ USERS
+       ----------------------------------------------------- */
+
+    const snapshot =
+        await getDocs(
+            usersQuery
+        );
+
+
+    const users: CachedUser[] =
+        snapshot.docs.map(
+            (document) =>
+                mapUser(document)
+        );
+
+
+    /* -----------------------------------------------------
+       RETURN
+       ----------------------------------------------------- */
+
+    return {
+
+        pageNumber,
+
+        totalUsers,
+
+        users,
+
+        hasMore:
+            snapshot.docs.length ===
+            PAGE_SIZE,
+
+        lastDoc:
+            snapshot.docs.length > 0
+                ? snapshot.docs[
+                    snapshot.docs.length - 1
+                ]
+                : null,
+
     };
-
 }
+
+
+/* =========================================================
+   GET TOTAL USER COUNT
+   ========================================================= */
+
+/**
+ * Returns the actual number of documents in:
+ *
+ * users/
+ *
+ * This does NOT use adminCache.
+ */
+
+export async function getAdminUserCount() {
+
+    const usersRef =
+        collection(
+            db,
+            USERS_COLLECTION
+        );
+
+
+    const snapshot =
+        await getCountFromServer(
+            usersRef
+        );
+
+
+    return snapshot.data().count;
+}
+
+
+/* =========================================================
+   UPDATE USER BLOCK STATUS
+   ========================================================= */
+
+/**
+ * Update the real users/{uid} document.
+ *
+ * No admin cache exists in this flow.
+ */
 
 export async function toggleCachedUserBlock(
     uid: string,
     isBlocked: boolean
 ) {
 
-    await updateUserInPage(
-        1,
-        (users) =>
-            users.map((user) =>
-                user.uid === uid
-                    ? {
-                        ...user,
-                        isBlocked,
-                    }
-                    : user
-            )
+    const userRef =
+        doc(
+            db,
+            USERS_COLLECTION,
+            uid
+        );
+
+
+    await updateDoc(
+        userRef,
+        {
+            isBlocked,
+        }
     );
 }
+
+
+/* =========================================================
+   UPDATE USER SUBSCRIPTION
+   ========================================================= */
+
+/**
+ * Update subscription directly in:
+ *
+ * users/{uid}
+ *
+ * Kept under the old function name temporarily so that
+ * existing imports do not break.
+ */
 
 export async function updateCachedSubscription(
     uid: string,
@@ -138,74 +310,83 @@ export async function updateCachedSubscription(
     endDate: Timestamp | null
 ) {
 
-    await updateUserInPage(
-        1,
-        (users) =>
-            users.map((user) =>
-                user.uid === uid
-                    ? {
-                        ...user,
-                        plan,
-                        status,
-                        endDate,
-                    }
-                    : user
-            )
+    const userRef =
+        doc(
+            db,
+            USERS_COLLECTION,
+            uid
+        );
+
+
+    await updateDoc(
+        userRef,
+        {
+
+            "subscription.plan":
+                plan,
+
+            "subscription.status":
+                status,
+
+            "subscription.endDate":
+                endDate,
+
+        }
     );
 }
+
+
+/* =========================================================
+   REMOVE USER
+   ========================================================= */
+
+/**
+ * Compatibility function.
+ *
+ * This does NOT delete the actual Firebase user.
+ *
+ * Real user deletion should be implemented separately
+ * because Firebase Authentication and Firestore are
+ * separate systems.
+ */
 
 export async function removeCachedUser(
     uid: string
 ) {
 
-    await updateUserInPage(
-        1,
-        (users) =>
-            users.filter(
-                (user) => user.uid !== uid
-            )
+    console.warn(
+        `removeCachedUser(${uid}) is deprecated.`
     );
+
 }
 
-async function updateUserInPage(
-    pageNumber: number,
-    updater: (users: CachedUser[]) => CachedUser[]
+
+/* =========================================================
+   LEGACY ADMIN CACHE FUNCTION
+   ========================================================= */
+
+/**
+ * Compatibility only.
+ *
+ * IMPORTANT:
+ *
+ * This function intentionally does nothing.
+ *
+ * New users are stored in:
+ *
+ * users/{uid}
+ *
+ * The Admin Users page reads directly from users/.
+ */
+
+export async function addUserToAdminCache(
+    user: CachedUser
 ) {
 
-    const pageRef = doc(
-        db,
-        "adminCache",
-        "users",
-        "pages",
-        `page_${pageNumber}`
+    console.warn(
+        "addUserToAdminCache() is deprecated. " +
+        "Admin users are now read directly from users/.",
+        user.uid
     );
 
-    const snapshot = await getDoc(pageRef);
-
-    if (!snapshot.exists()) {
-        return;
-    }
-
-    const data = snapshot.data() as {
-        users: CachedUser[];
-    };
-
-    const users: CachedUser[] =
-        data.users ?? [];
-
-
-    const updatedUsers =
-        updater(users);
-
-    await setDoc(
-        pageRef,
-        {
-            users: updatedUsers,
-            totalUsers: updatedUsers.length,
-            updatedAt: serverTimestamp(),
-        },
-        {
-            merge: true,
-        }
-    );
 }

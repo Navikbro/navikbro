@@ -10,22 +10,13 @@ import { Timestamp } from "firebase/firestore";
 
 import {
     updateUserSubscription,
-} from "@/services/users/userService";
-
-import {
-    updateCachedSubscription,
-} from "@/services/admin/adminUserService";
-
-import {
     blockUser,
     unblockUser,
 } from "@/services/users/userService";
 
-import {
-    toggleCachedUserBlock,
-} from "@/services/admin/adminUserService";
 
 interface UserTableProps {
+
     users: CachedUser[];
 
     setUsers: React.Dispatch<
@@ -34,6 +25,11 @@ interface UserTableProps {
 
     loading: boolean;
 }
+
+
+/* =========================================================
+   FORMAT END DATE
+   ========================================================= */
 
 function formatEndDate(
     endDate: CachedUser["endDate"]
@@ -53,8 +49,12 @@ function formatEndDate(
                 year: "numeric",
             }
         );
-
 }
+
+
+/* =========================================================
+   DAYS REMAINING
+   ========================================================= */
 
 function getDaysRemaining(
     endDate: CachedUser["endDate"]
@@ -84,8 +84,12 @@ function getDaysRemaining(
     }
 
     return `${days} Days`;
-
 }
+
+
+/* =========================================================
+   USER TABLE
+   ========================================================= */
 
 export default function UserTable({
     users,
@@ -93,11 +97,20 @@ export default function UserTable({
     loading,
 }: UserTableProps) {
 
-    const [selectedUser, setSelectedUser] =
-        useState<CachedUser | null>(null);
+    const [
+        selectedUser,
+        setSelectedUser,
+    ] = useState<CachedUser | null>(null);
 
-    const [modalOpen, setModalOpen] =
-        useState(false);
+    const [
+        modalOpen,
+        setModalOpen,
+    ] = useState(false);
+
+
+    /* =====================================================
+       BLOCK / UNBLOCK
+       ===================================================== */
 
     async function handleToggleBlock(
         uid: string,
@@ -106,44 +119,61 @@ export default function UserTable({
 
         try {
 
+            /*
+             * -------------------------------------------------
+             * UPDATE REAL USER DOCUMENT
+             * -------------------------------------------------
+             */
+
             if (isBlocked) {
 
                 await unblockUser(uid);
-
-                await toggleCachedUserBlock(
-                    uid,
-                    false
-                );
 
             } else {
 
                 await blockUser(uid);
 
-                await toggleCachedUserBlock(
-                    uid,
-                    true
-                );
-
             }
 
-            setUsers((previousUsers) =>
-                previousUsers.map((user) =>
-                    user.uid === uid
-                        ? {
-                            ...user,
-                            isBlocked: !isBlocked,
-                        }
-                        : user
-                )
+
+            /*
+             * -------------------------------------------------
+             * UPDATE CURRENT TABLE STATE
+             * -------------------------------------------------
+             *
+             * No adminCache update is required.
+             */
+
+            setUsers(
+                (previousUsers) =>
+                    previousUsers.map(
+                        (user) =>
+                            user.uid === uid
+                                ? {
+                                    ...user,
+                                    isBlocked:
+                                        !isBlocked,
+                                }
+                                : user
+                    )
             );
+
 
         } catch (error) {
 
-            console.error(error);
+            console.error(
+                "Failed to update user block status:",
+                error
+            );
 
         }
 
     }
+
+
+    /* =====================================================
+       LOADING
+       ===================================================== */
 
     if (loading) {
 
@@ -159,6 +189,11 @@ export default function UserTable({
 
     }
 
+
+    /* =====================================================
+       EMPTY
+       ===================================================== */
+
     if (users.length === 0) {
 
         return (
@@ -172,6 +207,11 @@ export default function UserTable({
         );
 
     }
+
+
+    /* =====================================================
+       TABLE
+       ===================================================== */
 
     return (
 
@@ -223,155 +263,209 @@ export default function UserTable({
 
                         </thead>
 
+
                         <tbody>
 
-                            {users.map((user) => (
+                            {users.map(
+                                (user) => (
 
-                                <tr
-                                    key={user.uid}
-                                    className="border-t hover:bg-gray-50"
-                                >
+                                    <tr
+                                        key={user.uid}
+                                        className="border-t hover:bg-gray-50"
+                                    >
 
-                                    <td className="px-6 py-4">
+                                        {/* USER */}
 
-                                        <div className="flex items-center gap-3">
+                                        <td className="px-6 py-4">
 
-                                            {user.photoURL ? (
+                                            <div className="flex items-center gap-3">
 
-                                                <img
-                                                    src={user.photoURL}
-                                                    alt={user.name}
-                                                    className="h-11 w-11 rounded-full object-cover"
-                                                />
+                                                {user.photoURL ? (
 
-                                            ) : (
+                                                    <img
+                                                        src={user.photoURL}
+                                                        alt={user.name}
+                                                        className="h-11 w-11 rounded-full object-cover"
+                                                    />
 
-                                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 font-bold text-white">
+                                                ) : (
 
-                                                    {user.name
-                                                        .split(" ")
-                                                        .map(word => word[0])
-                                                        .join("")
-                                                        .slice(0, 2)
-                                                        .toUpperCase()}
+                                                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 font-bold text-white">
 
-                                                </div>
+                                                        {user.name
+                                                            .split(" ")
+                                                            .map(
+                                                                (word) =>
+                                                                    word[0]
+                                                            )
+                                                            .join("")
+                                                            .slice(0, 2)
+                                                            .toUpperCase()}
 
-                                            )}
+                                                    </div>
 
-                                            <span className="font-semibold">
+                                                )}
 
-                                                {user.name}
+
+                                                <span className="font-semibold">
+
+                                                    {user.name}
+
+                                                </span>
+
+                                            </div>
+
+                                        </td>
+
+
+                                        {/* EMAIL */}
+
+                                        <td className="px-6 py-4">
+
+                                            {user.email}
+
+                                        </td>
+
+
+                                        {/* PLAN */}
+
+                                        <td className="px-6 py-4">
+
+                                            <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">
+
+                                                {user.plan}
 
                                             </span>
 
-                                        </div>
+                                        </td>
 
-                                    </td>
 
-                                    <td className="px-6 py-4">
+                                        {/* SUBSCRIPTION */}
 
-                                        {user.email}
+                                        <td className="px-6 py-4">
 
-                                    </td>
+                                            <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
 
-                                    <td className="px-6 py-4">
+                                                {user.status}
 
-                                        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">
+                                            </span>
 
-                                            {user.plan}
+                                        </td>
 
-                                        </span>
 
-                                    </td>
+                                        {/* ACCOUNT */}
 
-                                    <td className="px-6 py-4">
+                                        <td className="px-6 py-4">
 
-                                        <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
-
-                                            {user.status}
-
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span
-                                            className={`rounded-full px-3 py-1 text-sm ${user.isBlocked
-                                                ? "bg-red-100 text-red-700"
-                                                : "bg-green-100 text-green-700"
+                                            <span
+                                                className={`rounded-full px-3 py-1 text-sm ${
+                                                    user.isBlocked
+                                                        ? "bg-red-100 text-red-700"
+                                                        : "bg-green-100 text-green-700"
                                                 }`}
-                                        >
-
-                                            {user.isBlocked
-                                                ? "Blocked"
-                                                : "Active"}
-
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4 text-gray-500">
-
-                                        {formatEndDate(user.endDate)}
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <span
-                                            className={`font-medium ${getDaysRemaining(user.endDate) === "Expired"
-                                                ? "text-red-600"
-                                                : "text-green-600"
-                                                }`}
-                                        >
-                                            {getDaysRemaining(user.endDate)}
-                                        </span>
-
-                                    </td>
-
-                                    <td className="px-6 py-4">
-
-                                        <div className="flex gap-2">
-
-                                            <button
-                                                onClick={() => {
-
-                                                    setSelectedUser(user);
-
-                                                    setModalOpen(true);
-
-                                                }}
-                                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
                                             >
-                                                Edit
-                                            </button>
 
-                                            <button
-                                                onClick={() =>
-                                                    handleToggleBlock(
-                                                        user.uid,
-                                                        user.isBlocked
-                                                    )
-                                                }
-                                                className={`rounded-lg px-4 py-2 text-sm text-white ${user.isBlocked
-                                                    ? "bg-green-600 hover:bg-green-700"
-                                                    : "bg-red-600 hover:bg-red-700"
-                                                    }`}
-                                            >
                                                 {user.isBlocked
-                                                    ? "Unblock"
-                                                    : "Block"}
-                                            </button>
+                                                    ? "Blocked"
+                                                    : "Active"}
 
-                                        </div>
+                                            </span>
 
-                                    </td>
+                                        </td>
 
-                                </tr>
 
-                            ))}
+                                        {/* END DATE */}
+
+                                        <td className="px-6 py-4 text-gray-500">
+
+                                            {formatEndDate(
+                                                user.endDate
+                                            )}
+
+                                        </td>
+
+
+                                        {/* DAYS LEFT */}
+
+                                        <td className="px-6 py-4">
+
+                                            <span
+                                                className={`font-medium ${
+                                                    getDaysRemaining(
+                                                        user.endDate
+                                                    ) === "Expired"
+                                                        ? "text-red-600"
+                                                        : "text-green-600"
+                                                }`}
+                                            >
+
+                                                {getDaysRemaining(
+                                                    user.endDate
+                                                )}
+
+                                            </span>
+
+                                        </td>
+
+
+                                        {/* ACTIONS */}
+
+                                        <td className="px-6 py-4">
+
+                                            <div className="flex gap-2">
+
+                                                {/* EDIT */}
+
+                                                <button
+                                                    onClick={() => {
+
+                                                        setSelectedUser(
+                                                            user
+                                                        );
+
+                                                        setModalOpen(
+                                                            true
+                                                        );
+
+                                                    }}
+                                                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                                                >
+
+                                                    Edit
+
+                                                </button>
+
+
+                                                {/* BLOCK / UNBLOCK */}
+
+                                                <button
+                                                    onClick={() =>
+                                                        handleToggleBlock(
+                                                            user.uid,
+                                                            user.isBlocked
+                                                        )
+                                                    }
+                                                    className={`rounded-lg px-4 py-2 text-sm text-white ${
+                                                        user.isBlocked
+                                                            ? "bg-green-600 hover:bg-green-700"
+                                                            : "bg-red-600 hover:bg-red-700"
+                                                    }`}
+                                                >
+
+                                                    {user.isBlocked
+                                                        ? "Unblock"
+                                                        : "Block"}
+
+                                                </button>
+
+                                            </div>
+
+                                        </td>
+
+                                    </tr>
+
+                                )
+                            )}
 
                         </tbody>
 
@@ -380,6 +474,11 @@ export default function UserTable({
                 </div>
 
             </div>
+
+
+            {/* =================================================
+                EDIT SUBSCRIPTION MODAL
+            ================================================= */}
 
             <EditSubscriptionModal
 
@@ -394,6 +493,7 @@ export default function UserTable({
                     setSelectedUser(null);
 
                 }}
+
                 onSave={async (
                     plan,
                     status,
@@ -403,6 +503,7 @@ export default function UserTable({
                     if (!selectedUser) {
                         return;
                     }
+
 
                     try {
 
@@ -414,47 +515,67 @@ export default function UserTable({
                                 : null;
 
 
+                        /*
+                         * -------------------------------------------------
+                         * UPDATE REAL USER DOCUMENT
+                         * -------------------------------------------------
+                         */
+
                         await updateUserSubscription(
                             selectedUser.uid,
                             {
                                 plan,
                                 status,
-                                endDate: timestamp,
+                                endDate:
+                                    timestamp,
                             }
                         );
-                        
-                        await updateCachedSubscription(
 
-                            selectedUser.uid,
 
-                            plan,
+                        /*
+                         * -------------------------------------------------
+                         * UPDATE CURRENT TABLE STATE
+                         * -------------------------------------------------
+                         *
+                         * The table already contains the user, so update
+                         * local state immediately.
+                         *
+                         * No adminCache update is required.
+                         */
 
-                            status,
-
-                            timestamp,
-
+                        setUsers(
+                            (previousUsers) =>
+                                previousUsers.map(
+                                    (user) =>
+                                        user.uid ===
+                                        selectedUser.uid
+                                            ? {
+                                                ...user,
+                                                plan,
+                                                status,
+                                                endDate:
+                                                    timestamp,
+                                            }
+                                            : user
+                                )
                         );
 
-                        setUsers((previousUsers) =>
-                            previousUsers.map((user) =>
-                                user.uid === selectedUser.uid
-                                    ? {
-                                        ...user,
-                                        plan,
-                                        status,
-                                        endDate: timestamp,
-                                    }
-                                    : user
-                            )
-                        );
+
+                        /*
+                         * Close modal.
+                         */
 
                         setModalOpen(false);
 
                         setSelectedUser(null);
 
+
                     } catch (error) {
 
-                        console.error(error);
+                        console.error(
+                            "Failed to update subscription:",
+                            error
+                        );
 
                     }
 

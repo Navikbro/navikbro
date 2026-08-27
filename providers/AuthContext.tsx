@@ -60,6 +60,12 @@ export function AuthProvider({
         );
 
 
+    /*
+     * =========================================================
+     * FIREBASE AUTH STATE
+     * =========================================================
+     */
+
     useEffect(() => {
 
         let mounted = true;
@@ -70,23 +76,19 @@ export function AuthProvider({
          * HANDLE GOOGLE REDIRECT RESULT
          * ---------------------------------------------------------
          *
-         * If a mobile/browser popup was unavailable, AuthModal
-         * uses signInWithRedirect().
+         * This only consumes the redirect result.
          *
-         * Google sends the user back to NAVIK.
-         *
-         * Firebase stores the redirect result and this call
-         * consumes it safely.
-         *
-         * IMPORTANT:
-         * We don't initialize the user here.
-         *
-         * onAuthStateChanged below is the single source of truth.
+         * User initialization is handled exclusively by
+         * onAuthStateChanged below.
          */
+
         getRedirectResult(auth)
             .then((result) => {
 
-                if (!mounted) return;
+                if (!mounted) {
+                    return;
+                }
+
 
                 if (result?.user) {
 
@@ -110,27 +112,23 @@ export function AuthProvider({
                     }
                 );
 
-                if (!mounted) return;
-
-                /*
-                 * Don't destroy an already authenticated session
-                 * because a redirect-result check failed.
-                 */
-
             });
 
 
         /*
          * ---------------------------------------------------------
-         * FIREBASE AUTH STATE
+         * AUTH STATE
          * ---------------------------------------------------------
          */
+
         const unsubscribe =
             onAuthStateChanged(
                 auth,
                 async (firebaseUser) => {
 
-                    if (!mounted) return;
+                    if (!mounted) {
+                        return;
+                    }
 
 
                     /*
@@ -138,6 +136,7 @@ export function AuthProvider({
                      * USER SIGNED OUT
                      * -------------------------------------------------
                      */
+
                     if (!firebaseUser) {
 
                         setUser(null);
@@ -152,66 +151,38 @@ export function AuthProvider({
 
                     /*
                      * -------------------------------------------------
-                     * IMPORTANT FIX
+                     * AUTH INITIALIZATION STARTED
                      * -------------------------------------------------
-                     *
-                     * Firebase has just detected an authenticated
-                     * user.
-                     *
-                     * But the application is NOT ready yet.
-                     *
-                     * We still have to:
-                     *
-                     * 1. Check admin claims
-                     * 2. Initialize users/{uid}
-                     * 3. Check whether the user is blocked
-                     *
-                     * Therefore loading MUST become true here.
-                     *
-                     * This is what prevents:
-                     *
-                     * Google Login
-                     *      ↓
-                     * Home
-                     *      ↓
-                     * Login button for 2-5 seconds
-                     *      ↓
-                     * Email + Logout
-                     *
-                     * Instead Header will remain in its loading
-                     * state until initialization is finished.
                      */
+
                     setLoading(true);
 
 
                     try {
-
 
                         /*
                          * -------------------------------------------------
                          * ADMIN CLAIM
                          * -------------------------------------------------
                          *
-                         * Force-refresh only when checking claims.
-                         * This keeps your existing admin logic intact.
+                         * Force-refresh the ID token so that a recently
+                         * assigned admin claim is detected.
                          */
+
                         const token =
                             await firebaseUser
                                 .getIdTokenResult(true);
 
 
-                        if (!mounted) return;
+                        if (!mounted) {
+                            return;
+                        }
 
 
                         const isAdmin =
                             token.claims.admin === true;
 
 
-                        /*
-                         * Set role before initialization finishes.
-                         *
-                         * This does NOT expose the user yet.
-                         */
                         setRole(
                             isAdmin
                                 ? "admin"
@@ -224,13 +195,13 @@ export function AuthProvider({
                          * INITIALIZE FIRESTORE USER
                          * -------------------------------------------------
                          *
-                         * CRITICAL:
+                         * initializeUser() now writes directly to:
                          *
-                         * This MUST finish before setUser().
+                         * users/{uid}
                          *
-                         * SubscriptionContext therefore cannot run
-                         * against a missing users/{uid} document.
+                         * There is no adminCache dependency.
                          */
+
                         const profile =
                             await initializeUser({
 
@@ -249,7 +220,9 @@ export function AuthProvider({
                             });
 
 
-                        if (!mounted) return;
+                        if (!mounted) {
+                            return;
+                        }
 
 
                         /*
@@ -257,12 +230,15 @@ export function AuthProvider({
                          * BLOCKED USER
                          * -------------------------------------------------
                          */
+
                         if (profile.isBlocked) {
 
                             await signOut(auth);
 
 
-                            if (!mounted) return;
+                            if (!mounted) {
+                                return;
+                            }
 
 
                             setUser(null);
@@ -277,63 +253,54 @@ export function AuthProvider({
 
                         /*
                          * -------------------------------------------------
-                         * FIRESTORE INITIALIZATION COMPLETE
+                         * AUTHENTICATION COMPLETE
                          * -------------------------------------------------
-                         *
-                         * NOW the application is allowed to see
-                         * the authenticated user.
                          */
-                        setUser(firebaseUser);
+
+                        setUser(
+                            firebaseUser
+                        );
 
 
                     } catch (error) {
 
-
                         /*
                          * -------------------------------------------------
-                         * POST-AUTHENTICATION INITIALIZATION FAILURE
+                         * INITIALIZATION FAILURE
                          * -------------------------------------------------
                          *
-                         * Firebase authentication itself succeeded.
+                         * Firebase authentication succeeded.
                          *
-                         * Keep the user authenticated, but only expose
-                         * the user AFTER the initialization attempt has
-                         * completed.
+                         * We keep the user authenticated, but log the
+                         * Firestore initialization error.
                          */
+
                         console.error(
                             "Post-authentication initialization failed:",
                             error
                         );
 
 
-                        if (!mounted) return;
+                        if (!mounted) {
+                            return;
+                        }
+
+
+                        setUser(
+                            firebaseUser
+                        );
 
 
                         /*
-                         * Firebase authentication itself succeeded,
-                         * therefore keep the user authenticated.
+                         * Do not automatically downgrade an admin
+                         * claim because Firestore initialization failed.
                          *
-                         * SubscriptionContext will still wait until
-                         * AuthContext loading is finished before checking
-                         * the subscription.
+                         * The role was already determined from the
+                         * Firebase token above.
                          */
-                        setUser(firebaseUser);
-
-                        setRole("student");
-
 
                     } finally {
 
-
-                        /*
-                         * -------------------------------------------------
-                         * AUTHENTICATION INITIALIZATION COMPLETE
-                         * -------------------------------------------------
-                         *
-                         * Whether initialization succeeded or failed,
-                         * the AuthContext is now finished with this
-                         * authentication event.
-                         */
                         if (mounted) {
 
                             setLoading(false);
@@ -344,15 +311,14 @@ export function AuthProvider({
 
 
                     /*
-                     * -----------------------------------------------------
-                     * FCM IS INTENTIONALLY OUTSIDE THE CRITICAL LOGIN PATH
-                     * -----------------------------------------------------
+                     * -------------------------------------------------
+                     * FCM
+                     * -------------------------------------------------
                      *
-                     * We do this after authentication has completed.
-                     *
-                     * If notifications fail on a particular browser,
-                     * Google login still works.
+                     * Notification setup is deliberately outside
+                     * the critical authentication path.
                      */
+
                     void setupNotifications(
                         firebaseUser.uid
                     );
@@ -371,44 +337,89 @@ export function AuthProvider({
 
     }, []);
 
+
+    /*
+     * =========================================================
+     * USER PRESENCE
+     * =========================================================
+     */
+
     useEffect(() => {
+
         if (!user) {
             return;
         }
 
+
         let cancelled = false;
 
-        const sendPresence = async () => {
-            if (cancelled) {
-                return;
-            }
 
-            try {
-                await updateUserPresence(user.uid);
-            } catch (error) {
-                console.error(
-                    "Failed to update user presence:",
-                    error
-                );
-            }
-        };
+        const sendPresence =
+            async () => {
 
-        // Mark user online immediately
-        // Mark user online immediately
+                if (cancelled) {
+                    return;
+                }
+
+
+                try {
+
+                    await updateUserPresence(
+                        user.uid
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "Failed to update user presence:",
+                        error
+                    );
+
+                }
+
+            };
+
+
+        /*
+         * Mark user online immediately.
+         */
+
         void sendPresence();
 
-        // Keep user online while the app is open
-        const interval = setInterval(() => {
-            // Mark user online immediately
-            void sendPresence();
-        }, 60 * 1000); // every 60 seconds
+
+        /*
+         * Keep presence alive while the app is open.
+         */
+
+        const interval =
+            window.setInterval(
+                () => {
+
+                    void sendPresence();
+
+                },
+                60 * 1000
+            );
+
 
         return () => {
+
             cancelled = true;
-            clearInterval(interval);
+
+            window.clearInterval(
+                interval
+            );
+
         };
+
     }, [user]);
 
+
+    /*
+     * =========================================================
+     * PROVIDER
+     * =========================================================
+     */
 
     return (
 
@@ -434,17 +445,16 @@ export function AuthProvider({
  * NOTIFICATION SETUP
  * =============================================================
  *
- * This is deliberately isolated from authentication.
+ * This is completely independent from authentication.
  *
- * A browser that doesn't support notifications/FCM correctly
- * should never break Google authentication.
+ * FCM failure must never break login.
  */
+
 async function setupNotifications(
     uid: string
 ) {
 
     try {
-
 
         if (
             typeof window === "undefined"
@@ -474,13 +484,13 @@ async function setupNotifications(
 
     } catch (error) {
 
-
         /*
          * Notification failure is non-critical.
          *
          * DO NOT sign the user out.
-         * DO NOT change authentication state.
+         * DO NOT modify authentication state.
          */
+
         console.warn(
             "FCM setup skipped:",
             error
@@ -490,6 +500,12 @@ async function setupNotifications(
 
 }
 
+
+/*
+ * =============================================================
+ * USE AUTH
+ * =============================================================
+ */
 
 export function useAuth() {
 

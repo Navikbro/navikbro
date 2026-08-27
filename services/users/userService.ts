@@ -9,10 +9,6 @@ import {
 } from "firebase/firestore";
 
 import {
-    addUserToAdminCache,
-} from "@/services/admin/adminUserService";
-
-import {
     incrementTotalUsers,
 } from "@/services/admin/adminService";
 
@@ -31,10 +27,21 @@ interface FirebaseUserData {
 }
 
 
+/* =========================================================
+   CREATE USER PROFILE
+   ========================================================= */
+
 /**
- * Create user profile after first login
- * If user already exists, return existing profile
+ * Create user profile after first login.
+ *
+ * If the user already exists, return the existing profile.
+ *
+ * IMPORTANT:
+ * The users/{uid} document is the single source of truth.
+ *
+ * There is NO admin user cache update here.
  */
+
 export async function createUserProfile(
     firebaseUser: FirebaseUserData
 ) {
@@ -46,35 +53,40 @@ export async function createUserProfile(
     );
 
 
-    const snapshot = await getDoc(userRef);
+    const snapshot =
+        await getDoc(userRef);
 
+
+    /* =====================================================
+       EXISTING USER
+       ===================================================== */
 
     if (snapshot.exists()) {
 
-        const existingUser = snapshot.data();
+        const existingUser =
+            snapshot.data();
 
 
         await updateDoc(
             userRef,
             {
 
-                uid: firebaseUser.uid,
+                uid:
+                    firebaseUser.uid,
 
                 updatedAt:
                     serverTimestamp(),
-
 
                 role:
                     existingUser.role === "admin"
                         ? "admin"
                         : "student",
 
-
                 isBlocked:
                     existingUser.isBlocked ?? false,
 
-
                 subscription: {
+
                     plan: "free",
 
                     status: "inactive",
@@ -100,8 +112,8 @@ export async function createUserProfile(
                     ...(typeof existingUser.subscription === "object"
                         ? existingUser.subscription
                         : {}),
-                },
 
+                },
 
                 "stats.loginCount":
                     existingUser.stats?.loginCount ?? 0,
@@ -116,12 +128,18 @@ export async function createUserProfile(
         return {
             ...existingUser,
         };
+
     }
 
 
+    /* =====================================================
+       NEW USER
+       ===================================================== */
+
     const newUser = {
 
-        uid: firebaseUser.uid,
+        uid:
+            firebaseUser.uid,
 
         name:
             firebaseUser.displayName ||
@@ -135,9 +153,8 @@ export async function createUserProfile(
             firebaseUser.photoURL ||
             null,
 
-
-        role: "student",
-
+        role:
+            "student",
 
         createdAt:
             serverTimestamp(),
@@ -145,11 +162,11 @@ export async function createUserProfile(
         updatedAt:
             serverTimestamp(),
 
-
-        isBlocked: false,
-
+        isBlocked:
+            false,
 
         subscription: {
+
             plan: "free",
 
             status: "inactive",
@@ -171,8 +188,8 @@ export async function createUserProfile(
             lockedPrice: 149,
 
             currency: "INR",
-        },
 
+        },
 
         stats: {
 
@@ -192,56 +209,40 @@ export async function createUserProfile(
     );
 
 
-    // Update admin dashboard counters
+    /*
+     * Keep the dashboard counter.
+     *
+     * This is NOT used by the Admin Users table.
+     * The Admin Users table now gets its actual count
+     * directly from users/.
+     */
+
     await incrementTotalUsers();
 
 
-    // Update admin user cache
-    await addUserToAdminCache({
-
-        uid: firebaseUser.uid,
-
-        name:
-            firebaseUser.displayName ||
-            "Anonymous",
-
-        email:
-            firebaseUser.email ||
-            "",
-
-        photoURL:
-            firebaseUser.photoURL ||
-            null,
-
-        plan: "free",
-
-        status: "inactive",
-
-        endDate: null,
-
-        isBlocked: false,
-
-    });
-
-
     return newUser;
-
 }
 
 
+/* =========================================================
+   UPDATE USER LOGIN
+   ========================================================= */
+
 /**
- * Update user login activity
- * Called every successful login
+ * Update user login activity.
+ * Called every successful login.
  */
+
 export async function updateUserLogin(
     uid: string
 ) {
 
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
 
 
     await updateDoc(
@@ -262,6 +263,11 @@ export async function updateUserLogin(
 
 }
 
+
+/* =========================================================
+   UPDATE USER PRESENCE
+   ========================================================= */
+
 /**
  * Update user's online presence.
  *
@@ -269,37 +275,50 @@ export async function updateUserLogin(
  * It is updated periodically while the user
  * is actively using NAVIK.
  */
+
 export async function updateUserPresence(
     uid: string
 ) {
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
+
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
+
 
     await updateDoc(
         userRef,
         {
+
             "stats.lastSeen":
                 serverTimestamp(),
+
         }
     );
+
 }
 
 
+/* =========================================================
+   GET USER PROFILE
+   ========================================================= */
+
 /**
- * Get complete user profile
+ * Get complete user profile.
  */
+
 export async function getUserProfile(
     uid: string
 ) {
 
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
 
 
     const snapshot =
@@ -316,25 +335,32 @@ export async function getUserProfile(
 }
 
 
+/* =========================================================
+   BLOCK USER
+   ========================================================= */
+
 /**
- * Block user from accessing app
+ * Block user from accessing the app.
  */
+
 export async function blockUser(
     uid: string
 ) {
 
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
 
 
     await updateDoc(
         userRef,
         {
 
-            isBlocked: true,
+            isBlocked:
+                true,
 
             updatedAt:
                 serverTimestamp(),
@@ -345,25 +371,32 @@ export async function blockUser(
 }
 
 
+/* =========================================================
+   UNBLOCK USER
+   ========================================================= */
+
 /**
- * Restore blocked user
+ * Restore blocked user.
  */
+
 export async function unblockUser(
     uid: string
 ) {
 
-    const userRef = doc(
-        db,
-        "users",
-        uid
-    );
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
 
 
     await updateDoc(
         userRef,
         {
 
-            isBlocked: false,
+            isBlocked:
+                false,
 
             updatedAt:
                 serverTimestamp(),
@@ -372,33 +405,68 @@ export async function unblockUser(
     );
 
 }
+
+
+/* =========================================================
+   UPDATE USER SUBSCRIPTION
+   ========================================================= */
+
+/**
+ * Update user's subscription.
+ *
+ * The real users/{uid} document is updated directly.
+ */
 
 export async function updateUserSubscription(
     uid: string,
     subscription: Partial<AppUser["subscription"]>
 ) {
-    const userRef = doc(db, "users", uid);
 
-    // Read existing document
-    const snapshot = await getDoc(userRef);
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
 
-    // Get current subscription
+
+    const snapshot =
+        await getDoc(userRef);
+
+
     const existing =
         snapshot.data()?.subscription ?? {};
 
-    // Merge and save
-    await updateDoc(userRef, {
-        subscription: {
-            ...existing,
-            ...subscription,
-        },
-        updatedAt: serverTimestamp(),
-    });
+
+    await updateDoc(
+        userRef,
+        {
+
+            subscription: {
+
+                ...existing,
+
+                ...subscription,
+
+            },
+
+            updatedAt:
+                serverTimestamp(),
+
+        }
+    );
+
 }
 
+
+/* =========================================================
+   SAVE FCM TOKEN
+   ========================================================= */
+
 /**
- * Save Firebase Cloud Messaging token
+ * Save Firebase Cloud Messaging token.
  */
+
 export async function saveFCMToken(
     uid: string,
     token: string
@@ -415,40 +483,70 @@ export async function saveFCMToken(
     await updateDoc(
         userRef,
         {
+
             fcmTokens:
                 arrayUnion(token),
 
             updatedAt:
                 serverTimestamp(),
+
         }
     );
 
 }
 
+
+/* =========================================================
+   INITIALIZE USER
+   ========================================================= */
+
+/**
+ * Initialize the authenticated Firebase user.
+ *
+ * This is the main function used after authentication.
+ *
+ * IMPORTANT:
+ * There is deliberately NO adminCache operation here.
+ *
+ * The users/{uid} document is the source of truth.
+ */
+
 export async function initializeUser(
     firebaseUser: FirebaseUserData
 ) {
 
-    const userRef = doc(
-        db,
-        "users",
-        firebaseUser.uid
-    );
+    const userRef =
+        doc(
+            db,
+            "users",
+            firebaseUser.uid
+        );
 
-    // ONE AND ONLY READ
-    const snapshot = await getDoc(userRef);
 
-    // ===========================
-    // EXISTING USER
-    // ===========================
+    /*
+     * ONE AND ONLY READ
+     */
+
+    const snapshot =
+        await getDoc(userRef);
+
+
+    /* =====================================================
+       EXISTING USER
+       ===================================================== */
+
     if (snapshot.exists()) {
 
-        const existingUser = snapshot.data();
+        const existingUser =
+            snapshot.data();
+
 
         await updateDoc(
             userRef,
             {
-                updatedAt: serverTimestamp(),
+
+                updatedAt:
+                    serverTimestamp(),
 
                 role:
                     existingUser.role === "admin"
@@ -459,6 +557,7 @@ export async function initializeUser(
                     existingUser.isBlocked ?? false,
 
                 subscription: {
+
                     plan: "free",
 
                     status: "inactive",
@@ -484,16 +583,23 @@ export async function initializeUser(
                     ...(typeof existingUser.subscription === "object"
                         ? existingUser.subscription
                         : {}),
+
                 },
 
-                "stats.loginCount": increment(1),
+                "stats.loginCount":
+                    increment(1),
 
-                "stats.lastLogin": serverTimestamp(),
+                "stats.lastLogin":
+                    serverTimestamp(),
+
             }
         );
 
+
         return {
-            uid: firebaseUser.uid,
+
+            uid:
+                firebaseUser.uid,
 
             name:
                 existingUser.name ??
@@ -516,12 +622,14 @@ export async function initializeUser(
                     : "student",
 
             isBlocked:
-                existingUser.isBlocked ?? false,
+                existingUser.isBlocked ??
+                false,
 
             subscription:
                 typeof existingUser.subscription === "object"
                     ? existingUser.subscription
                     : {
+
                         plan: "free",
 
                         status: "inactive",
@@ -541,36 +649,49 @@ export async function initializeUser(
                         amount: 149,
 
                         lockedPrice: 149,
+
                     },
+
         };
+
     }
 
-    // ===========================
-    // NEW USER
-    // ===========================
+
+    /* =====================================================
+       NEW USER
+       ===================================================== */
 
     const newUser = {
-        uid: firebaseUser.uid,
+
+        uid:
+            firebaseUser.uid,
 
         name:
             firebaseUser.displayName ||
             "Anonymous",
 
         email:
-            firebaseUser.email || "",
+            firebaseUser.email ||
+            "",
 
         photoURL:
-            firebaseUser.photoURL || null,
+            firebaseUser.photoURL ||
+            null,
 
-        role: "student",
+        role:
+            "student",
 
-        createdAt: serverTimestamp(),
+        createdAt:
+            serverTimestamp(),
 
-        updatedAt: serverTimestamp(),
+        updatedAt:
+            serverTimestamp(),
 
-        isBlocked: false,
+        isBlocked:
+            false,
 
         subscription: {
+
             plan: "free",
 
             status: "inactive",
@@ -590,35 +711,49 @@ export async function initializeUser(
             amount: 149,
 
             lockedPrice: 149,
+
         },
 
         stats: {
+
             loginCount: 1,
-            lastLogin: serverTimestamp(),
+
+            lastLogin:
+                serverTimestamp(),
+
         },
+
     };
+
+
+    /*
+     * Create the real user document.
+     */
 
     await setDoc(
         userRef,
         newUser
     );
 
+
+    /*
+     * Update dashboard statistics.
+     *
+     * This is independent from the Admin Users list.
+     */
+
     await incrementTotalUsers();
 
-    await addUserToAdminCache({
-        uid: firebaseUser.uid,
-        name:
-            firebaseUser.displayName ||
-            "Anonymous",
-        email:
-            firebaseUser.email || "",
-        photoURL:
-            firebaseUser.photoURL || null,
-        plan: "free",
-        status: "inactive",
-        endDate: null,
-        isBlocked: false,
-    });
+
+    /*
+     * DO NOT call:
+     *
+     * addUserToAdminCache()
+     *
+     * The Admin Users page now reads directly
+     * from users/{uid}.
+     */
+
 
     return newUser;
 }
