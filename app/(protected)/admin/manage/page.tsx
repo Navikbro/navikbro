@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 
 import {
     getWrittenQuestions,
@@ -71,6 +75,94 @@ export default function ManageWrittenQuestionsPage() {
 
     const [expandedId, setExpandedId] =
         useState<string | null>(null);
+
+    const [uploadingImage, setUploadingImage] =
+        useState(false);
+
+    const imageInputRef =
+        useRef<HTMLInputElement | null>(null);
+
+    const answerTextareaRef =
+        useRef<HTMLTextAreaElement | null>(null);
+
+    async function uploadWrittenImage(
+        file: File
+    ): Promise<string> {
+
+        if (type !== "written") {
+            throw new Error(
+                "Images are currently available only for written questions."
+            );
+        }
+
+        const formData = new FormData();
+
+        formData.append("file", file);
+
+        const response = await adminFetch(
+            "/api/admin/written-images",
+            {
+                method: "POST",
+                body: formData,
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.message ||
+                "Failed to upload image."
+            );
+        }
+
+        return data.url;
+    }
+
+    async function handleInsertImage(file: File) {
+        try {
+            setUploadingImage(true);
+
+            const url = await uploadWrittenImage(file);
+
+            const markdown = `![${file.name}](${url})`;
+
+            setEditedAnswer((current) => {
+                const textarea = answerTextareaRef.current;
+
+                if (!textarea) {
+                    return current
+                        ? `${current}\n\n${markdown}\n\n`
+                        : markdown;
+                }
+
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+
+                return (
+                    current.slice(0, start) +
+                    `\n\n${markdown}\n\n` +
+                    current.slice(end)
+                );
+            });
+
+        } catch (error) {
+            console.error(error);
+
+            alert(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to upload image."
+            );
+
+        } finally {
+            setUploadingImage(false);
+
+            if (imageInputRef.current) {
+                imageInputRef.current.value = "";
+            }
+        }
+    }
 
 
 
@@ -966,42 +1058,41 @@ export default function ManageWrittenQuestionsPage() {
                 {
                     editingQuestion && (
 
-
                         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-6">
 
-
-                            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-8 shadow-xl">
-
+                            <div className="mx-auto w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-8 shadow-xl">
 
                                 <h2 className="text-2xl font-bold">
-
                                     Edit {
                                         type === "oral"
                                             ? "Oral"
                                             : "Written"
                                     } Question
-
                                 </h2>
 
 
+                                {/* QUESTION */}
+
+                                <div className="mt-6">
+
+                                    <label className="mb-2 block text-sm font-semibold">
+                                        Question
+                                    </label>
+
+                                    <textarea
+                                        value={editedQuestion}
+                                        onChange={(e) =>
+                                            setEditedQuestion(e.target.value)
+                                        }
+                                        rows={5}
+                                        className="w-full rounded-xl border border-gray-300 p-4"
+                                        placeholder="Enter question..."
+                                    />
+
+                                </div>
 
 
-                                <textarea
-
-                                    value={editedQuestion}
-
-                                    onChange={(e) =>
-                                        setEditedQuestion(
-                                            e.target.value
-                                        )
-                                    }
-
-                                    rows={6}
-
-                                    className="mt-6 w-full rounded-xl border border-gray-300 p-4"
-
-                                />
-
+                                {/* TOPIC */}
 
                                 <div className="mt-6">
 
@@ -1011,110 +1102,130 @@ export default function ManageWrittenQuestionsPage() {
 
                                     <select
                                         value={editedTopic}
-                                        onChange={(e) => setEditedTopic(e.target.value)}
-                                        className="w-full rounded-xl border border-gray-300 p-4"
+                                        onChange={(e) =>
+                                            setEditedTopic(e.target.value)
+                                        }
+                                        className="w-full rounded-xl border border-gray-300 bg-white p-4"
                                     >
+
                                         <option value="">
                                             Select Topic
                                         </option>
 
                                         {topics.map((topic) => (
+
                                             <option
                                                 key={topic}
                                                 value={topic}
                                             >
                                                 {topic}
                                             </option>
+
                                         ))}
+
                                     </select>
 
                                 </div>
 
 
+                                {/* ANSWER */}
+
                                 <div className="mt-6">
 
-
                                     <label className="mb-2 block text-sm font-semibold">
-
                                         Answer
-
                                     </label>
 
 
+                                    {type === "written" && (
+
+                                        <div className="mb-3 flex items-center gap-3">
+
+                                            <input
+                                                ref={imageInputRef}
+                                                type="file"
+                                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                                className="hidden"
+                                                onChange={async (e) => {
+
+                                                    const file =
+                                                        e.target.files?.[0];
+
+                                                    if (!file) {
+                                                        return;
+                                                    }
+
+                                                    await handleInsertImage(file);
+                                                }}
+                                            />
+
+
+                                            <button
+                                                type="button"
+                                                disabled={uploadingImage}
+                                                onClick={() =>
+                                                    imageInputRef.current?.click()
+                                                }
+                                                className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                {uploadingImage
+                                                    ? "Uploading..."
+                                                    : "📷 Insert Photo"}
+                                            </button>
+
+
+                                            <span className="text-xs text-gray-500">
+                                                JPG, PNG or WebP · Max 4 MB
+                                            </span>
+
+                                        </div>
+
+                                    )}
+
 
                                     <textarea
-
+                                        ref={answerTextareaRef}
                                         value={editedAnswer}
-
                                         onChange={(e) =>
-                                            setEditedAnswer(
-                                                e.target.value
-                                            )
+                                            setEditedAnswer(e.target.value)
                                         }
-
                                         rows={12}
-
-                                        className="w-full rounded-xl border border-gray-300 p-4"
-
+                                        className="w-full rounded-xl border border-gray-300 p-4 font-mono text-sm"
+                                        placeholder="Write answer in Markdown..."
                                     />
-
 
                                 </div>
 
 
-
-
+                                {/* BUTTONS */}
 
                                 <div className="mt-8 flex justify-end gap-3">
 
-
                                     <button
-
                                         onClick={() =>
                                             setEditingQuestion(null)
                                         }
-
                                         className="rounded-xl border px-5 py-2"
-
                                     >
-
                                         Cancel
-
                                     </button>
-
-
-
 
 
                                     <button
-
                                         onClick={handleSave}
-
                                         className="rounded-xl bg-blue-600 px-5 py-2 text-white"
-
                                     >
-
                                         Save
-
                                     </button>
-
-
 
                                 </div>
 
-
-
                             </div>
-
-
 
                         </div>
 
-
                     )
                 }
-
-
 
             </div>
 
