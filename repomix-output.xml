@@ -81,6 +81,8 @@ app/
         route.ts
       online-users/
         route.ts
+      written-images/
+        route.ts
     notifications/
       send-broadcast/
         route.ts
@@ -4098,6 +4100,97 @@ export async function GET(request: NextRequest) {
                 onlineUsers: 0,
             },
             { status }
+        );
+    }
+}
+</file>
+
+<file path="app/api/admin/written-images/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { put } from "@vercel/blob";
+
+import { verifyAdmin } from "@/lib/authentication/verifyAdmin";
+
+export async function POST(request: NextRequest) {
+    try {
+        // Only Firebase admins can upload
+        await verifyAdmin(request);
+
+        const formData = await request.formData();
+
+        const file = formData.get("file");
+
+        if (!(file instanceof File)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "No image file provided.",
+                },
+                { status: 400 }
+            );
+        }
+
+        // Only images
+        if (!file.type.startsWith("image/")) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Only image files are allowed.",
+                },
+                { status: 400 }
+            );
+        }
+
+        // 4 MB limit
+        const MAX_SIZE = 4 * 1024 * 1024;
+
+        if (file.size > MAX_SIZE) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Image must be smaller than 4 MB.",
+                },
+                { status: 400 }
+            );
+        }
+
+        const extension =
+            file.name.split(".").pop()?.toLowerCase() || "jpg";
+
+        const pathname =
+            `written-images/${crypto.randomUUID()}.${extension}`;
+
+        const blob = await put(
+            pathname,
+            file,
+            {
+                access: "public",
+                addRandomSuffix: false,
+                contentType: file.type,
+            }
+        );
+
+        return NextResponse.json({
+            success: true,
+            url: blob.url,
+            pathname: blob.pathname,
+        });
+
+    } catch (error) {
+        console.error(
+            "[Written Image Upload]",
+            error
+        );
+
+        return NextResponse.json(
+            {
+                success: false,
+                message:
+                    error instanceof Error
+                        ? error.message
+                        : "Image upload failed.",
+            },
+            { status: 500 }
         );
     }
 }
@@ -17209,53 +17302,6 @@ export async function uploadWrittenBatch(
 }
 </file>
 
-<file path="package.json">
-{
-  "name": "navik",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "@tanstack/react-virtual": "^3.14.9",
-    "dotenv": "^17.4.2",
-    "exceljs": "^4.4.0",
-    "firebase": "^12.15.0",
-    "firebase-admin": "^13.4.0",
-    "framer-motion": "^12.42.2",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "papaparse": "^5.5.4",
-    "razorpay": "^2.9.8",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/papaparse": "^5.5.2",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.1",
-    "typescript": "^5"
-  }
-}
-</file>
-
 <file path="app/(protected)/admin/content/writtens/page.tsx">
 "use client";
 
@@ -19579,6 +19625,54 @@ export function useSubscription() {
 }
 </file>
 
+<file path="package.json">
+{
+  "name": "navik",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "@tanstack/react-virtual": "^3.14.9",
+    "@vercel/blob": "^2.8.0",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.15.0",
+    "firebase-admin": "^13.4.0",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "razorpay": "^2.9.8",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+  }
+}
+</file>
+
 <file path="app/(protected)/admin/content/orals/page.tsx">
 "use client";
 
@@ -21329,10 +21423,160 @@ export async function generateWrittenTopics() {
 }
 </file>
 
-<file path="app/(protected)/admin/manage/page.tsx">
+<file path="app/api/revalidate/revalidate-home/route.ts">
+import { revalidateTag } from "next/cache";
+import { NextResponse } from "next/server";
+
+export async function POST() {
+    try {
+        revalidateTag(
+            "oral_batches_metadata",
+            "max"
+        );
+
+        revalidateTag(
+            "written_batches_metadata",
+            "max"
+        );
+
+        return NextResponse.json({
+            success: true,
+        });
+    } catch (error) {
+        console.error(
+            "HOME REVALIDATION ERROR:",
+            error
+        );
+
+        return NextResponse.json(
+            {
+                success: false,
+            },
+            {
+                status: 500,
+            }
+        );
+    }
+}
+</file>
+
+<file path="hooks/useOralMmdPreference.ts">
 "use client";
 
 import { useEffect, useState } from "react";
+
+import {
+  fetchOralMmdPreference,
+  updateOralMmdPreference,
+} from "@/services/users/userPreference.client";
+
+
+export function useOralMmdPreference() {
+
+  const [mmd, setMmdState] =
+    useState<string | null>(null);
+
+
+  const [loading, setLoading] =
+    useState(true);
+
+
+
+  useEffect(() => {
+
+    let mounted = true;
+
+
+    async function loadPreference() {
+
+      try {
+
+        const data =
+          await fetchOralMmdPreference();
+
+      if (mounted) {
+            setMmdState(
+              data.oralMmd || "Chennai"
+            );
+          }
+
+
+     } catch (error) {
+    console.error(
+        "Failed loading MMD preference:",
+        error
+    );
+
+    if (mounted) {
+        setMmdState("Chennai");
+    }
+} finally {
+
+        if (mounted) {
+
+          setLoading(false);
+
+        }
+
+      }
+
+    }
+
+
+    loadPreference();
+
+
+    return () => {
+
+      mounted = false;
+
+    };
+
+
+  }, []);
+
+  const setMmd = async (
+    value: string
+  ) => {
+    // Update the UI immediately
+    setMmdState(value);
+
+    try {
+      // Save the preference in the background
+      await updateOralMmdPreference(value);
+    } catch (error) {
+      console.error(
+        "Failed saving MMD preference:",
+        error
+      );
+    }
+  };
+
+
+
+
+
+  return {
+
+    mmd,
+
+    loading,
+
+    setMmd,
+
+  };
+
+}
+</file>
+
+<file path="app/(protected)/admin/manage/page.tsx">
+"use client";
+
+import {
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 
 import {
     getWrittenQuestions,
@@ -21403,6 +21647,94 @@ export default function ManageWrittenQuestionsPage() {
 
     const [expandedId, setExpandedId] =
         useState<string | null>(null);
+
+    const [uploadingImage, setUploadingImage] =
+        useState(false);
+
+    const imageInputRef =
+        useRef<HTMLInputElement | null>(null);
+
+    const answerTextareaRef =
+        useRef<HTMLTextAreaElement | null>(null);
+
+    async function uploadWrittenImage(
+        file: File
+    ): Promise<string> {
+
+        if (type !== "written") {
+            throw new Error(
+                "Images are currently available only for written questions."
+            );
+        }
+
+        const formData = new FormData();
+
+        formData.append("file", file);
+
+        const response = await adminFetch(
+            "/api/admin/written-images",
+            {
+                method: "POST",
+                body: formData,
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.message ||
+                "Failed to upload image."
+            );
+        }
+
+        return data.url;
+    }
+
+    async function handleInsertImage(file: File) {
+        try {
+            setUploadingImage(true);
+
+            const url = await uploadWrittenImage(file);
+
+            const markdown = `![${file.name}](${url})`;
+
+            setEditedAnswer((current) => {
+                const textarea = answerTextareaRef.current;
+
+                if (!textarea) {
+                    return current
+                        ? `${current}\n\n${markdown}\n\n`
+                        : markdown;
+                }
+
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+
+                return (
+                    current.slice(0, start) +
+                    `\n\n${markdown}\n\n` +
+                    current.slice(end)
+                );
+            });
+
+        } catch (error) {
+            console.error(error);
+
+            alert(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to upload image."
+            );
+
+        } finally {
+            setUploadingImage(false);
+
+            if (imageInputRef.current) {
+                imageInputRef.current.value = "";
+            }
+        }
+    }
 
 
 
@@ -22298,42 +22630,41 @@ export default function ManageWrittenQuestionsPage() {
                 {
                     editingQuestion && (
 
-
                         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-6">
 
-
-                            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-8 shadow-xl">
-
+                            <div className="mx-auto w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-8 shadow-xl">
 
                                 <h2 className="text-2xl font-bold">
-
                                     Edit {
                                         type === "oral"
                                             ? "Oral"
                                             : "Written"
                                     } Question
-
                                 </h2>
 
 
+                                {/* QUESTION */}
+
+                                <div className="mt-6">
+
+                                    <label className="mb-2 block text-sm font-semibold">
+                                        Question
+                                    </label>
+
+                                    <textarea
+                                        value={editedQuestion}
+                                        onChange={(e) =>
+                                            setEditedQuestion(e.target.value)
+                                        }
+                                        rows={5}
+                                        className="w-full rounded-xl border border-gray-300 p-4"
+                                        placeholder="Enter question..."
+                                    />
+
+                                </div>
 
 
-                                <textarea
-
-                                    value={editedQuestion}
-
-                                    onChange={(e) =>
-                                        setEditedQuestion(
-                                            e.target.value
-                                        )
-                                    }
-
-                                    rows={6}
-
-                                    className="mt-6 w-full rounded-xl border border-gray-300 p-4"
-
-                                />
-
+                                {/* TOPIC */}
 
                                 <div className="mt-6">
 
@@ -22343,110 +22674,130 @@ export default function ManageWrittenQuestionsPage() {
 
                                     <select
                                         value={editedTopic}
-                                        onChange={(e) => setEditedTopic(e.target.value)}
-                                        className="w-full rounded-xl border border-gray-300 p-4"
+                                        onChange={(e) =>
+                                            setEditedTopic(e.target.value)
+                                        }
+                                        className="w-full rounded-xl border border-gray-300 bg-white p-4"
                                     >
+
                                         <option value="">
                                             Select Topic
                                         </option>
 
                                         {topics.map((topic) => (
+
                                             <option
                                                 key={topic}
                                                 value={topic}
                                             >
                                                 {topic}
                                             </option>
+
                                         ))}
+
                                     </select>
 
                                 </div>
 
 
+                                {/* ANSWER */}
+
                                 <div className="mt-6">
 
-
                                     <label className="mb-2 block text-sm font-semibold">
-
                                         Answer
-
                                     </label>
 
 
+                                    {type === "written" && (
+
+                                        <div className="mb-3 flex items-center gap-3">
+
+                                            <input
+                                                ref={imageInputRef}
+                                                type="file"
+                                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                                className="hidden"
+                                                onChange={async (e) => {
+
+                                                    const file =
+                                                        e.target.files?.[0];
+
+                                                    if (!file) {
+                                                        return;
+                                                    }
+
+                                                    await handleInsertImage(file);
+                                                }}
+                                            />
+
+
+                                            <button
+                                                type="button"
+                                                disabled={uploadingImage}
+                                                onClick={() =>
+                                                    imageInputRef.current?.click()
+                                                }
+                                                className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                {uploadingImage
+                                                    ? "Uploading..."
+                                                    : "📷 Insert Photo"}
+                                            </button>
+
+
+                                            <span className="text-xs text-gray-500">
+                                                JPG, PNG or WebP · Max 4 MB
+                                            </span>
+
+                                        </div>
+
+                                    )}
+
 
                                     <textarea
-
+                                        ref={answerTextareaRef}
                                         value={editedAnswer}
-
                                         onChange={(e) =>
-                                            setEditedAnswer(
-                                                e.target.value
-                                            )
+                                            setEditedAnswer(e.target.value)
                                         }
-
                                         rows={12}
-
-                                        className="w-full rounded-xl border border-gray-300 p-4"
-
+                                        className="w-full rounded-xl border border-gray-300 p-4 font-mono text-sm"
+                                        placeholder="Write answer in Markdown..."
                                     />
-
 
                                 </div>
 
 
-
-
+                                {/* BUTTONS */}
 
                                 <div className="mt-8 flex justify-end gap-3">
 
-
                                     <button
-
                                         onClick={() =>
                                             setEditingQuestion(null)
                                         }
-
                                         className="rounded-xl border px-5 py-2"
-
                                     >
-
                                         Cancel
-
                                     </button>
-
-
-
 
 
                                     <button
-
                                         onClick={handleSave}
-
                                         className="rounded-xl bg-blue-600 px-5 py-2 text-white"
-
                                     >
-
                                         Save
-
                                     </button>
-
-
 
                                 </div>
 
-
-
                             </div>
-
-
 
                         </div>
 
-
                     )
                 }
-
-
 
             </div>
 
@@ -22455,152 +22806,6 @@ export default function ManageWrittenQuestionsPage() {
 
     );
 
-
-}
-</file>
-
-<file path="app/api/revalidate/revalidate-home/route.ts">
-import { revalidateTag } from "next/cache";
-import { NextResponse } from "next/server";
-
-export async function POST() {
-    try {
-        revalidateTag(
-            "oral_batches_metadata",
-            "max"
-        );
-
-        revalidateTag(
-            "written_batches_metadata",
-            "max"
-        );
-
-        return NextResponse.json({
-            success: true,
-        });
-    } catch (error) {
-        console.error(
-            "HOME REVALIDATION ERROR:",
-            error
-        );
-
-        return NextResponse.json(
-            {
-                success: false,
-            },
-            {
-                status: 500,
-            }
-        );
-    }
-}
-</file>
-
-<file path="hooks/useOralMmdPreference.ts">
-"use client";
-
-import { useEffect, useState } from "react";
-
-import {
-  fetchOralMmdPreference,
-  updateOralMmdPreference,
-} from "@/services/users/userPreference.client";
-
-
-export function useOralMmdPreference() {
-
-  const [mmd, setMmdState] =
-    useState<string | null>(null);
-
-
-  const [loading, setLoading] =
-    useState(true);
-
-
-
-  useEffect(() => {
-
-    let mounted = true;
-
-
-    async function loadPreference() {
-
-      try {
-
-        const data =
-          await fetchOralMmdPreference();
-
-      if (mounted) {
-            setMmdState(
-              data.oralMmd || "Chennai"
-            );
-          }
-
-
-     } catch (error) {
-    console.error(
-        "Failed loading MMD preference:",
-        error
-    );
-
-    if (mounted) {
-        setMmdState("Chennai");
-    }
-} finally {
-
-        if (mounted) {
-
-          setLoading(false);
-
-        }
-
-      }
-
-    }
-
-
-    loadPreference();
-
-
-    return () => {
-
-      mounted = false;
-
-    };
-
-
-  }, []);
-
-  const setMmd = async (
-    value: string
-  ) => {
-    // Update the UI immediately
-    setMmdState(value);
-
-    try {
-      // Save the preference in the background
-      await updateOralMmdPreference(value);
-    } catch (error) {
-      console.error(
-        "Failed saving MMD preference:",
-        error
-      );
-    }
-  };
-
-
-
-
-
-  return {
-
-    mmd,
-
-    loading,
-
-    setMmd,
-
-  };
 
 }
 </file>
