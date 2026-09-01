@@ -208,6 +208,7 @@ export default function QuestionsList({
 
   const viewerHistoryRef = useRef(false);
 
+
   useEffect(() => {
     if (questionsLoading) {
       setSelectedIndex(null);
@@ -575,6 +576,7 @@ export default function QuestionsList({
         onClose={() => {
           if (viewerHistoryRef.current) {
             viewerHistoryRef.current = false;
+            setSelectedIndex(null);
             window.history.back();
           } else {
             setSelectedIndex(null);
