@@ -8,8 +8,6 @@ import {
 } from "react";
 
 import {
-  ChevronDown,
-  ChevronUp,
   ChevronLeft,
   ChevronRight,
   Bookmark,
@@ -81,9 +79,9 @@ function parseAnswer(
 
   let currentSection:
     | {
-      title: string;
-      content: string[];
-    }
+        title: string;
+        content: string[];
+      }
     | null = null;
 
   for (const line of lines) {
@@ -189,16 +187,9 @@ export default function WrittenCard({
   canGoNext,
 }: Props) {
   const [
-    showAnswer,
-    setShowAnswer,
-  ] = useState(false);
-
-  const [
     activeSection,
     setActiveSection,
-  ] = useState<string | null>(
-    null
-  );
+  ] = useState<string | null>(null);
 
   const answerScrollRef =
     useRef<HTMLDivElement | null>(
@@ -230,7 +221,6 @@ export default function WrittenCard({
   const previousSectionIndex =
     useRef<number>(0);
 
-
   /* =======================================================
   PARSE ANSWER
   ======================================================= */
@@ -248,8 +238,14 @@ export default function WrittenCard({
   ======================================================= */
 
   useEffect(() => {
-    setShowAnswer(false);
-    setActiveSection(null);
+    setActiveSection(
+      sections[0]?.id ?? null
+    );
+
+    previousSectionIndex.current = 0;
+
+    navigationDirection.current =
+      "forward";
 
     isProgrammaticScroll.current =
       false;
@@ -262,7 +258,11 @@ export default function WrittenCard({
     ) {
       answerScrollRef.current.scrollTop = 0;
     }
-  }, [question.id]);
+  }, [question.id, sections]);
+
+  /* =======================================================
+  SCROLL HORIZONTAL SECTION NAVIGATION
+  ======================================================= */
 
   const scrollNavToSection = (
     sectionId: string
@@ -311,16 +311,22 @@ export default function WrittenCard({
     const buttonRect =
       button.getBoundingClientRect();
 
+    /* =====================================================
+       MOBILE — FORWARD
+       ===================================================== */
+
     if (
       isMobile &&
-      navigationDirection.current === "forward" &&
+      navigationDirection.current ===
+        "forward" &&
       nextButton
     ) {
       const nextButtonRect =
         nextButton.getBoundingClientRect();
 
       const nextButtonVisible =
-        nextButtonRect.right <= navRect.right;
+        nextButtonRect.right <=
+        navRect.right;
 
       if (!nextButtonVisible) {
         nav.scrollTo({
@@ -335,17 +341,22 @@ export default function WrittenCard({
       }
     }
 
+    /* =====================================================
+       MOBILE — BACKWARD
+       ===================================================== */
+
     if (
       isMobile &&
       previousButton &&
       navigationDirection.current ===
-      "backward"
+        "backward"
     ) {
       const previousButtonRect =
         previousButton.getBoundingClientRect();
 
       const previousButtonVisible =
-        previousButtonRect.left >= navRect.left;
+        previousButtonRect.left >=
+        navRect.left;
 
       if (!previousButtonVisible) {
         nav.scrollTo({
@@ -358,12 +369,16 @@ export default function WrittenCard({
       }
     }
 
+    /* =====================================================
+       DESKTOP
+       ===================================================== */
+
     if (!isMobile) {
       /*
        * Desktop:
-       * Keep the existing behavior —
-       * move the active heading to the left.
+       * Keep the active heading visible.
        */
+
       if (
         buttonRect.left >= navRect.left &&
         buttonRect.right <= navRect.right
@@ -409,6 +424,10 @@ export default function WrittenCard({
         clickedIndex;
     }
 
+    /*
+     * Keep horizontal heading navigation
+     * working exactly as before.
+     */
     scrollNavToSection(sectionId);
 
     const container =
@@ -428,8 +447,7 @@ export default function WrittenCard({
     }
 
     /*
-     * IMPORTANT:
-     * Change the active tab immediately.
+     * Change active heading immediately.
      */
     setActiveSection(sectionId);
 
@@ -439,19 +457,43 @@ export default function WrittenCard({
     const navHeight =
       nav?.offsetHeight ?? 0;
 
+    /*
+     * IMPORTANT:
+     *
+     * The question and answer are inside the
+     * SAME scroll container.
+     *
+     * Therefore we calculate the target
+     * using offsetTop instead of window.scrollY.
+     *
+     * This makes the clicked answer heading
+     * move upward inside the card.
+     */
     const scrollPosition =
       element.offsetTop -
       navHeight -
       36;
 
+    const maxScroll =
+      container.scrollHeight -
+      container.clientHeight;
+
+    const finalScrollPosition =
+      Math.max(
+        0,
+        Math.min(
+          scrollPosition,
+          maxScroll
+        )
+      );
+
     /*
-     * If we're already at the target,
-     * there is no smooth scroll to wait for.
+     * Already at target.
      */
     if (
       Math.abs(
         container.scrollTop -
-        scrollPosition
+          finalScrollPosition
       ) <= 2
     ) {
       isProgrammaticScroll.current =
@@ -471,45 +513,12 @@ export default function WrittenCard({
       true;
 
     programmaticTarget.current =
-      scrollPosition;
+      finalScrollPosition;
 
     container.scrollTo({
-      top: scrollPosition,
+      top: finalScrollPosition,
       behavior: "smooth",
     });
-  };
-
-  /* =======================================================
-  SHOW ANSWER
-  ======================================================= */
-
-  const handleShowAnswer = () => {
-    const nextState =
-      !showAnswer;
-
-    setShowAnswer(
-      nextState
-    );
-
-    if (!nextState) {
-      setActiveSection(null);
-
-      isProgrammaticScroll.current =
-        false;
-
-      programmaticTarget.current =
-        null;
-
-      return;
-    }
-
-    if (sections.length > 0) {
-      setTimeout(() => {
-        scrollToSection(
-          sections[0].id
-        );
-      }, 50);
-    }
   };
 
   /* =======================================================
@@ -517,10 +526,6 @@ export default function WrittenCard({
   ======================================================= */
 
   useEffect(() => {
-    if (!showAnswer) {
-      return;
-    }
-
     const container =
       answerScrollRef.current;
 
@@ -533,9 +538,9 @@ export default function WrittenCard({
 
     const handleScroll = () => {
       /*
-       * If the user clicked a tab and smooth
-       * scrolling is still happening, do NOT
-       * change the active tab.
+       * If the user clicked a heading and
+       * smooth scrolling is still happening,
+       * do NOT change the active heading.
        */
       if (isProgrammaticScroll.current) {
         const target =
@@ -545,7 +550,7 @@ export default function WrittenCard({
           const distance =
             Math.abs(
               container.scrollTop -
-              target
+                target
             );
 
           if (distance <= 2) {
@@ -568,10 +573,14 @@ export default function WrittenCard({
         container.getBoundingClientRect()
           .top;
 
-
       let currentSection =
         sections[0].id;
 
+      /*
+       * Detect which answer section has
+       * reached the upper part of the
+       * scroll area.
+       */
       for (const section of sections) {
         const element =
           container.querySelector(
@@ -605,7 +614,7 @@ export default function WrittenCard({
       ) {
         navigationDirection.current =
           currentSectionIndex >
-            previousSectionIndex.current
+          previousSectionIndex.current
             ? "forward"
             : "backward";
 
@@ -631,7 +640,8 @@ export default function WrittenCard({
     );
 
     /*
-     * Detect the initial position.
+     * First heading is automatically
+     * selected when the question loads.
      */
     handleScroll();
 
@@ -641,10 +651,7 @@ export default function WrittenCard({
         handleScroll
       );
     };
-  }, [
-    showAnswer,
-    sections,
-  ]);
+  }, [sections]);
 
   /* =======================================================
   RENDER
@@ -675,7 +682,6 @@ export default function WrittenCard({
 
       {/* =================================================
           LEFT ARROW
-          EXACT CENTER OF ENTIRE CARD
       ================================================= */}
 
       <button
@@ -714,7 +720,6 @@ export default function WrittenCard({
 
       {/* =================================================
           RIGHT ARROW
-          EXACT CENTER OF ENTIRE CARD
       ================================================= */}
 
       <button
@@ -878,31 +883,31 @@ export default function WrittenCard({
       <div
         ref={answerScrollRef}
         className="
-    min-h-0
-    flex-1
-    overflow-y-auto
-    px-4
-    pr-6
-    sm:px-5
-    md:px-6
-  "
+          min-h-0
+          flex-1
+          overflow-y-auto
+          px-4
+          pr-6
+          sm:px-5
+          md:px-6
+        "
       >
 
         {/* QUESTION */}
 
         <h2
           className="
-    whitespace-pre-wrap
-    break-words
-    text-[10.4px]
-    leading-[16px]
-    sm:text-[14.4px]
-    sm:leading-[25.6px]
-    md:text-[16px]
-    md:leading-[25.6px]
-    font-medium
-    text-gray-900
-  "
+            whitespace-pre-wrap
+            break-words
+            text-[10.4px]
+            leading-[16px]
+            sm:text-[14.4px]
+            sm:leading-[25.6px]
+            md:text-[16px]
+            md:leading-[25.6px]
+            font-medium
+            text-gray-900
+          "
         >
           {question.question}
         </h2>
@@ -911,279 +916,259 @@ export default function WrittenCard({
             ANSWER
         ================================================= */}
 
-        {showAnswer && (
-          <div className="mt-3 sm:mt-5">
+        <div className="mt-3 sm:mt-5">
 
-            {/* SECTION NAVIGATION */}
+          {/* =================================================
+              SECTION NAVIGATION
+          ================================================= */}
 
-            {sections.length > 0 && (
+          {sections.length > 0 && (
+            <div
+              className="
+                sticky
+                top-0
+                z-10
+                mb-3
+                rounded-xl
+                border
+                border-gray-200
+                bg-white/95
+                p-1.5
+                shadow-sm
+                backdrop-blur
+              "
+            >
+
               <div
+                ref={sectionNavRef}
                 className="
-    sticky
-    top-0
-    z-10
-    mb-3
-    rounded-xl
-    border
-    border-gray-200
-    bg-white/95
-    p-1.5
-    shadow-sm
-    backdrop-blur
-  "
+                  flex
+                  gap-2
+                  overflow-x-auto
+                  scrollbar-thin
+                  pb-2
+                "
               >
 
-                <div
-                  ref={sectionNavRef}
-                  className="
-                    flex
-                    gap-2
-                    overflow-x-auto
-                    scrollbar-thin
-                     pb-2
-                    "
-                >
+                {sections.map(
+                  (section) => {
 
-                  {sections.map(
-                    (section) => {
+                    const isActive =
+                      activeSection ===
+                      section.id;
 
-                      const isActive =
-                        activeSection ===
-                        section.id;
-
-                      return (
-                        <button
-                          key={
+                    return (
+                      <button
+                        key={
+                          section.id
+                        }
+                        type="button"
+                        data-section-id={
+                          section.id
+                        }
+                        onClick={() =>
+                          scrollToSection(
                             section.id
-                          }
-                          type="button"
-                          data-section-id={section.id}
-                          onClick={() =>
-                            scrollToSection(
-                              section.id
-                            )
-                          }
-                          className={`
-  flex
-  shrink-0
-  items-center
-  gap-1
-  rounded-lg
-  px-2.5
-  py-1.5
-  text-[10px]
-  font-semibold
-  transition
-  sm:gap-1.5
-  sm:rounded-xl
-  sm:px-3
-  sm:py-2
-  sm:text-sm
-  ${isActive
+                          )
+                        }
+                        className={`
+                          flex
+                          shrink-0
+                          items-center
+                          gap-1
+                          rounded-lg
+                          px-2.5
+                          py-1.5
+                          text-[10px]
+                          font-semibold
+                          transition
+                          sm:gap-1.5
+                          sm:rounded-xl
+                          sm:px-3
+                          sm:py-2
+                          sm:text-sm
+                          ${
+                            isActive
                               ? "bg-black text-white"
                               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }
-`}
-                        >
-                          <span>
-                            {
-                              section.icon
-                            }
-                          </span>
+                          }
+                        `}
+                      >
+                        <span>
+                          {
+                            section.icon
+                          }
+                        </span>
 
-                          <span>
-                            {
-                              section.shortTitle
-                            }
-                          </span>
-                        </button>
-                      );
+                        <span>
+                          {
+                            section.shortTitle
+                          }
+                        </span>
+                      </button>
+                    );
+                  }
+                )}
+
+              </div>
+
+            </div>
+          )}
+
+          {/* =================================================
+              ANSWER CONTENT
+          ================================================= */}
+
+          <div
+            className="
+              flex
+              flex-col
+              items-start
+              space-y-2
+              pb-4
+            "
+          >
+
+            {sections.length > 0 ? (
+
+              sections.map(
+                (
+                  section,
+                  index
+                ) => (
+
+                  <section
+                    key={
+                      section.id
                     }
-                  )}
+                    id={
+                      section.id
+                    }
+                    className="
+                      scroll-mt-3
+                      w-full
+                      flex-none
+                      self-start
+                    "
+                  >
+
+                    {/* SECTION HEADING */}
+
+                    <div
+                      className="
+                        mb-3
+                        rounded-xl
+                        bg-black
+                        px-4
+                        py-3
+                        text-left
+                        transition
+                        hover:bg-gray-800
+                        sm:px-5
+                      "
+                    >
+
+                      <h3
+                        className="
+                          flex
+                          min-w-0
+                          items-center
+                          gap-2
+                          text-sm
+                          font-semibold
+                          leading-5
+                          text-white
+                          sm:text-base
+                          sm:leading-6
+                        "
+                      >
+
+                        <span className="shrink-0">
+                          {
+                            section.icon
+                          }
+                        </span>
+
+                        <span className="min-w-0">
+                          {
+                            section.title
+                          }
+                        </span>
+
+                      </h3>
+
+                    </div>
+
+                    {/* ANSWER BOX */}
+
+                    <div
+                      className={`
+                        w-full
+                        flex-none
+                        self-start
+                        h-auto
+                        rounded-2xl
+                        border
+                        p-3.5
+                        sm:p-5
+                        ${
+                          index === 0
+                            ? "border-green-200 bg-green-50"
+                            : "border-gray-200 bg-gray-50"
+                        }
+                      `}
+                    >
+
+                      <div className="w-full">
+
+                        <MarkdownRenderer
+                          content={
+                            section.content
+                          }
+                        />
+
+                      </div>
+
+                    </div>
+
+                  </section>
+
+                )
+              )
+
+            ) : (
+
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-green-200
+                  bg-green-50
+                  p-4
+                  sm:p-5
+                "
+              >
+
+                <div className="w-full">
+
+                  <MarkdownRenderer
+                    content={
+                      question.answer
+                    }
+                  />
 
                 </div>
 
               </div>
+
             )}
 
-            {/* ANSWER CONTENT */}
-
-            <div
-              className="
-    flex
-    flex-col
-    items-start
-    space-y-2
-    pb-4
-  "
-            >
-              {sections.length > 0 ? (
-
-                sections.map(
-                  (
-                    section,
-                    index
-                  ) => (
-
-                    <section
-                      key={section.id}
-                      id={section.id}
-                      className="scroll-mt-3 w-full flex-none self-start"
-                    >
-                      <div
-                        className="
-    mb-3
-    rounded-xl
-    bg-black
-    px-4
-    py-3
-    text-left
-    transition
-    hover:bg-gray-800
-    sm:px-5
-  "
-                      >
-                        <h3
-                          className="
-      flex
-      min-w-0
-      items-center
-      gap-2
-      text-sm
-      font-semibold
-      leading-5
-      text-white
-      sm:text-base
-      sm:leading-6
-    "
-                        >
-                          <span className="shrink-0">
-                            {section.icon}
-                          </span>
-
-                          <span className="min-w-0">
-                            {section.title}
-                          </span>
-                        </h3>
-                      </div>
-
-                      <div
-                        className={`
-    w-full
-    flex-none
-    self-start
-    h-auto
-    rounded-2xl
-    border
-    p-3.5
-    sm:p-5
-    ${index === 0
-                            ? "border-green-200 bg-green-50"
-                            : "border-gray-200 bg-gray-50"
-                          }
-  `}
-                      >
-                        <div className="w-full">
-                          <MarkdownRenderer
-                            content={section.content}
-                          />
-                        </div>
-                      </div>
-
-                    </section>
-
-                  )
-                )
-
-              ) : (
-
-                <div
-                  className="
-                    rounded-2xl
-                    border
-                    border-green-200
-                    bg-green-50
-                    p-4
-                    sm:p-5
-                  "
-                >
-
-                  <div className="w-full">
-                    <MarkdownRenderer
-                      content={question.answer}
-                    />
-                  </div>
-
-                </div>
-
-              )}
-
-            </div>
-
           </div>
-        )}
+
+        </div>
 
       </div>
 
-      {/* =================================================
-          SHOW / HIDE ANSWER
-      ================================================= */}
-
-      <div
-        className="
-          mt-4
-          flex
-          shrink-0
-          justify-center
-          border-t
-          border-gray-100
-          pt-4
-        "
-      >
-
-        <button
-          type="button"
-          onClick={
-            handleShowAnswer
-          }
-          className="
-            flex
-            items-center
-            justify-center
-            gap-2
-            rounded-xl
-            bg-black
-            px-5
-            py-2.5
-            text-sm
-            font-semibold
-            text-white
-            transition
-            hover:bg-gray-800
-            sm:py-3
-          "
-        >
-
-          {showAnswer ? (
-            <>
-              <ChevronUp
-                size={18}
-              />
-              Hide Answer
-            </>
-          ) : (
-            <>
-              <ChevronDown
-                size={18}
-              />
-              Show Answer
-            </>
-          )}
-
-        </button>
-
-      </div>
-
-    </div >
+    </div>
   );
 }
