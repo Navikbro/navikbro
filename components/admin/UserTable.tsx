@@ -16,7 +16,6 @@ import {
 
 
 interface UserTableProps {
-
     users: CachedUser[];
 
     setUsers: React.Dispatch<
@@ -24,6 +23,8 @@ interface UserTableProps {
     >;
 
     loading: boolean;
+
+    onlineUserIds: Set<string>;
 }
 
 
@@ -95,6 +96,7 @@ export default function UserTable({
     users,
     setUsers,
     loading,
+    onlineUserIds,
 }: UserTableProps) {
 
     const [
@@ -231,6 +233,11 @@ export default function UserTable({
                                     User
                                 </th>
 
+
+                                <th className="px-6 py-4 font-semibold">
+                                    Online
+                                </th>
+
                                 <th className="px-6 py-4 font-semibold">
                                     Email
                                 </th>
@@ -317,6 +324,24 @@ export default function UserTable({
 
                                         </td>
 
+                                        {/* ONLINE */}
+
+                                        <td className="px-6 py-4">
+
+                                            {onlineUserIds.has(user.uid) ? (
+                                                <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
+                                                    <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                                                    Online
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-500">
+                                                    <span className="h-2.5 w-2.5 rounded-full bg-gray-400" />
+                                                    Offline
+                                                </span>
+                                            )}
+
+                                        </td>
+
 
                                         {/* EMAIL */}
 
@@ -358,11 +383,10 @@ export default function UserTable({
                                         <td className="px-6 py-4">
 
                                             <span
-                                                className={`rounded-full px-3 py-1 text-sm ${
-                                                    user.isBlocked
-                                                        ? "bg-red-100 text-red-700"
-                                                        : "bg-green-100 text-green-700"
-                                                }`}
+                                                className={`rounded-full px-3 py-1 text-sm ${user.isBlocked
+                                                    ? "bg-red-100 text-red-700"
+                                                    : "bg-green-100 text-green-700"
+                                                    }`}
                                             >
 
                                                 {user.isBlocked
@@ -390,13 +414,12 @@ export default function UserTable({
                                         <td className="px-6 py-4">
 
                                             <span
-                                                className={`font-medium ${
-                                                    getDaysRemaining(
-                                                        user.endDate
-                                                    ) === "Expired"
-                                                        ? "text-red-600"
-                                                        : "text-green-600"
-                                                }`}
+                                                className={`font-medium ${getDaysRemaining(
+                                                    user.endDate
+                                                ) === "Expired"
+                                                    ? "text-red-600"
+                                                    : "text-green-600"
+                                                    }`}
                                             >
 
                                                 {getDaysRemaining(
@@ -445,11 +468,10 @@ export default function UserTable({
                                                             user.isBlocked
                                                         )
                                                     }
-                                                    className={`rounded-lg px-4 py-2 text-sm text-white ${
-                                                        user.isBlocked
-                                                            ? "bg-green-600 hover:bg-green-700"
-                                                            : "bg-red-600 hover:bg-red-700"
-                                                    }`}
+                                                    className={`rounded-lg px-4 py-2 text-sm text-white ${user.isBlocked
+                                                        ? "bg-green-600 hover:bg-green-700"
+                                                        : "bg-red-600 hover:bg-red-700"
+                                                        }`}
                                                 >
 
                                                     {user.isBlocked
@@ -548,7 +570,7 @@ export default function UserTable({
                                 previousUsers.map(
                                     (user) =>
                                         user.uid ===
-                                        selectedUser.uid
+                                            selectedUser.uid
                                             ? {
                                                 ...user,
                                                 plan,

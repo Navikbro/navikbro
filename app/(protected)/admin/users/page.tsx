@@ -49,6 +49,10 @@ export default function AdminUsersPage() {
     const [onlineUsers, setOnlineUsers] =
         useState(0);
 
+    const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(
+        new Set()
+    );
+
 
     /* =========================================================
        SEARCH
@@ -364,7 +368,7 @@ export default function AdminUsersPage() {
 
         const previousPageDoc =
             pageDocs[
-                pageNumber - 1
+            pageNumber - 1
             ];
 
 
@@ -512,9 +516,12 @@ export default function AdminUsersPage() {
                 const data =
                     await response.json();
 
-
                 setOnlineUsers(
                     data.onlineUsers ?? 0
+                );
+
+                setOnlineUserIds(
+                    new Set(data.onlineUserIds ?? [])
                 );
 
 
@@ -790,6 +797,7 @@ export default function AdminUsersPage() {
                 users={filteredUsers}
                 setUsers={setUsers}
                 loading={loading}
+                onlineUserIds={onlineUserIds}
             />
 
 

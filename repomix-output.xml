@@ -25067,7 +25067,7 @@ import {
 import { db } from "@/lib/firebase/firebase";
 import { sanitizeText } from "@/lib/utils/sanitizeText";
 
-export const ORAL_BATCH_SIZE = 200;
+export const ORAL_BATCH_SIZE = 100;
 
 const CATEGORY_MAP: Record<string, string> = {
     safety: "fn3",

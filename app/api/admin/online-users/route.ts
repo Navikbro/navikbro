@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Timestamp } from "firebase-admin/firestore";
 
 import { verifyAdmin } from "@/lib/authentication/verifyAdmin";
 import { adminDb } from "@/lib/firebase/firebase-admin";
@@ -9,36 +10,23 @@ export async function GET(request: NextRequest) {
     try {
         await verifyAdmin(request);
 
-        const cutoff = Date.now() - ONLINE_WINDOW_MS;
+        const cutoff = Timestamp.fromMillis(
+            Date.now() - ONLINE_WINDOW_MS
+        );
 
         const snapshot = await adminDb
             .collection("users")
+            .where("stats.lastSeen", ">=", cutoff)
             .get();
 
-        let onlineUsers = 0;
+        const onlineUserIds = snapshot.docs.map((doc) => doc.id);
 
-        snapshot.forEach((doc) => {
-            const data = doc.data();
-
-            const lastSeen = data.stats?.lastSeen;
-
-            if (!lastSeen) {
-                return;
-            }
-
-            const lastSeenMillis =
-                typeof lastSeen.toMillis === "function"
-                    ? lastSeen.toMillis()
-                    : new Date(lastSeen).getTime();
-
-            if (lastSeenMillis >= cutoff) {
-                onlineUsers++;
-            }
-        });
+        const onlineUsers = onlineUserIds.length;
 
         return NextResponse.json({
             success: true,
             onlineUsers,
+            onlineUserIds,
         });
     } catch (error) {
         console.error(
@@ -63,6 +51,7 @@ export async function GET(request: NextRequest) {
                 success: false,
                 error: message,
                 onlineUsers: 0,
+                onlineUserIds: [],
             },
             { status }
         );
